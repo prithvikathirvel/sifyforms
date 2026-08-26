@@ -1,0 +1,322 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id       String  @id @default(cuid())
+  slug     String  @unique
+  name     String
+  logo     String?
+  industry String?
+
+  ownerId String
+  owner   User   @relation("OrgOwner", fields: [ownerId], references: [id])
+
+  users   OrgUser[]
+  forms   Form[]
+  invites OrgInvite[]
+  teams   Team[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrgUser {
+  id     String @id @default(cuid())
+  orgId  String
+  userId String
+
+  // This row IS the organization-level role assignment. `role` holds the role
+  // name (ORG_ADMIN, ORG_MEMBER); `roleId` references the role *definition* in
+  // the RBAC service, which owns what that role is permitted to do.
+  roleId String?
+  role   String  @default("ORG_MEMBER")
+
+  invitedBy String?
+  joinedAt  DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId])
+}
+
+/// A pending or resolved invitation to join an organization.
+///
+/// Invites are keyed by email rather than userId so someone who has not signed
+/// up yet can still be invited; the invite is matched on their first login.
+model OrgInvite {
+  id    String @id @default(cuid())
+  email String
+  orgId String
+
+  /// RBAC role applied when the invite is accepted.
+  roleId String?
+  role   String  @default("ORG_MEMBER")
+
+  /// PENDING | ACCEPTED | REJECTED | REVOKED
+  inviteStatus String @default("PENDING")
+
+  invitedBy   String
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  /// One live invite per email per org. Resolved invites are updated in place
+  /// rather than accumulating, so re-inviting someone reuses this row.
+  @@unique([orgId, email])
+  @@index([email, inviteStatus])
+  @@index([orgId, inviteStatus])
+}
+
+/// A team inside an organization. Teams nest: `parentId` points at the enclosing
+/// team, and `path` is the materialized ancestry (`/rootId/childId/ownId`) that
+/// makes subtree and ancestor lookups a single indexed query.
+///
+/// Permissions inherit downward: a role held on an ancestor team applies to every
+/// team beneath it.
+model Team {
+  id       String  @id @default(cuid())
+  orgId    String
+  parentId String?
+
+  name        String
+  slug        String
+  description String?
+
+  /// Materialized ancestry of team ids, e.g. "/ck1/ck2/ck3" (always ends with own id).
+  path  String @db.VarChar(512)
+  /// Number of ancestors above this team; a root team is depth 0.
+  depth Int    @default(0)
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// The team every organization starts with, so a new form always has a home.
+  /// Cannot be deleted; forms fall back to it when their own team is removed.
+  isDefault Boolean @default(false)
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent   Team?        @relation("TeamTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Team[]       @relation("TeamTree")
+  members  TeamMember[]
+  forms    Form[]
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+  @@index([parentId])
+  @@index([orgId, path])
+}
+
+/// Membership of a user in one team, carrying exactly one role.
+///
+/// The `@@unique([teamId, userId])` key enforces "one role per person per team";
+/// the same user may hold a different role in a sibling or parent team.
+model TeamMember {
+  id     String @id @default(cuid())
+  teamId String
+  userId String
+
+  /// This row IS the team-level role assignment. `role` holds the role name
+  /// (TEAM_LEAD, TEAM_MEMBER); `roleId` references the definition in the RBAC service.
+  roleId String?
+  role   String  @default("TEAM_MEMBER")
+
+  addedBy   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+model User {
+  id                String  @id
+  email             String  @unique
+  firstName         String?
+  lastName          String?
+  username          String? @unique
+  phone             String?
+  gender            String?
+  address           String?
+  additionalDetails String? @db.LongText
+
+  orgs            OrgUser[]
+  ownedOrgs       Organization[] @relation("OrgOwner")
+  teamMemberships TeamMember[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Form {
+  id          String  @id @default(cuid())
+  orgId       String
+  name        String
+  slug        String
+  description String?
+
+  /// The team that owns this form. Roles held on this team - and on every team
+  /// above it - govern who may edit it and who may read its responses.
+  /// Nullable so pre-existing rows survive the migration; new forms always land
+  /// in a team.
+  teamId String?
+
+  /// How much of a response anyone may see, whatever role they hold:
+  /// STANDARD | ANONYMOUS | BLIND_REVIEW | RESTRICTED
+  ///
+  /// A promise made to respondents outranks any permission grant, so this locks
+  /// once the first response arrives.
+  responsePolicy         String    @default("STANDARD")
+  responsePolicyLockedAt DateTime?
+
+  schema   String @db.LongText // JSON
+  settings String @db.LongText // JSON
+
+  isPublished Boolean @default(false)
+
+  submissions Submission[]
+  drafts      Draft[]
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  team   Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  shares FormShare[]
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+  @@index([teamId])
+}
+
+/// An exception to the role model: access to one specific form, for one person
+/// or one team.
+///
+/// Roles set the baseline, but real work is full of one-offs - a contractor for
+/// six weeks, an executive who wants one report. Without an exception mechanism
+/// admins grant permanent roles to solve temporary problems.
+model FormShare {
+  id     String @id @default(cuid())
+  formId String
+
+  /// USER | TEAM
+  principalType String
+  /// A userId or a teamId, depending on principalType.
+  principalId   String
+
+  /// Response access conferred: NONE | AGGREGATE | REDACTED | FULL | EXPORT
+  level String @default("AGGREGATE")
+
+  /// Whether the grantee may also edit the form, not only read its responses.
+  canEdit Boolean @default(false)
+
+  /// Null means indefinite. An access list that only grows stops reflecting
+  /// reality, so shares are meant to expire.
+  expiresAt DateTime?
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, principalType, principalId])
+  @@index([principalType, principalId])
+  @@index([formId])
+}
+
+model Submission {
+  id     String @id @default(cuid())
+  formId String
+
+  data String @db.LongText // JSON
+
+  ip        String?
+  userAgent String?
+
+  isRead           Boolean @default(false)
+  tags             String  @default("[]") // JSON array stored as string
+  processingStatus String  @default("pending") // pending | processing | done | failed
+
+  createdAt DateTime @default(now())
+
+  form             Form              @relation(fields: [formId], references: [id], onDelete: Cascade)
+  processingResult ProcessingResult?
+  auditLog         AuditLog?
+
+  @@index([formId])
+  @@index([createdAt])
+}
+
+// Stores computed output after post-submission processing (assessment scores, vote tallies)
+model ProcessingResult {
+  id           String   @id @default(cuid())
+  submissionId String   @unique
+  formId       String
+  type         String // "assessment" | "voting"
+  result       String   @db.LongText // JSON — scores, pass/fail, vote counts, etc.
+  processedAt  DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+}
+
+// Immutable per-vote record for voting duplicate prevention and audit trail
+model AuditLog {
+  id           String   @id @default(cuid())
+  formId       String
+  submissionId String   @unique
+  identifier   String // IP address or email/phone depending on config
+  createdAt    DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([formId, identifier])
+}
+
+model Draft {
+  id        String   @id @default(cuid())
+  formId    String
+  identity  String // verified email or phone — used as the lookup key
+  data      String   @db.LongText // JSON field values
+  stepIndex Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, identity])
+  @@index([formId])
+}
+
+model Template {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  schema      String  @db.LongText // JSON
+  settings    String  @db.LongText // JSON
+  isStatic    Boolean @default(false)
+  orgId       String?
+  createdBy   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+}

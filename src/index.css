@@ -1,0 +1,205 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * TheSans Office - the Sify corporate typeface.
+ *
+ * Referenced from src/assets so Vite fingerprints the files and rewrites the
+ * URLs against BASE_URL; dropping them in public/ would break under the
+ * /form-builder/ base path in production.
+ *
+ * Shipped as TTF because the package has no woff2 and this machine has no
+ * converter. woff2 would cut roughly 60% off the ~410KB - worth doing before
+ * this goes anywhere latency-sensitive.
+ *
+ * LucasFonts weight numbering: 5 = Plain (400), 7 = Bold (700).
+ */
+@font-face {
+  font-family: 'TheSans';
+  src: url('./assets/fonts/TSaOf5__.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'TheSans';
+  src: url('./assets/fonts/TSaOf5i_.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'TheSans';
+  src: url('./assets/fonts/TSaOf7__.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'TheSans';
+  src: url('./assets/fonts/TSaOf7i_.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/**
+ * SifyForms design tokens.
+ *
+ * Taken from the product mark: a plum-to-magenta gradient with the queen picked
+ * out in orchid. Neutrals carry a slight plum bias so greys sit with the accent
+ * instead of fighting it.
+ *
+ * Every colour in the app resolves through these tokens or through the
+ * plum / brand / ink scales in tailwind.config.js. Nothing should hardcode a hex.
+ */
+
+@layer base {
+  :root {
+    /* the mark's gradient, for hero and brand surfaces */
+    --brand-from: 268 45% 30%;
+    --brand-mid: 285 38% 36%;
+    --brand-to: 300 40% 46%;
+
+    --background: 285 40% 99%;
+    --foreground: 274 30% 18%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 274 30% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 274 30% 18%;
+
+    /* the queen's orchid */
+    --primary: 316 53% 45%;
+    --primary-foreground: 316 60% 98%;
+
+    --secondary: 282 32% 95%;
+    --secondary-foreground: 268 45% 25%;
+
+    --muted: 282 28% 96%;
+    --muted-foreground: 276 16% 47%;
+
+    --accent: 300 40% 95%;
+    --accent-foreground: 316 54% 30%;
+
+    /* semantic status stays distinct from the accent, tuned to sit beside it */
+    --destructive: 352 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 62% 32%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 88% 36%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 282 24% 90%;
+    --input: 282 24% 90%;
+    --ring: 316 53% 45%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --brand-from: 268 42% 22%;
+    --brand-mid: 285 36% 28%;
+    --brand-to: 300 38% 36%;
+
+    --background: 270 38% 9%;
+    --foreground: 290 25% 96%;
+
+    --card: 269 33% 13%;
+    --card-foreground: 290 25% 96%;
+    --popover: 269 33% 13%;
+    --popover-foreground: 290 25% 96%;
+
+    /* lifted so the orchid keeps its contrast on a dark plum ground */
+    --primary: 316 62% 62%;
+    --primary-foreground: 316 55% 12%;
+
+    --secondary: 268 26% 20%;
+    --secondary-foreground: 290 25% 96%;
+
+    --muted: 268 24% 18%;
+    --muted-foreground: 282 14% 68%;
+
+    --accent: 272 30% 24%;
+    --accent-foreground: 290 25% 96%;
+
+    --destructive: 352 62% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 52% 48%;
+    --success-foreground: 158 60% 10%;
+    --warning: 32 82% 58%;
+    --warning-foreground: 32 60% 12%;
+
+    --border: 268 24% 22%;
+    --input: 268 24% 22%;
+    --ring: 316 62% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'TheSans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    /* Only 400 and 700 are shipped; let the browser stop inventing the rest. */
+    font-synthesis-weight: none;
+  }
+
+  /* Selection picks up the accent rather than the browser default blue. */
+  ::selection {
+    background-color: hsl(var(--primary) / 0.22);
+    color: hsl(var(--foreground));
+  }
+
+  /* One visible focus treatment everywhere, in the brand hue. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* The mark's gradient. Used for the hero, the sidebar rail and brand panels. */
+  .bg-brand-gradient {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--brand-from)) 0%,
+      hsl(var(--brand-mid)) 55%,
+      hsl(var(--brand-to)) 100%
+    );
+  }
+
+  /* Text filled with the gradient, for headline words that carry the brand. */
+  .text-brand-gradient {
+    background-image: linear-gradient(
+      120deg,
+      hsl(var(--brand-from)) 0%,
+      hsl(var(--brand-to)) 60%,
+      hsl(var(--primary)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* A quiet tinted surface for callouts and empty states. */
+  .surface-brand {
+    background-color: hsl(var(--primary) / 0.06);
+    border-color: hsl(var(--primary) / 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

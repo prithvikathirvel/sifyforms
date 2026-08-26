@@ -1,0 +1,1361 @@
+﻿import { useEffect, useState, useMemo, useCallback, useRef } from 'react';\nimport '../styles/themes.css';
+import { useParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Checkbox as UICheckbox } from '../components/ui/checkbox';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import api from '../lib/api';
+import { getFieldValidation } from '../lib/fieldValidation';
+import { evaluateShowWhen } from '../lib/ruleEngine';
+import { CalculationEngine } from '../lib/calculationEngine';
+import FileUpload from '../components/ui/FileUpload';
+import { MultiSelectField } from '../components/builder/MultiSelectField';
+import type { Form, FormField, FormLayout, DateConstraint } from '../types';
+
+// Helper component to render fields by width in the public form
+function FieldsByWidth({
+  fields,
+  errors,
+  renderField,
+  validationOpts,
+  formValues
+}: {
+  fields: FormField[];
+  errors: any;
+  renderField: (field: FormField) => React.ReactNode;
+  validationOpts: (field: FormField, formValues: Record<string, any>) => any;
+  formValues: Record<string, any>;
+}) {
+  // Group consecutive fields by width to maintain order
+  const groupFieldsByWidthConsecutive = () => {
+    const groups: Array<{
+      width: 'full' | 'half' | 'third';
+      fields: FormField[];
+    }> = [];
+
+    let currentGroup: typeof groups[0] | null = null;
+
+    fields.forEach(field => {
+      const width = (field.width || 'full') as 'full' | 'half' | 'third';
+
+      if (!currentGroup || currentGroup.width !== width) {
+        currentGroup = { width, fields: [] };
+        groups.push(currentGroup);
+      }
+
+      currentGroup.fields.push(field);
+    });
+
+    return groups;
+  };
+
+  const groups = groupFieldsByWidthConsecutive();
+
+
+
+  const getGridClass = (width: string) => {
+    switch (width) {
+      case 'half':
+        return 'grid grid-cols-2 gap-4';
+      case 'third':
+        return 'grid grid-cols-3 gap-4';
+      default:
+        return 'space-y-6';
+    }
+  };
+
+  const renderFieldItem = (field: FormField) => {
+    const opts = validationOpts(field, formValues);
+    useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+      <div key={field.id} id={`field-${field.id}`} className="space-y-2">
+        <Label>
+          {field.label}
+          {(field.required || opts.required) && (
+            <span className="text-destructive ml-1">*</span>
+          )}
+        </Label>
+        {renderField(field)}
+        {field.helpText && (
+          <p className="text-sm text-muted-foreground">{field.helpText}</p>
+        )}
+        {errors[field.id] && (
+          <p className="text-sm text-destructive">
+            {errors[field.id]?.message as string}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+    <div className="space-y-6">
+      {groups.map((group, groupIndex) => {
+        const { width, fields: groupFields } = group;
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <div key={groupIndex} className={getGridClass(width)}>
+            {groupFields.map((field) => renderFieldItem(field))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+// Format display values based on type and format
+const formatDisplayValue = (value: any, type: string, format?: string): string => {
+  if (value === null || value === undefined || value === 'Not calculated') {
+    return 'Not set';
+  }
+
+  switch (type) {
+    case 'number':
+      if (format) {
+        if (format === 'currency') {
+          return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          }).format(Number(value));
+        }
+        if (format === 'percentage') {
+          return new Intl.NumberFormat('en-US', {
+            style: 'percent'
+          }).format(Number(value) / 100);
+        }
+        if (format === 'decimal') {
+          return Number(value).toFixed(2);
+        }
+      }
+      return String(Number(value).toLocaleString());
+
+    case 'date':
+      try {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return String(value);
+
+        return new Intl.DateTimeFormat('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }).format(date);
+      } catch {
+        return String(value);
+      }
+
+    case 'boolean':
+      return value ? 'Yes' : 'No';
+
+    default:
+      return String(value);
+  }
+};
+
+export default function PublicFormPage() {
+  const { orgSlug, formSlug } = useParams<{ orgSlug: string; formSlug: string }>();
+  const [form, setForm] = useState<Form | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [thankYouMessage, setThankYouMessage] = useState('');
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [calculatedVariables, setCalculatedVariables] = useState<Record<string, any>>({});
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Security Captcha State
+  const [captchaProblem, setCaptchaProblem] = useState({ text: '', answer: 0 });
+  const [captchaValue, setCaptchaValue] = useState('');
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
+
+  const generateCaptcha = useCallback(() => {
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
+    const ops = ['+', '-'];
+    const op = ops[Math.floor(Math.random() * ops.length)];
+    const text = `${num1} ${op} ${num2}`;
+    const answer = op === '+' ? num1 + num2 : num1 - num2;
+    setCaptchaProblem({ text, answer });
+    setCaptchaValue('');
+    setCaptchaError(null);
+  }, []);
+
+  useEffect(() => {
+    if (form?.settings.reCaptcha) {
+      generateCaptcha();
+    }
+  }, [form, generateCaptcha]);
+
+  const { register, handleSubmit, formState: { errors }, setValue, watch, trigger } = useForm({
+    mode: 'onTouched',
+    shouldUnregister: false,
+  });
+  const formValues = watch() || {};
+
+  const layout: FormLayout = form?.schema?.layout || { mode: 'singlePage', steps: [] };\n  const theme = form?.theme || 'default';
+  const isMultiStep = layout.mode === 'multiStep' && layout.steps && layout.steps.length > 0;
+
+  const { fieldsToShow, currentStep, totalSteps } = useMemo(() => {
+    if (!form) return { fieldsToShow: [], currentStep: null, totalSteps: 0 };
+    if (!isMultiStep) {
+
+      return { fieldsToShow: form.schema.fields, currentStep: null, totalSteps: 1 };
+    }
+    const steps = (layout.steps || []).sort((a, b) => a.order - b.order);
+
+
+    if (steps.length === 0) {
+
+      return { fieldsToShow: form.schema.fields, currentStep: null, totalSteps: 1 };
+    }
+    const step = steps[currentStepIndex] ?? steps[0];
+    const fieldMap = new Map(form.schema.fields.map((f) => [f.id, f]));
+    const fieldsToShow = (step?.fieldIds || [])
+      .map((id) => fieldMap.get(id))
+      .filter(Boolean) as FormField[];
+
+
+
+    return {
+      fieldsToShow,
+      currentStep: step,
+      totalSteps: steps.length,
+    };
+  }, [form, isMultiStep, layout.steps, currentStepIndex]);
+
+  const visibleFields = useMemo(
+    () => {
+      const filtered = fieldsToShow.filter((f) =>
+        evaluateShowWhen(f.showWhen, formValues as Record<string, unknown>, f)
+      );
+
+      return filtered;
+    },
+    [fieldsToShow, formValues]
+  );
+
+  useEffect(() => {
+    const fetchForm = async () => {
+      try {
+        const response = await api.get(`/forms/public/${orgSlug}/${formSlug}`);
+        setForm(response.data);
+      } catch {
+        setError('Form not found or not published');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchForm();
+  }, [orgSlug, formSlug]);
+
+
+
+  // Calculate variables when form values change
+  useEffect(() => {
+    if (!form?.schema?.variables || form.schema.variables.length === 0) return;
+
+    const engine = new CalculationEngine(form.schema.variables, formValues);
+    const results = engine.calculateAllVariables();
+
+    // Only update if values have changed to avoid infinite loops
+    if (JSON.stringify(results) !== JSON.stringify(calculatedVariables)) {
+
+      setCalculatedVariables(results);
+    }
+  }, [form, formValues]);
+
+  // Handle cross-field validation dependencies
+  const lastSourceValues = useRef<Record<string, any>>({});
+
+  useEffect(() => {
+    if (!form?.schema?.fields) return;
+
+    // Find fields that depend on other fields (legacy or new rules)
+    const dependentFields = form.schema.fields.filter(f =>
+      f.validation?.equalToFieldId ||
+      (f.rules || []).some(r => r.type === 'custom' && r.value)
+    );
+
+    if (dependentFields.length === 0) return;
+
+    const changedSources = new Set<string>();
+
+    dependentFields.forEach(field => {
+      // 1. Check legacy equalToFieldId
+      const sourceIdLegacy = field.validation?.equalToFieldId;
+      if (sourceIdLegacy && formValues[sourceIdLegacy] !== undefined) {
+        if (formValues[sourceIdLegacy] !== lastSourceValues.current[sourceIdLegacy]) {
+          trigger(field.id);
+          changedSources.add(sourceIdLegacy);
+        }
+      }
+
+      // 2. Check new rules-based custom matches
+      const customRules = (field.rules || []).filter(r => r.type === 'custom' && r.value);
+      customRules.forEach(rule => {
+        const sourceId = String(rule.value);
+        if (sourceId && formValues[sourceId] !== undefined) {
+          if (formValues[sourceId] !== lastSourceValues.current[sourceId]) {
+            trigger(field.id);
+            changedSources.add(sourceId);
+          }
+        }
+      });
+    });
+
+    // Update reference values for all changed sources after processing all dependents
+    changedSources.forEach(sourceId => {
+      lastSourceValues.current[sourceId] = formValues[sourceId];
+    });
+  }, [formValues, form?.schema?.fields, trigger]);
+
+  const resolveDateConstraint = useCallback((constraint?: DateConstraint) => {
+    if (!constraint || !constraint.value) return undefined;
+    const engine = new CalculationEngine(form?.schema?.variables || [], formValues);
+    const formatMaybeDate = (val: any) => {
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        return val.toISOString().split('T')[0];
+      }
+      if (val && typeof val.toISOString === 'function') {
+        return val.toISOString().split('T')[0];
+      }
+      return val;
+    };
+    switch (constraint.type) {
+      case 'static':
+        return constraint.value;
+      case 'variable': {
+        let result = calculatedVariables[constraint.value];
+        if (result === undefined) {
+          const variable = (form?.schema?.variables || []).find(v => v.id === constraint.value);
+          result = variable?.value;
+        }
+        return formatMaybeDate(result);
+      }
+      case 'field':
+        return formatMaybeDate(formValues[constraint.value]);
+      case 'expression':
+        try {
+          const result = engine.evaluate(constraint.value);
+          return formatMaybeDate(result);
+        } catch {
+          return undefined;
+        }
+      default:
+        return undefined;
+    }
+  }, [calculatedVariables, form?.schema?.variables, formValues]);
+
+  // Handle field linking - update dependent fields when source field changes
+  useEffect(() => {
+    if (!form) return;
+
+
+
+    const fieldsWithFieldLinking = form.schema.fields.filter(
+      field => field.fieldLinking?.enabled
+    );
+
+
+
+    fieldsWithFieldLinking.forEach((field: FormField) => {
+      const linking = field.fieldLinking;
+      if (!linking?.enabled) return;
+
+
+
+      const mode = linking.mode || 'basic';
+      const sourceFieldValue = linking.sourceFieldId ? formValues[linking.sourceFieldId] : undefined;
+
+
+
+      // Check if this field should be processed for restriction rules
+      const shouldProcessRestrictionRules = (mode === 'restriction' || (mode === 'advanced' && linking.restrictionRules)) && linking.restrictionRules;
+
+
+      if (shouldProcessRestrictionRules) {
+
+      }
+
+      // 1. EVALUATE RULES (Both for Auto-fill and Date Constraints)
+      const matchingRule = linking.rules?.find((r: any) => {
+
+
+        // New multi-condition system
+        if (r.conditions && r.conditions.length > 0) {
+          const results = r.conditions.map((cond: any) => {
+            const currentVal = formValues[cond.fieldId];
+            const targetVal = cond.value;
+
+
+
+            // Handle null/undefined values properly
+            if (currentVal === undefined || currentVal === null || currentVal === '') {
+              switch (cond.operator) {
+                case 'equals': return targetVal === '' || targetVal === undefined || targetVal === null;
+                case 'notEquals': return targetVal !== '' && targetVal !== undefined && targetVal !== null;
+                case 'contains': return false;
+                case 'notContains': return true;
+                default: return false;
+              }
+            }
+
+            // Convert both values to strings for comparison
+            const currentStr = String(currentVal);
+            const targetStr = String(targetVal);
+
+            switch (cond.operator) {
+              case 'equals': return currentStr === targetStr;
+              case 'notEquals': return currentStr !== targetStr;
+              case 'greaterThan': return Number(currentVal) > Number(targetVal);
+              case 'lessThan': return Number(currentVal) < Number(targetVal);
+              case 'contains': return currentStr.includes(targetStr);
+              case 'notContains': return !currentStr.includes(targetStr);
+              default: return false;
+            }
+          });
+
+          const matches = r.logic === 'or' ? results.some((res: any) => res) : results.every((res: any) => res);
+
+          return matches;
+        }
+
+        // Only use legacy single-source trigger if in 'basic' mode OR if conditions are empty
+        if (mode === 'basic' && linking.sourceFieldId) {
+          if (sourceFieldValue === undefined || sourceFieldValue === null) return false;
+          const currentVal = sourceFieldValue;
+          const targetVal = r.sourceValue;
+
+
+
+          switch (r.operator) {
+            case 'equals': return String(currentVal) === String(targetVal);
+            case 'notEquals': return String(currentVal) !== String(targetVal);
+            case 'greaterThan': return Number(currentVal) > Number(targetVal);
+            case 'lessThan': return Number(currentVal) < Number(targetVal);
+            case 'contains': return String(currentVal).includes(String(targetVal));
+            case 'notContains': return !String(currentVal).includes(String(targetVal));
+            default: return false;
+          }
+        }
+
+        return false;
+      });
+
+      // 2. APPLY AUTO-FILL
+      if (matchingRule) {
+
+
+        // Check if rule has targetValue for auto-fill (not empty string)
+        if (matchingRule.targetValue !== undefined && matchingRule.targetValue !== '') {
+          // Use loose comparison to avoid infinite loops with string/number mismatches
+          if (String(formValues[field.id] || '') !== String(matchingRule.targetValue)) {
+
+            setValue(field.id, matchingRule.targetValue, { shouldValidate: true });
+          } else {
+
+          }
+        } else if (matchingRule.dynamicOptions && matchingRule.dynamicOptions.length > 0) {
+
+        } else {
+
+        }
+      } else {
+
+      }
+
+      // 3. APPLY DATE CONSTRAINTS VALIDATION (To clear field if it becomes out of range)
+      if (['date', 'time'].includes(field.type)) {
+
+        const dateConfig = linking.dynamicConfig?.dateRange;
+        let min: string | undefined;
+        let max: string | undefined;
+
+        // Mode determines where specific constraints come from
+        if (mode === 'advanced' && matchingRule?.dateRange) {
+          min = resolveDateConstraint(matchingRule.dateRange.min);
+          max = resolveDateConstraint(matchingRule.dateRange.max);
+
+        } else if (mode === 'basic' && dateConfig?.mappings) {
+          const mapping = dateConfig.mappings[String(sourceFieldValue)];
+          if (mapping) {
+            min = resolveDateConstraint(mapping.min);
+            max = resolveDateConstraint(mapping.max);
+
+          }
+        }
+
+        // Overlay with Global Defaults (Fallback layer)
+        const dMin = resolveDateConstraint(dateConfig?.default?.min);
+        const dMax = resolveDateConstraint(dateConfig?.default?.max);
+        if (!min) min = dMin;
+        if (!max) max = dMax;
+
+        const currentVal = formValues[field.id];
+        if (currentVal) {
+          if (min && String(currentVal) < String(min)) setValue(field.id, '', { shouldValidate: false });
+          else if (max && String(currentVal) > String(max)) setValue(field.id, '', { shouldValidate: false });
+        }
+      }
+
+      // 4. HANDLE DYNAMIC OPTIONS
+      if (['select', 'radio', 'multiselect', 'checkbox'].includes(field.type)) {
+
+
+        let newOptions: any[] = [];
+
+        if (mode === 'basic' && linking.dynamicConfig?.options) {
+          // Basic mode - use dynamicConfig.options
+
+          const optionsMap = linking.dynamicConfig.options as Record<string, any[]>;
+          newOptions = optionsMap[String(sourceFieldValue)] || field.options || [];
+        } else if (mode === 'advanced' && matchingRule?.dynamicOptions) {
+          // Advanced mode - use rule.dynamicOptions
+
+          newOptions = matchingRule.dynamicOptions;
+        } else {
+          // Fallback to original field options
+
+          newOptions = field.options || [];
+        }
+
+
+
+        // Reset child field value when parent value changes and options change
+        const currentVal = formValues[field.id];
+
+
+        if (newOptions && newOptions.length > 0) {
+          // Check if current value is still valid in new options
+          if (currentVal && Array.isArray(newOptions)) {
+            const isValid = newOptions.some((opt: any) => opt.value === currentVal);
+
+            if (!isValid) {
+
+              setValue(field.id, '', { shouldValidate: false });
+            }
+          }
+        } else if (currentVal) {
+          // If options are cleared/empty, reset the field
+
+          setValue(field.id, '', { shouldValidate: false });
+        }
+      }
+
+      // 5. APPLY RESTRICTION RULES (for restriction mode or advanced mode with restrictionRules)
+      if ((mode === 'restriction' || (mode === 'advanced' && linking.restrictionRules)) && linking.restrictionRules) {
+        const testRule = linking.restrictionRules[0];
+        if (testRule) {
+          // Test condition evaluation
+          const testResults = testRule.conditions?.map((cond: any) => {
+            const currentVal = formValues[cond.fieldId];
+            const targetVal = cond.value;
+
+            if (currentVal === undefined || currentVal === null) {
+              const result = cond.operator === 'notEquals' || cond.operator === 'notContains';
+              return result;
+            }
+
+            let result = false;
+            switch (cond.operator) {
+              case 'equals': result = String(currentVal) === String(targetVal); break;
+              case 'notEquals': result = String(currentVal) !== String(targetVal); break;
+              case 'greaterThan': result = Number(currentVal) > Number(targetVal); break;
+              case 'lessThan': result = Number(currentVal) < Number(targetVal); break;
+              case 'contains': result = String(currentVal).includes(String(targetVal)); break;
+              case 'notContains': result = !String(currentVal).includes(String(targetVal)); break;
+              default: result = false;
+            }
+            return result;
+          });
+
+          const testMatches = testRule.logic === 'or' ? testResults?.some((res: any) => res) : testResults?.every((res: any) => res);
+
+          if (testMatches) {
+            if (testRule.action === 'required') {
+              // Field should be required
+            } else if (testRule.action === 'disabled') {
+              setValue(field.id, '', { shouldValidate: false }); // Clear the field
+            }
+          }
+        }
+
+        const matchingRestrictionRules = linking.restrictionRules.filter((r: any) => {
+          // Restriction rules should always have conditions
+          if (!r.conditions || r.conditions.length === 0) {
+            return false;
+          }
+
+          const results = r.conditions.map((cond: any) => {
+            const currentVal = formValues[cond.fieldId];
+            const targetVal = cond.value;
+
+            // Handle null/undefined values properly
+            if (currentVal === undefined || currentVal === null || currentVal === '') {
+              switch (cond.operator) {
+                case 'equals': return targetVal === '' || targetVal === undefined || targetVal === null;
+                case 'notEquals': return targetVal !== '' && targetVal !== undefined && targetVal !== null;
+                case 'contains': return false;
+                case 'notContains': return true;
+                default: return false;
+              }
+            }
+
+            // Convert both values to strings for comparison
+            const currentStr = String(currentVal);
+            const targetStr = String(targetVal);
+
+            switch (cond.operator) {
+              case 'equals': return currentStr === targetStr;
+              case 'notEquals': return currentStr !== targetStr;
+              case 'greaterThan': return Number(currentVal) > Number(targetVal);
+              case 'lessThan': return Number(currentVal) < Number(targetVal);
+              case 'contains': return currentStr.includes(targetStr);
+              case 'notContains': return !currentStr.includes(targetStr);
+              default: return false;
+            }
+          });
+          const matches = r.logic === 'or' ? results.some((res: any) => res) : results.every((res: any) => res);
+          return matches;
+        });
+
+        // Apply restriction actions
+        matchingRestrictionRules.forEach((rule: any) => {
+          if (rule.action === 'required' && rule.apply !== false) {
+            // Field should be required - this will be handled by validation
+            setTimeout(() => trigger(field.id), 0);
+          } else if (rule.action === 'disabled' && rule.apply !== false) {
+            // Field should be disabled - this will be handled by the disabled state
+            setValue(field.id, '', { shouldValidate: false }); // Clear the field when disabled
+          }
+        });
+
+        // If no restriction rules match, ensure field is not marked as required by restriction rules
+      }
+    });
+  }, [form, formValues, setValue, resolveDateConstraint, trigger]);
+
+  const handleNextToPreview = async () => {
+    if (!form) return;
+
+    // Validate all fields before showing preview
+    const isValid = await trigger();
+    if (!isValid) return;
+
+    // Check captcha if enabled
+    if (form.settings.reCaptcha) {
+      if (parseInt(captchaValue) !== captchaProblem.answer) {
+        setCaptchaError('Incorrect answer. Please try again.');
+        generateCaptcha();
+        return;
+      }
+      setCaptchaError(null);
+    }
+
+    setShowPreview(true);
+  };
+
+  const onSubmit = async (data: Record<string, unknown>) => {
+    if (!form) return;
+
+    setIsSubmitting(true);
+    try {
+      // Convert File objects to base64 for submission
+      const processedData = await Promise.all(
+        Object.entries(data).map(async ([key, value]) => {
+          if (value instanceof FileList) {
+            // Handle FileList (multiple files)
+            const files = Array.from(value);
+            const base64Files = await Promise.all(
+              files.map(file => fileToBase64(file))
+            );
+            return [key, base64Files];
+          } else if (value instanceof File) {
+            // Handle single File
+            const base64File = await fileToBase64(value);
+            return [key, base64File];
+          } else if (Array.isArray(value) && value.length > 0 && value[0] instanceof File) {
+            // Handle array of Files
+            const base64Files = await Promise.all(
+              value.map(file => fileToBase64(file))
+            );
+            return [key, base64Files];
+          } else {
+            // Handle other data types
+            return [key, value];
+          }
+        })
+      );
+
+      const submissionData = Object.fromEntries(processedData);
+
+      const response = await api.post('/submissions', {
+        formId: form.id,
+        data: submissionData,
+      });
+
+      setThankYouMessage(response.data.thankYouMessage);
+      setSubmitted(true);
+
+      if (response.data.redirectUrl) {
+        setTimeout(() => {
+          window.location.href = response.data.redirectUrl;
+        }, 2000);
+      }
+    } catch (error) {
+      setError('Failed to submit form. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Helper function to convert File to base64
+  const fileToBase64 = (file: File): Promise<{ name: string; size: number; type: string; base64: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          base64: result
+        });
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const validationOpts = (field: FormField, formValues: Record<string, any>) => {
+    const baseOpts = getFieldValidation(field);
+
+    // Add dynamic required from restriction rules
+    const linking = field.fieldLinking;
+    if (linking?.enabled && (linking.mode === 'restriction' || (linking.mode === 'advanced' && linking.restrictionRules)) && linking.restrictionRules) {
+      const matchingRestrictionRules = linking.restrictionRules.filter((r: any) => {
+        if (!r.conditions || r.conditions.length === 0) {
+          return false;
+        }
+
+        const results = r.conditions.map((cond: any) => {
+          const currentVal = formValues[cond.fieldId];
+          const targetVal = cond.value;
+
+          // Handle null/undefined values properly
+          if (currentVal === undefined || currentVal === null || currentVal === '') {
+            switch (cond.operator) {
+              case 'equals': return targetVal === '' || targetVal === undefined || targetVal === null;
+              case 'notEquals': return targetVal !== '' && targetVal !== undefined && targetVal !== null;
+              case 'contains': return false;
+              case 'notContains': return true;
+              default: return false;
+            }
+          }
+
+          // Convert both values to strings for comparison
+          const currentStr = String(currentVal);
+          const targetStr = String(targetVal);
+
+          switch (cond.operator) {
+            case 'equals': return currentStr === targetStr;
+            case 'notEquals': return currentStr !== targetStr;
+            case 'greaterThan': return Number(currentVal) > Number(targetVal);
+            case 'lessThan': return Number(currentVal) < Number(targetVal);
+            case 'contains': return currentStr.includes(targetStr);
+            case 'notContains': return !currentStr.includes(targetStr);
+            default: return false;
+          }
+        });
+
+        const matches = r.logic === 'or' ? results.some((res: any) => res) : results.every((res: any) => res);
+        return matches;
+      });
+
+      // Check if any rule makes this field required
+      const hasRequiredRule = matchingRestrictionRules.some((rule: any) =>
+        rule.action === 'required' && rule.apply !== false
+      );
+
+      if (hasRequiredRule) {
+        baseOpts.required = 'This field is required based on form conditions';
+      } else {
+        // Check if field was originally required (not from restriction rules)
+        if (!field.required) {
+          // Remove required validation if no restriction rules match and field wasn't originally required
+          delete baseOpts.required;
+        }
+      }
+    }
+
+    return baseOpts;
+  };
+
+  const renderField = (field: FormField) => {
+    const opts = validationOpts(field, formValues);
+
+    // Apply field linking dynamic configurations
+    const getDynamicProps = () => {
+      const props: any = {};
+
+      const linking = field.fieldLinking;
+      if (!linking?.enabled) {
+        return props;
+      }
+
+      const sourceFieldId = linking.sourceFieldId;
+      const sourceFieldValue = sourceFieldId ? formValues[sourceFieldId] : undefined;
+
+      // 1. Handle Dynamic Options (Cascading and Advanced Rules)
+      if (['select', 'radio', 'multiselect', 'checkbox'].includes(field.type)) {
+        const mode = linking.mode || 'basic';
+
+        // Check Advanced Rules first (if mode is advanced)
+        if (mode === 'advanced' && linking.rules) {
+          const matchedRule = linking.rules.find((r: any) => {
+            if (r.conditions && r.conditions.length > 0) {
+              const res = r.conditions.map((c: any) => {
+                const cv = formValues[c.fieldId];
+                if (cv === undefined || cv === null) return c.operator === 'notEquals' || c.operator === 'notContains';
+                switch (c.operator) {
+                  case 'equals': return String(cv) === String(c.value);
+                  case 'notEquals': return String(cv) !== String(c.value);
+                  case 'greaterThan': return Number(cv) > Number(c.value);
+                  case 'lessThan': return Number(cv) < Number(c.value);
+                  case 'contains': return String(cv).includes(String(c.value));
+                  case 'notContains': return !String(cv).includes(String(c.value));
+                  default: return false;
+                }
+              });
+              const matches = r.logic === 'or' ? res.some((s: any) => s) : res.every((s: any) => s);
+              return matches;
+            }
+            return false;
+          });
+
+          // If a rule matches and has dynamicOptions, use them
+          if (matchedRule?.dynamicOptions && matchedRule.dynamicOptions.length > 0) {
+            props.options = matchedRule.dynamicOptions;
+            return props;
+          }
+        }
+
+        // Fallback to Basic Mode (Cascading) - Only if source field exists
+        if (sourceFieldId && linking.dynamicConfig?.options) {
+          if (sourceFieldValue !== undefined && sourceFieldValue !== null) {
+            const sourceValues = Array.isArray(sourceFieldValue) ? sourceFieldValue : [sourceFieldValue];
+            let mergedOptions: { label: string; value: string }[] = [];
+            const seenValues = new Set<string>();
+
+            sourceValues.forEach((val: string | number | boolean) => {
+              const mapped = linking.dynamicConfig?.options?.[String(val)];
+              if (mapped) {
+                mapped.forEach((opt: { label: string; value: string }) => {
+                  if (!seenValues.has(opt.value)) {
+                    mergedOptions.push(opt);
+                    seenValues.add(opt.value);
+                  }
+                });
+              }
+            });
+
+            if (mergedOptions.length > 0) {
+              props.options = mergedOptions;
+            }
+          }
+        }
+      }
+
+      // 2. Handle Conditional Date Ranges (Rules-based OR Mapping OR Fallback)
+      if (['date', 'time'].includes(field.type)) {
+        const mode = linking.mode || 'basic';
+        const dateConfig = linking.dynamicConfig?.dateRange;
+        if (!dateConfig) return props;
+
+        let min: string | undefined;
+        let max: string | undefined;
+
+        // Overlay 1: Advanced Rules (if mode is advanced)
+        if (mode === 'advanced') {
+          const rule = linking.rules?.find((r: any) => {
+            if (r.conditions && r.conditions.length > 0) {
+              const res = r.conditions.map((c: any) => {
+                const cv = formValues[c.fieldId];
+                if (cv === undefined || cv === null) return c.operator === 'notEquals' || c.operator === 'notContains';
+                switch (c.operator) {
+                  case 'equals': return String(cv) === String(c.value);
+                  case 'notEquals': return String(cv) !== String(c.value);
+                  case 'greaterThan': return Number(cv) > Number(c.value);
+                  case 'lessThan': return Number(cv) < Number(c.value);
+                  case 'contains': return String(cv).includes(String(c.value));
+                  case 'notContains': return !String(cv).includes(String(c.value));
+                  default: return false;
+                }
+              });
+              return r.logic === 'or' ? res.some((s: any) => s) : res.every((s: any) => s);
+            }
+            return false;
+          });
+          if (rule?.dateRange) {
+            min = resolveDateConstraint(rule.dateRange.min);
+            max = resolveDateConstraint(rule.dateRange.max);
+          }
+        } else if (mode === 'basic' && dateConfig.mappings && sourceFieldValue !== undefined && sourceFieldValue !== null) {
+          // Overlay 2: Basic Mappings (strictest strategy)
+          const sourceValues = Array.isArray(sourceFieldValue) ? sourceFieldValue : [sourceFieldValue];
+          sourceValues.forEach((v: any) => {
+            const m = dateConfig.mappings?.[String(v)];
+            if (m) {
+              const mMin = resolveDateConstraint(m.min);
+              const mMax = resolveDateConstraint(m.max);
+              if (mMin && (!min || mMin > min)) min = mMin;
+              if (mMax && (!max || mMax < max)) max = mMax;
+            }
+          });
+        }
+
+        // Overlay 3: Global Defaults (Always apply as fallback)
+        const dMin = resolveDateConstraint(dateConfig.default?.min);
+        const dMax = resolveDateConstraint(dateConfig.default?.max);
+        if (!min && dMin) min = dMin;
+        if (!max && dMax) max = dMax;
+
+        if (min) props.min = min;
+        if (max) props.max = max;
+      }
+
+      // 4. Handle Restriction Rules
+      if ((linking.mode === 'restriction' || (linking.mode === 'advanced' && linking.restrictionRules)) && linking.restrictionRules) {
+        const matchingRestrictionRules = linking.restrictionRules.filter((r: any) => {
+          if (!r.conditions || r.conditions.length === 0) return false;
+
+          const results = r.conditions.map((cond: any) => {
+            const currentVal = formValues[cond.fieldId];
+            const targetVal = cond.value;
+
+            if (currentVal === undefined || currentVal === null) {
+              return cond.operator === 'notEquals' || cond.operator === 'notContains';
+            }
+
+            switch (cond.operator) {
+              case 'equals': return String(currentVal) === String(targetVal);
+              case 'notEquals': return String(currentVal) !== String(targetVal);
+              case 'greaterThan': return Number(currentVal) > Number(targetVal);
+              case 'lessThan': return Number(currentVal) < Number(targetVal);
+              case 'contains': return String(currentVal).includes(String(targetVal));
+              case 'notContains': return !String(currentVal).includes(String(targetVal));
+              default: return false;
+            }
+          });
+
+          const matches = r.logic === 'or' ? results.some((res: any) => res) : results.every((res: any) => res);
+          return matches;
+        });
+
+        // Apply restriction actions
+        matchingRestrictionRules.forEach((rule: any) => {
+          if (rule.action === 'disabled' && rule.apply !== false) {
+            props.disabled = true;
+          } else if (rule.action === 'required' && rule.apply !== false) {
+            props.required = true;
+          }
+        });
+
+        // If no restriction rules match, ensure field is not disabled by restriction rules
+        if (matchingRestrictionRules.length === 0 && !field.disabled) {
+          props.disabled = false;
+        }
+      }
+
+      return props;
+    };
+
+    const dynamicProps = getDynamicProps();
+
+    // Merge options if dynamic options are present
+    const fieldOptions = dynamicProps.options || field.options;
+
+    // Check if field should be disabled because source is missing
+    const isLinkedFieldDisabled = (() => {
+      if (field.fieldLinking?.enabled && field.fieldLinking?.sourceFieldId) {
+        const sourceValue = formValues[field.fieldLinking.sourceFieldId];
+        // Empty if undefined, null, empty string, or empty array
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          sourceValue === undefined ||
+          sourceValue === null ||
+          sourceValue === '' ||
+          (Array.isArray(sourceValue) && sourceValue.length === 0)
+        );
+      }
+      return false;
+    })();
+
+    const isDisabled = field.disabled || isLinkedFieldDisabled || dynamicProps.disabled;
+
+    switch (field.type) {
+      case 'text':
+      case 'email':
+      case 'phone':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <Input
+            type={field.type === 'phone' ? 'tel' : field.type}
+            placeholder={field.placeholder}
+            disabled={isDisabled}
+            {...register(field.id, opts)}
+          />
+        );
+
+      case 'number':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <Input
+            type="number"
+            placeholder={field.placeholder}
+            disabled={isDisabled}
+            {...register(field.id, opts)}
+          />
+        );
+
+      case 'textarea':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <Textarea
+            placeholder={field.placeholder}
+            disabled={isDisabled}
+            {...register(field.id, opts)}
+          />
+        );
+
+      case 'select':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <div className="relative">
+            <select
+              id={`field-${field.id}`}
+              disabled={isDisabled}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              {...register(field.id, opts)}
+            >
+              <option value="">Select an option</option>
+              {(fieldOptions || []).map((option: any) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+
+      case 'radio':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <div className="grid gap-2">
+            {(fieldOptions || []).map((option: any) => (
+              <div key={option.value} className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id={`${field.id}-${option.value}`}
+                  value={option.value}
+                  disabled={isDisabled}
+                  {...register(field.id, opts)}
+                  className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                />
+                <Label
+                  htmlFor={`${field.id}-${option.value}`}
+                  className={isDisabled ? "opacity-50 cursor-not-allowed" : ""}
+                >
+                  {option.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'checkbox':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <div className="space-y-2">
+            {(fieldOptions || []).map((option: { label: string; value: string }) => {
+              const currentValue = (Array.isArray(formValues[field.id]) ? formValues[field.id] : []) as string[];
+              const isChecked = currentValue.includes(option.value);
+
+              useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+                <label key={option.value} className={`flex items-center space-x-2 ${isDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
+                  <UICheckbox
+                    id={`${field.id}-${option.value}`}
+                    checked={isChecked}
+                    onCheckedChange={(checked: boolean) => {
+                      const next = checked
+                        ? [...currentValue, option.value]
+                        : currentValue.filter((val) => val !== option.value);
+                      setValue(field.id, next, { shouldValidate: true });
+                    }}
+                    disabled={isDisabled}
+                  />
+                  <span className={isDisabled ? "text-muted-foreground" : ""}>{option.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        );
+
+      case 'date':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <Input
+            type="date"
+            placeholder={field.placeholder}
+            min={dynamicProps.min}
+            max={dynamicProps.max}
+            disabled={isDisabled}
+            {...register(field.id, opts)}
+          />
+        );
+
+      case 'time':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <Input
+            type="time"
+            placeholder={field.placeholder}
+            min={dynamicProps.min}
+            max={dynamicProps.max}
+            disabled={isDisabled}
+            {...register(field.id, opts)}
+          />
+        );
+
+      case 'file':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <FileUpload
+            field={field}
+            value={formValues[field.id] as FileList | File[] | null}
+            onChange={(files) => setValue(field.id, files)}
+            error={errors[field.id]?.message as string}
+            hideLabel={true}
+          />
+        );
+
+      case 'multiselect':
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <MultiSelectField
+            field={field}
+            value={(formValues[field.id] as string[]) || []}
+            onChange={(val) => {
+              setValue(field.id, val, { shouldValidate: true });
+            }}
+            disabled={isDisabled}
+          />
+        );
+
+      case 'display': {
+        // Find the variable to display
+        const formVariables = form?.schema?.variables || [];
+        const variable = formVariables.find(v => v.id === field.displayConfig?.variableId);
+
+        if (!variable) {
+          useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+            <div className="space-y-2">
+              <Label>{field.label}</Label>
+              <div className="border rounded-md p-3 bg-gray-50">
+                <div className="text-muted-foreground text-sm">No variable selected</div>
+              </div>
+            </div>
+          );
+        }
+
+        const displayValue = calculatedVariables[variable.id] !== undefined
+          ? calculatedVariables[variable.id]
+          : (variable.value !== undefined ? variable.value : 'Not calculated');
+
+        // Use a more robust formatting function
+        const formattedValue = formatDisplayValue(displayValue, variable.type, field.displayConfig?.format);
+
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <div className="border rounded-md p-3 bg-gray-50 mb-4">
+            <div className="flex flex-row justify-start items-center gap-2">
+              {/* Key/Label */}
+              <div
+                style={{
+                  color: field.displayConfig?.textColor || '#6b7280',
+                  fontSize: field.displayConfig?.labelFontSize || '0.875rem'
+                }}
+                className="font-medium"
+              >
+                {field.displayConfig?.label || variable.name}
+              </div>
+
+              {/* Value */}
+              <div
+                style={{
+                  color: field.displayConfig?.valueColor || '#1f2937',
+                  fontSize: field.displayConfig?.valueFontSize || '1.125rem'
+                }}
+                className="font-semibold"
+              >
+                {formattedValue}
+              </div>
+            </div>
+
+            {field.displayConfig?.showVariableName && field.displayConfig.label && (
+              <div className="text-[10px] text-muted-foreground opacity-50 mt-1">
+                Var: {variable.name}
+              </div>
+            )}
+
+            {variable.description && (
+              <div className="text-xs text-muted-foreground mt-1">
+                {variable.description}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      case 'rating': {
+        const ratingValue = formValues[field.id] || 0;
+        useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setValue(field.id, star)}
+                className="p-1"
+              >
+                <Star
+                  className={`h-6 w-6 ${star <= ratingValue
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : 'text-gray-300'
+                    }`}
+                />
+              </button>
+            ))}
+            <input type="hidden" {...register(field.id, opts)} />
+          </div>
+        );
+      }
+
+      default:
+        return <Input placeholder={field.placeholder} {...register(field.id, opts)} />;
+    }
+  };
+
+  const handleNextStep = async (e?: React.FormEvent) => {
+    e?.preventDefault?.();
+
+    // 1. If captcha enabled, verify it first
+    if (form?.settings.reCaptcha) {
+      if (!captchaValue || parseInt(captchaValue) !== captchaProblem.answer) {
+        setCaptchaError("Incorrect security answer. Please try again.");
+        generateCaptcha();
+        return;
+      }
+    }
+
+    const fields = visibleFields.map((f) => f.id);
+
+    if (fields.length === 0) {
+      // Don't auto-advance if we're already on the last step
+      if (currentStepIndex >= totalSteps - 1) {
+        return;
+      }
+      setIsAdvancing(true);
+      setCurrentStepIndex((i) => Math.min(i + 1, totalSteps - 1));
+      setTimeout(() => setIsAdvancing(false), 100);
+      return;
+    }
+
+    const valid = await trigger(fields);
+
+    if (valid) {
+      if (currentStepIndex >= totalSteps - 1) {
+        // Already on last step, would submit
+      } else {
+        setIsAdvancing(true);
+        setCurrentStepIndex((i) => Math.min(i + 1, totalSteps - 1));
+        setTimeout(() => setIsAdvancing(false), 100);
+      }
+    }
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStepIndex((i) => Math.max(i - 1, 0));
+  };
+
+  const allowBack = layout.allowBackNavigation !== false;
+
+  if (isLoading) {
+    useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !form) {
+    useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center">
+            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Form Not Found</h2>
+            <p className="text-muted-foreground">
+              {error || 'This form does not exist or is not published.'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (submitted) {
+    useEffect(() => {\n    if (theme && theme !== 'default') {\n      document.body.setAttribute('data-theme', theme);\n    } else {\n      document.body.removeAttribute('data-theme');\n    }\n\n    return () => {\n      document.body.removeAttribute('data-theme');\n    };\n  }, [theme]);\n\n  return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center">
+            <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
+            <h2 className="text-2xl font-semibold mb-2">Thank You!</h2>
+            <p className="text-muted-foreground">
+              {thankYouMessage || 'Your submission has been received.'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show preview for single-page forms
+  const previewConfig = form?.settings.previewConfig;
+  if (!isMultiStep && previewConfig?.enabled && showPreview) {
+    const formatFieldValue = (field: FormField, value: any) => {
+      if (value === undefined || value === null || value === '') return 'Not provided';
+
+      if (field.type === 'checkbox' || field.type === 'multiselect') {
+        if (Array.isArray(value)) {
+          return value.map(v => {
+            const option = field.options?.find(opt => opt.value === v);
+            return option?.label || v;
+          }).join(', ');
+        }
+      }
+
+      if (field.type === 'select' || field.type === 'radio') {
+        const option = field.options?.find(opt => opt.value === value);
+        return option?.label || value;
+      }
+
+      if (field.type === 'file') {
+        if (value instanceof FileList) {
+          return `${value.length} file(s) selected`;
+        }
+        if (value instanceof File) {
+          return value.name;
+        }
+        if (Array.isArray(value)) {
+          return `${value.length} file(s) selected`;
+        }
+      }
+
+      return String(value);
+    };
+

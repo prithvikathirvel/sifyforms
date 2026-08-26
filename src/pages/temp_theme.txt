@@ -1,0 +1,13 @@
+﻿  useEffect(() => {
+    if (theme && theme !== "default") {
+      document.body.setAttribute("data-theme", theme);
+    } else {
+      document.body.removeAttribute("data-theme");
+    }
+
+    return () => {
+      document.body.removeAttribute("data-theme");
+    };
+  }, [theme]);
+
+  return (

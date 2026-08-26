@@ -1,0 +1,322 @@
+{
+    "variables": [
+        {
+            "id": "var_item_price",
+            "name": "ItemBasePrice",
+            "type": "number",
+            "description": "Base price based on selection",
+            "valueMapping": {
+                "enabled": true,
+                "sourceFieldId": "field_product_select",
+                "mappings": {
+                    "laptop": 1200,
+                    "phone": 800,
+                    "tablet": 500
+                }
+            }
+        },
+        {
+            "id": "var_tax_rate",
+            "name": "TaxRate",
+            "type": "number",
+            "calculation": "0.15"
+        },
+        {
+            "id": "var_grand_total",
+            "name": "GrandTotal",
+            "type": "number",
+            "calculation": "var_item_price * (1 + var_tax_rate)"
+        }
+    ],
+    "fields": [
+        {
+            "id": "field_product_select",
+            "type": "select",
+            "label": "Select Product",
+            "options": [
+                {
+                    "label": "Laptop",
+                    "value": "laptop"
+                },
+                {
+                    "label": "Phone",
+                    "value": "phone"
+                },
+                {
+                    "label": "Tablet",
+                    "value": "tablet"
+                }
+            ],
+            "width": "half"
+        },
+        {
+            "id": "field_email_valid",
+            "type": "email",
+            "label": "Contact Email",
+            "placeholder": "user@example.com",
+            "width": "half",
+            "rules": [
+                {
+                    "id": "rule_email",
+                    "type": "email",
+                    "message": "Please enter a valid business email."
+                }
+            ]
+        },
+        {
+            "id": "field_category",
+            "type": "radio",
+            "label": "Category (Cascading Source)",
+            "options": [
+                {
+                    "label": "Hardware",
+                    "value": "hw"
+                },
+                {
+                    "label": "Software",
+                    "value": "sw"
+                }
+            ],
+            "width": "half"
+        },
+        {
+            "id": "field_sub_category",
+            "type": "select",
+            "label": "Sub-Category (Cascading Target)",
+            "options": [
+                {
+                    "label": "Keyboard",
+                    "value": "kb"
+                },
+                {
+                    "label": "Mouse",
+                    "value": "ms"
+                },
+                {
+                    "label": "IDE",
+                    "value": "ide"
+                },
+                {
+                    "label": "Antivirus",
+                    "value": "av"
+                }
+            ],
+            "width": "half",
+            "fieldLinking": {
+                "enabled": true,
+                "mode": "basic",
+                "sourceFieldId": "field_category",
+                "dynamicConfig": {
+                    "options": {
+                        "hw": [
+                            {
+                                "label": "Keyboard",
+                                "value": "kb"
+                            },
+                            {
+                                "label": "Mouse",
+                                "value": "ms"
+                            }
+                        ],
+                        "sw": [
+                            {
+                                "label": "IDE",
+                                "value": "ide"
+                            },
+                            {
+                                "label": "Antivirus",
+                                "value": "av"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "id": "field_delivery_type",
+            "type": "select",
+            "label": "Delivery Speed",
+            "options": [
+                {
+                    "label": "Express",
+                    "value": "express"
+                },
+                {
+                    "label": "Standard",
+                    "value": "standard"
+                }
+            ],
+            "width": "half"
+        },
+        {
+            "id": "field_delivery_date",
+            "type": "date",
+            "label": "Delivery Date",
+            "width": "half",
+            "fieldLinking": {
+                "enabled": true,
+                "mode": "basic",
+                "sourceFieldId": "field_delivery_type",
+                "dynamicConfig": {
+                    "dateRange": {
+                        "enabled": true,
+                        "default": {
+                            "min": {
+                                "type": "static",
+                                "value": "2024-01-01"
+                            }
+                        },
+                        "mappings": {
+                            "express": {
+                                "min": {
+                                    "type": "static",
+                                    "value": "2024-03-10"
+                                },
+                                "max": {
+                                    "type": "static",
+                                    "value": "2024-03-15"
+                                }
+                            },
+                            "standard": {
+                                "min": {
+                                    "type": "static",
+                                    "value": "2024-03-20"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "id": "field_complex_trigger_1",
+            "type": "text",
+            "label": "Trigger A",
+            "width": "third"
+        },
+        {
+            "id": "field_complex_trigger_2",
+            "type": "text",
+            "label": "Trigger B",
+            "width": "third"
+        },
+        {
+            "id": "field_conditional_target",
+            "type": "text",
+            "label": "OR Condition Field",
+            "helpText": "Only visible if Trigger A is 'Start' OR Trigger B is 'Go'",
+            "width": "third",
+            "showWhen": {
+                "logic": "or",
+                "conditions": [
+                    {
+                        "fieldId": "field_complex_trigger_1",
+                        "operator": "equals",
+                        "value": "Start"
+                    },
+                    {
+                        "fieldId": "field_complex_trigger_2",
+                        "operator": "equals",
+                        "value": "Go"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "field_adv_auto_fill",
+            "type": "text",
+            "label": "Advanced Auto-fill (Multi-Condition)",
+            "width": "full",
+            "fieldLinking": {
+                "enabled": true,
+                "mode": "advanced",
+                "rules": [
+                    {
+                        "id": "adv_rule_1",
+                        "logic": "and",
+                        "conditions": [
+                            {
+                                "fieldId": "field_complex_trigger_1",
+                                "operator": "equals",
+                                "value": "VIP"
+                            },
+                            {
+                                "fieldId": "field_product_select",
+                                "operator": "equals",
+                                "value": "laptop"
+                            }
+                        ],
+                        "targetValue": "Priority Delivery (VIP Laptop Package)"
+                    },
+                    {
+                        "id": "adv_rule_copy",
+                        "logic": "and",
+                        "conditions": [
+                            {
+                                "fieldId": "field_complex_trigger_1",
+                                "operator": "equals",
+                                "value": "same"
+                            }
+                        ],
+                        "copyFromFieldId": "field_current_address"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "field_restriction_multiple",
+            "type": "text",
+            "label": "Restricted Field",
+            "helpText": "Required if Laptop chosen, Disabled if Tablet chosen",
+            "width": "full",
+            "fieldLinking": {
+                "enabled": true,
+                "mode": "restriction",
+                "restrictionRules": [
+                    {
+                        "id": "restrict_required",
+                        "logic": "and",
+                        "conditions": [
+                            {
+                                "fieldId": "field_product_select",
+                                "operator": "equals",
+                                "value": "laptop"
+                            }
+                        ],
+                        "action": "required",
+                        "apply": true
+                    },
+                    {
+                        "id": "restrict_disabled",
+                        "logic": "and",
+                        "conditions": [
+                            {
+                                "fieldId": "field_product_select",
+                                "operator": "equals",
+                                "value": "tablet"
+                            }
+                        ],
+                        "action": "disabled",
+                        "apply": true
+                    }
+                ]
+            }
+        },
+        {
+            "id": "field_total_price_calc",
+            "type": "display",
+            "label": "Final Calculated Total",
+            "width": "full",
+            "displayConfig": {
+                "variableId": "var_grand_total",
+                "label": "Grand Total (with Tax)",
+                "textColor": "#000000",
+                "valueColor": "#16a34a",
+                "labelFontSize": "16px",
+                "valueFontSize": "24px",
+                "showVariableName": true,
+                "format": "currency"
+            }
+        }
+    ]
+}

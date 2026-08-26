@@ -1,0 +1,287 @@
+import { ResponseLevel, ResponsePolicy } from '../config/rbac.config';
+
+/**
+ * Shaping a response for the person looking at it.
+ *
+ * The rule the rest of the codebase relies on: a submission is never handed to a
+ * controller raw. It passes through here first, and what comes out is bounded by
+ * the viewer's level and the form's policy.
+ */
+
+/** Field types that identify a person unless the form says otherwise. */
+const IDENTIFYING_TYPES = new Set([
+  'email',
+  'phone',
+  'tel',
+  'name',
+  'fullname',
+  'firstname',
+  'lastname',
+  'address',
+  'signature',
+  'file',
+  'fileupload',
+  'aadhaar',
+  'pan',
+  'dob',
+  'dateofbirth',
+]);
+
+/** Metadata that identifies the submitter even when no field does. */
+const IDENTIFYING_META = ['ip', 'userAgent'] as const;
+
+const MASK = '•••••';
+
+interface SchemaField {
+  id?: string;
+  name?: string;
+  type?: string;
+  label?: string;
+  /** Explicit override; when set it wins over the type heuristic. */
+  isIdentifying?: boolean;
+}
+
+/**
+ * Which keys of a response identify the submitter.
+ *
+ * Type-based detection is a default, not a policy: a form author can mark any
+ * field `isIdentifying` (or clear it) in the builder, because only they know
+ * that "Employee code" identifies someone and "Favourite colour" does not.
+ */
+export function identifyingKeys(schema: unknown): Set<string> {
+  const keys = new Set<string>();
+  const fields: SchemaField[] = (schema as any)?.fields ?? [];
+
+  for (const field of fields) {
+    const key = field.id ?? field.name;
+    if (!key) continue;
+
+    if (field.isIdentifying === true) {
+      keys.add(key);
+      continue;
+    }
+    if (field.isIdentifying === false) continue;
+
+    const type = (field.type ?? '').toLowerCase().replace(/[^a-z]/g, '');
+    if (IDENTIFYING_TYPES.has(type)) keys.add(key);
+  }
+  return keys;
+}
+
+export interface RawSubmission {
+  id: string;
+  formId: string;
+  data: string;
+  ip?: string | null;
+  userAgent?: string | null;
+  isRead?: boolean;
+  tags?: string;
+  processingStatus?: string;
+  createdAt: Date;
+}
+
+export interface ViewedSubmission {
+  id: string;
+  formId: string;
+  data: Record<string, unknown>;
+  createdAt: Date;
+  isRead?: boolean;
+  tags?: unknown;
+  processingStatus?: string;
+  ip?: string | null;
+  userAgent?: string | null;
+  /** Keys masked for this viewer, so the UI can label them rather than show blanks. */
+  redactedFields?: string[];
+}
+
+function parseData(raw: string): Record<string, unknown> {
+  try {
+    return JSON.parse(raw) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Shape one submission for a viewer.
+ *
+ * Returns null when the viewer may not see individual responses at all - callers
+ * filter these out rather than emitting placeholders, so an aggregate-only user
+ * cannot infer anything from row count or ordering.
+ */
+export function viewSubmission(
+  submission: RawSubmission,
+  schema: unknown,
+  level: ResponseLevel,
+  policy: ResponsePolicy
+): ViewedSubmission | null {
+  if (level === 'NONE' || level === 'AGGREGATE') return null;
+
+  const data = parseData(submission.data);
+  const base: ViewedSubmission = {
+    id: submission.id,
+    formId: submission.formId,
+    data,
+    createdAt: submission.createdAt,
+    isRead: submission.isRead,
+    tags: submission.tags ? safeParse(submission.tags) : undefined,
+    processingStatus: submission.processingStatus,
+  };
+
+  const mustRedact = level === 'REDACTED' || policy === 'BLIND_REVIEW';
+  if (!mustRedact) {
+    return { ...base, ip: submission.ip ?? null, userAgent: submission.userAgent ?? null };
+  }
+
+  const identifying = identifyingKeys(schema);
+  const redacted: string[] = [];
+  const masked: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    if (identifying.has(key) && value !== null && value !== undefined && value !== '') {
+      masked[key] = MASK;
+      redacted.push(key);
+    } else {
+      masked[key] = value;
+    }
+  }
+
+  // IP and user agent re-identify a submitter on their own, so they go too.
+  for (const meta of IDENTIFYING_META) {
+    if (submission[meta]) redacted.push(meta);
+  }
+
+  return { ...base, data: masked, ip: null, userAgent: null, redactedFields: redacted };
+}
+
+function safeParse(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Aggregate view
+// ---------------------------------------------------------------------------
+
+export interface FieldSummary {
+  key: string;
+  label: string;
+  type: string;
+  answered: number;
+  /** Present for choice-like fields; absent for free text, which cannot be summarised safely. */
+  counts?: Record<string, number>;
+  /** Present for numeric fields. */
+  stats?: { min: number; max: number; mean: number };
+}
+
+export interface AggregateResult {
+  formId: string;
+  total: number;
+  firstResponseAt: Date | null;
+  lastResponseAt: Date | null;
+  fields: FieldSummary[];
+  /** Suppressed when too few responses exist to keep individuals unidentifiable. */
+  suppressed: boolean;
+  minimumForBreakdown: number;
+}
+
+/**
+ * Responses below this count produce totals only, no per-field breakdown.
+ *
+ * With three answers to an anonymous survey in a team of four, a breakdown is a
+ * guessing game. This is the difference between an anonymity claim that holds
+ * and one that holds only on average.
+ */
+export const MIN_RESPONSES_FOR_BREAKDOWN = 5;
+
+const SUMMARISABLE = new Set([
+  'select',
+  'radio',
+  'checkbox',
+  'multiselect',
+  'dropdown',
+  'rating',
+  'scale',
+  'boolean',
+  'yesno',
+]);
+
+const NUMERIC = new Set(['number', 'rating', 'scale', 'currency']);
+
+/**
+ * Counts and distributions computed server-side, so an aggregate-only viewer
+ * gets real insight without a single individual response reaching the client.
+ */
+export function aggregateSubmissions(
+  formId: string,
+  submissions: RawSubmission[],
+  schema: unknown
+): AggregateResult {
+  const total = submissions.length;
+  const times = submissions.map(s => s.createdAt.getTime());
+
+  const result: AggregateResult = {
+    formId,
+    total,
+    firstResponseAt: total ? new Date(Math.min(...times)) : null,
+    lastResponseAt: total ? new Date(Math.max(...times)) : null,
+    fields: [],
+    suppressed: total > 0 && total < MIN_RESPONSES_FOR_BREAKDOWN,
+    minimumForBreakdown: MIN_RESPONSES_FOR_BREAKDOWN,
+  };
+
+  if (result.suppressed || total === 0) return result;
+
+  const fields: SchemaField[] = (schema as any)?.fields ?? [];
+  const identifying = identifyingKeys(schema);
+  const parsed = submissions.map(s => parseData(s.data));
+
+  for (const field of fields) {
+    const key = field.id ?? field.name;
+    if (!key) continue;
+
+    // Free-text answers can quote a person verbatim; never summarise them.
+    if (identifying.has(key)) continue;
+
+    const type = (field.type ?? '').toLowerCase().replace(/[^a-z]/g, '');
+    const values = parsed
+      .map(row => row[key])
+      .filter(v => v !== undefined && v !== null && v !== '');
+
+    const summary: FieldSummary = {
+      key,
+      label: field.label ?? key,
+      type: field.type ?? 'unknown',
+      answered: values.length,
+    };
+
+    if (SUMMARISABLE.has(type)) {
+      const counts: Record<string, number> = {};
+      for (const value of values) {
+        for (const one of Array.isArray(value) ? value : [value]) {
+          const label = String(one);
+          counts[label] = (counts[label] ?? 0) + 1;
+        }
+      }
+      summary.counts = counts;
+    }
+
+    if (NUMERIC.has(type)) {
+      const numbers = values.map(Number).filter(n => Number.isFinite(n));
+      if (numbers.length) {
+        summary.stats = {
+          min: Math.min(...numbers),
+          max: Math.max(...numbers),
+          mean: Number((numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(2)),
+        };
+      }
+    }
+
+    result.fields.push(summary);
+  }
+
+  return result;
+}

@@ -1,0 +1,183 @@
+﻿/* 
+  Professional Two-Color Theme System
+  Strictly scoped to [data-theme] containers.
+  Designed for Public Forms (Soft Outer Background / Deep Inner Card).
+*/
+
+/* Professional Blue */
+[data-theme="modern-blue"] {
+  --background: 210 40% 96%;
+  /* Very Soft Blue Outer */
+  --foreground: 222 47% 11%;
+  --card: 222 47% 11%;
+  /* Deep Navy Inner */
+  --card-foreground: 210 40% 98%;
+  --primary: 217 91% 60%;
+  /* Bright Blue Accent */
+  --primary-foreground: 210 40% 98%;
+  --border: 217 32% 17%;
+  --input: 217 32% 17%;
+  --ring: 217 91% 60%;
+}
+
+/* Elegant Dark */
+[data-theme="dark-mode"] {
+  --background: 222 47% 4%;
+  /* Deep Charcoal Outer */
+  --foreground: 210 40% 98%;
+  --card: 222 47% 12%;
+  /* Slate Card Inner */
+  --card-foreground: 210 40% 98%;
+  --primary: 262 83% 58%;
+  /* Indigo Accent */
+  --primary-foreground: 210 40% 98%;
+  --border: 217 32% 20%;
+  --input: 217 32% 20%;
+}
+
+/* Soft Sage */
+[data-theme="nature-green"] {
+  --background: 140 20% 92%;
+  /* Soft Mint Outer */
+  --foreground: 140 40% 10%;
+  --card: 140 20% 20%;
+  /* Deep Sage Inner */
+  --card-foreground: 140 20% 95%;
+  --primary: 142 76% 36%;
+  /* Forest Green Accent */
+  --primary-foreground: 140 20% 95%;
+  --border: 140 20% 30%;
+  --input: 140 20% 30%;
+}
+
+/* Warm Sand */
+[data-theme="sunset-orange"] {
+  --background: 30 30% 96%;
+  /* Soft Sand Outer */
+  --foreground: 30 40% 10%;
+  --card: 30 30% 18%;
+  /* Deep Walnut Inner */
+  --card-foreground: 30 30% 95%;
+  --primary: 25 95% 45%;
+  /* Warm Terracotta Accent */
+  --primary-foreground: 30 30% 95%;
+  --border: 30 30% 25%;
+  --input: 30 30% 25%;
+}
+
+/* Royal Velvet */
+[data-theme="royal-purple"] {
+  --background: 270 30% 94%;
+  /* Soft Lavender Outer */
+  --foreground: 270 50% 10%;
+  --card: 270 50% 15%;
+  /* Deep Violet Inner */
+  --card-foreground: 270 30% 98%;
+  --primary: 270 91% 65%;
+  /* Bright Orchid Accent */
+  --primary-foreground: 270 30% 98%;
+  --border: 270 50% 25%;
+  --input: 270 50% 25%;
+}
+
+/* Clean Slate */
+[data-theme="monochrome"] {
+  --background: 210 20% 98%;
+  /* White-ish Outer */
+  --foreground: 210 20% 10%;
+  --card: 222 47% 11%;
+  /* Deep Slate Inner */
+  --card-foreground: 210 40% 98%;
+  --primary: 210 40% 98%;
+  /* White Accent */
+  --primary-foreground: 222 47% 11%;
+  --border: 217 32% 17%;
+  --input: 217 32% 17%;
+}
+
+/* Oceanic */
+[data-theme="ocean-teal"] {
+  --background: 190 40% 94%;
+  /* Soft Sky Outer */
+  --foreground: 190 60% 10%;
+  --card: 190 60% 15%;
+  /* Deep Abyss Inner */
+  --card-foreground: 190 40% 98%;
+  --primary: 190 90% 40%;
+  /* Vibrant Teal Accent */
+  --primary-foreground: 190 40% 98%;
+  --border: 190 60% 25%;
+  --input: 190 60% 25%;
+}
+
+/* Rose Garden */
+[data-theme="cherry-red"] {
+  --background: 350 30% 96%;
+  /* Soft Rose Outer */
+  --foreground: 350 60% 10%;
+  --card: 350 60% 18%;
+  /* Deep Burgundy Inner */
+  --card-foreground: 350 30% 98%;
+  --primary: 350 80% 55%;
+  /* Rich Red Accent */
+  --primary-foreground: 350 30% 98%;
+  --border: 350 60% 25%;
+  --input: 350 60% 25%;
+}
+
+/* Corporate */
+[data-theme="corporate-gray"] {
+  --background: 210 10% 92%;
+  /* Light Gray Outer */
+  --foreground: 210 20% 10%;
+  --card: 222 47% 11%;
+  /* Dark Gray Inner */
+  --card-foreground: 210 40% 98%;
+  --primary: 210 20% 45%;
+  /* Muted Gray Accent */
+  --primary-foreground: 210 40% 98%;
+  --border: 210 20% 20%;
+  --input: 210 20% 20%;
+}
+
+/* Base style overrides when a theme is active */
+[data-theme] {
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+[data-theme] .form-card {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+[data-theme] label,
+[data-theme] h1,
+[data-theme] h2,
+[data-theme] h3,
+[data-theme] h4 {
+  color: hsl(var(--card-foreground)) !important;
+}
+
+[data-theme] input,
+[data-theme] textarea,
+[data-theme] select {
+  background-color: hsl(var(--input)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+[data-theme] button.bg-primary {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+[data-theme] .text-muted-foreground {
+  color: hsl(var(--card-foreground) / 0.7) !important;
+}
+
+[data-theme] .bg-muted {
+  background-color: hsl(var(--border)) !important;
+}

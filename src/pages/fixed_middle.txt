@@ -1,0 +1,16 @@
+﻿  useEffect(() => {
+    if (theme && theme !== "default") {
+      document.body.setAttribute("data-theme", theme);
+    } else {
+      document.body.removeAttribute("data-theme");
+    }
+
+    return () => {
+      document.body.removeAttribute("data-theme");
+    };
+  }, [theme]);
+
+  return (
+    <div className="min-h-screen bg-background p-4 flex items-center justify-center">
+      <div className="w-full max-w-2xl">
+        {!submitted ? (

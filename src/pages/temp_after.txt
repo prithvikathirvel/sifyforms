@@ -1,0 +1,145 @@
+﻿    <div className="min-h-screen bg-muted/30 py-8 px-4">
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl">{form.name}</CardTitle>
+            {form.description && (
+              <CardDescription>{form.description}</CardDescription>
+            )}
+            {isMultiStep && currentStep && (
+              <div className="pt-2">
+                <h4 className="font-medium">{currentStep.title}</h4>
+                {currentStep.description && (
+                  <p className="text-sm text-muted-foreground mt-1">{currentStep.description}</p>
+                )}
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            {isMultiStep && totalSteps > 1 && (
+              <div className="mb-6">
+                <div className="flex gap-1">
+                  {Array.from({ length: totalSteps }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`h-1.5 flex-1 rounded-full ${i <= currentStepIndex ? 'bg-primary' : 'bg-muted'
+                        }`}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Step {currentStepIndex + 1} of {totalSteps}
+                </p>
+              </div>
+            )}
+
+
+
+            <form onSubmit={onFormSubmit} className="space-y-6" noValidate>
+              <FieldsByWidth
+                fields={visibleFields}
+                errors={errors}
+                renderField={renderField}
+                validationOpts={validationOpts}
+                formValues={formValues}
+              />
+
+              {/* Security Captcha Section - Inside Form at bottom */}
+              {form?.settings.reCaptcha && (
+                <div className="bg-muted/30 p-4 rounded-lg border space-y-3 mb-6">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Security Verification</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => generateCaptcha()}
+                      className="h-7 px-2 text-xs"
+                    >
+                      Refresh
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="bg-background border rounded px-4 py-2 font-mono text-xl tracking-widest select-none shadow-sm flex items-center justify-center min-w-[100px]">
+                      {captchaProblem.text} = ?
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        type="number"
+                        placeholder="Answer"
+                        value={captchaValue}
+                        onChange={(e) => {
+                          setCaptchaValue(e.target.value);
+                          setCaptchaError(null);
+                        }}
+                        className={captchaError ? "border-destructive focus-visible:ring-destructive" : ""}
+                      />
+                    </div>
+                  </div>
+                  {captchaError && (
+                    <p className="text-xs font-medium text-destructive">{captchaError}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2 mt-6">
+                {isMultiStep && !isFirstStep && allowBack && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handlePrevStep()}
+                    className="flex-1"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-2" />
+                    Previous
+                  </Button>
+                )}
+                {(() => {
+                  const isCaptchaSolved = !form?.settings.reCaptcha || (captchaValue !== '' && parseInt(captchaValue) === captchaProblem.answer);
+                  const isPreviewEnabled = !isMultiStep && previewConfig?.enabled && !showPreview;
+
+                  return isMultiStep && !isLastStep ? (
+                    <Button
+                      type="button"
+                      onClick={() => handleNextStep()}
+                      className="flex-1"
+                      disabled={!isCaptchaSolved}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  ) : isPreviewEnabled ? (
+                    <Button
+                      type="button"
+                      onClick={handleNextToPreview}
+                      className="flex-1"
+                      disabled={!isCaptchaSolved}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button type="submit" className="flex-1" disabled={isSubmitting || !isCaptchaSolved}>
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        'Submit'
+                      )}
+                    </Button>
+                  );
+                })()}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          Powered by <span className="font-semibold">SifyForms</span>
+        </p>
+      </div>
+    </div>
+  );
+}
