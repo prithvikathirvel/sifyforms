@@ -15,7 +15,7 @@ import { AuthLayout } from '../../components/auth/AuthLayout';
 import { Logo } from '../../components/ui/Logo';
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.string().min(1, 'Email address is required').email('Enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -33,6 +33,8 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
     defaultValues: {
       email: '',
       password: '',
@@ -60,15 +62,19 @@ export default function LoginPage() {
   return (
     <AuthLayout>
       <Card className="w-full max-w-[27.5rem] overflow-hidden rounded-2xl border-border bg-card shadow-xl shadow-foreground/[0.045]">
-        <CardHeader className="items-center space-y-0 px-6 pb-6 pt-7 text-center sm:px-8">
-          <Logo size="sm" />
-          <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Welcome back</p>
-          <CardTitle className="mt-2 font-display text-2xl font-bold leading-tight tracking-[-0.03em] text-foreground">
-            Sign in to your account
-          </CardTitle>
-          <p className="mt-2 text-[13px] font-medium leading-5 text-muted-foreground">
-            Enter your details to continue to SifyForms.
-          </p>
+        <CardHeader className="items-center space-y-0 px-6 pb-6 pt-7 text-center sm:px-8 sm:pt-8">
+          <div className="mb-5 flex w-full justify-center">
+            <Logo size="md" />
+          </div>
+          <div className="w-full space-y-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Welcome back</p>
+            <CardTitle className="font-display text-2xl font-bold leading-tight tracking-[-0.03em] text-foreground">
+              Sign in to your account
+            </CardTitle>
+            <p className="text-[13px] font-medium leading-5 text-muted-foreground">
+              Enter your details to continue to SifyForms.
+            </p>
+          </div>
         </CardHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -89,6 +95,7 @@ export default function LoginPage() {
                 <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={2} aria-hidden="true" />
                 <Input
                   id="email"
+                  required
                   type="email"
                   autoComplete="email"
                   inputMode="email"
@@ -113,6 +120,7 @@ export default function LoginPage() {
                 <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={2} aria-hidden="true" />
                 <Input
                   id="password"
+                  required
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   placeholder="Enter your password"

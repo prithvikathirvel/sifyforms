@@ -11,18 +11,20 @@ interface AuthLayoutProps {
 /** Full-viewport, distraction-free shell shared by authentication pages. */
 export function AuthLayout({ children, contentClassName }: AuthLayoutProps) {
   return (
-    <div className="public-shell relative min-h-[100dvh] overflow-x-hidden bg-background">
-      <Link
-        to="/"
-        className="absolute left-3 top-3 z-20 inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background/95 px-2.5 text-[11px] font-semibold text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-muted hover:text-foreground sm:left-5 sm:top-5"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to home
-      </Link>
+    <div className="public-shell flex min-h-[100dvh] flex-col overflow-x-hidden bg-background">
+      <nav className="mx-auto flex w-full max-w-7xl shrink-0 px-3 pt-3 sm:px-5 sm:pt-4" aria-label="Authentication navigation">
+        <Link
+          to="/"
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[11px] font-semibold text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+          Back to home
+        </Link>
+      </nav>
 
       <main
         className={cn(
-          'flex min-h-[100dvh] items-center justify-center px-3 pb-3 pt-14 sm:px-5 sm:pb-5 sm:pt-16 lg:p-4',
+          'flex flex-1 items-center justify-center px-3 pb-3 pt-2 sm:px-5 sm:pb-5 sm:pt-3 lg:px-4 lg:pb-4',
           contentClassName
         )}
       >

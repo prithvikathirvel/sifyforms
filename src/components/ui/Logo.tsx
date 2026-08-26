@@ -1,5 +1,3 @@
-import { useId } from 'react';
-
 type Variant = 'lockup' | 'icon';
 type Size = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -25,11 +23,11 @@ const WORDMARK_SIZE: Record<Size, string> = {
 };
 
 /**
- * SifyForms logo rendered as a responsive vector.
+ * SifyForms brand mark.
  *
- * The mark follows the supplied form-document artwork and reads its gradient
- * from the central design tokens. The wordmark stays as live text so it is
- * sharp, accessible, and easy to recolor with the rest of the public theme.
+ * A solid blue form-and-check symbol stays recognizable at favicon size and
+ * avoids decorative gradients. The lockup uses live text for crisp rendering,
+ * accessibility, and easy theme-level color changes.
  */
 export function Logo({
   variant = 'lockup',
@@ -37,11 +35,10 @@ export function Logo({
   withWordmark = false,
   className = '',
 }: LogoProps) {
-  const gradientId = `sifyforms-gradient-${useId().replace(/:/g, '')}`;
   const showWordmark = variant === 'lockup' || withWordmark;
 
   return (
-    <span className={`inline-flex items-center gap-2.5 ${className}`}>
+    <span className={`inline-flex min-w-0 items-center gap-2.5 ${className}`}>
       <svg
         viewBox="0 0 64 64"
         className={`${MARK_SIZE[size]} shrink-0`}
@@ -49,35 +46,24 @@ export function Logo({
         aria-hidden={showWordmark || undefined}
         aria-label={showWordmark ? undefined : 'SifyForms'}
       >
-        <defs>
-          <linearGradient id={gradientId} x1="7" y1="57" x2="57" y2="7" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="hsl(var(--brand-from))" />
-            <stop offset="0.52" stopColor="hsl(var(--brand-mid))" />
-            <stop offset="1" stopColor="hsl(var(--brand-to))" />
-          </linearGradient>
-        </defs>
-        <rect x="2" y="2" width="60" height="60" rx="15" fill={`url(#${gradientId})`} />
+        <rect x="2" y="2" width="60" height="60" rx="15" fill="hsl(var(--logo-blue))" />
         <path
-          d="M19.25 13.5h17.2L46.75 23.8v23.7a4 4 0 0 1-4 4h-23.5a4 4 0 0 1-4-4v-30a4 4 0 0 1 4-4Z"
+          d="M19 13.5h17.2L47 24.3v23.2a4 4 0 0 1-4 4H19a4 4 0 0 1-4-4v-30a4 4 0 0 1 4-4Z"
           fill="white"
         />
-        <path d="M36.25 13.5v8.1a2.4 2.4 0 0 0 2.4 2.4h8.1" fill="hsl(var(--brand-to) / 0.18)" />
-        <path d="m36.25 13.5 10.5 10.5h-8.1a2.4 2.4 0 0 1-2.4-2.4v-8.1Z" fill="white" fillOpacity="0.82" />
-        <circle cx="22.25" cy="29.5" r="2" fill={`url(#${gradientId})`} />
-        <rect x="27" y="27.6" width="13.75" height="3.8" rx="1.9" fill={`url(#${gradientId})`} />
-        <circle cx="22.25" cy="37.25" r="2" fill={`url(#${gradientId})`} />
-        <rect x="27" y="35.35" width="13.75" height="3.8" rx="1.9" fill={`url(#${gradientId})`} />
-        <circle cx="22.25" cy="45" r="3.65" fill={`url(#${gradientId})`} />
-        <path d="m20.3 44.9 1.35 1.4 2.65-3" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <rect x="27" y="43.1" width="13.75" height="3.8" rx="1.9" fill={`url(#${gradientId})`} />
+        <path d="M36.2 13.5v8.4a2.4 2.4 0 0 0 2.4 2.4H47L36.2 13.5Z" fill="hsl(var(--logo-blue))" fillOpacity="0.16" />
+        <circle cx="22.5" cy="30" r="1.8" fill="hsl(var(--logo-blue))" />
+        <rect x="27" y="28.3" width="13" height="3.4" rx="1.7" fill="hsl(var(--logo-blue))" />
+        <circle cx="22.5" cy="37.5" r="1.8" fill="hsl(var(--logo-blue))" />
+        <rect x="27" y="35.8" width="13" height="3.4" rx="1.7" fill="hsl(var(--logo-blue))" />
+        <circle cx="22.5" cy="45" r="3.7" fill="hsl(var(--logo-blue))" />
+        <path d="m20.6 44.9 1.35 1.35 2.55-2.9" fill="none" stroke="white" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="27" y="43.3" width="13" height="3.4" rx="1.7" fill="hsl(var(--logo-blue))" />
       </svg>
 
       {showWordmark && (
-        <span
-          className={`${WORDMARK_SIZE[size]} font-display font-bold leading-none tracking-[-0.045em]`}
-          style={{ color: 'hsl(var(--brand-from))' }}
-        >
-          sifyforms<span className="text-brand-gradient">.ai</span>
+        <span className={`${WORDMARK_SIZE[size]} truncate font-display font-bold leading-none tracking-[-0.045em] text-foreground`}>
+          sifyforms<span style={{ color: 'hsl(var(--logo-blue))' }}>.ai</span>
         </span>
       )}
     </span>

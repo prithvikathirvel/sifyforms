@@ -60,6 +60,9 @@
     --font-inter: 'Inter Variable';
     --font-geist: 'Geist Variable';
 
+    /* Solid logo color; intentionally separate from decorative brand gradients. */
+    --logo-blue: 221 83% 53%;
+
     /* Brand and neutral palette. Public and product pages share these tokens. */
     --brand-from: 265 72% 31%;
     --brand-mid: 285 68% 39%;

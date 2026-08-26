@@ -27,9 +27,9 @@ import { AuthLayout } from '../../components/auth/AuthLayout';
 import { Logo } from '../../components/ui/Logo';
 
 const signupSchema = z.object({
-  email: z.string().email('Invalid email format. Only letters, numbers, and dots are allowed.'),
+  email: z.string().min(1, 'Email address is required').email('Enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
-  confirmPassword: z.string(),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
   username: z.string().min(3, 'Username must be at least 3 characters long').max(25, 'Username cannot exceed 25 characters'),
   firstName: z.string().min(3, 'First name must be at least 3 characters long').max(25, 'First name cannot exceed 25 characters'),
   lastName: z.string().min(3, 'Last name must be at least 3 characters long').max(25, 'Last name cannot exceed 25 characters'),
@@ -88,6 +88,7 @@ export default function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
   const [kvPairs, setKvPairs] = useState<{ key: string; value: string }[]>([]);
+  const [detailsError, setDetailsError] = useState('');
 
   const {
     register,
@@ -95,6 +96,8 @@ export default function SignupPage() {
     formState: { errors },
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -116,14 +119,28 @@ export default function SignupPage() {
   }, [error, dispatch]);
 
   const addKvPair = () => setKvPairs((prev) => [...prev, { key: '', value: '' }]);
-  const removeKvPair = (i: number) => setKvPairs((prev) => prev.filter((_, idx) => idx !== i));
-  const updateKvPair = (i: number, field: 'key' | 'value', val: string) =>
+  const removeKvPair = (i: number) => {
+    setKvPairs((prev) => prev.filter((_, idx) => idx !== i));
+    setDetailsError('');
+  };
+  const updateKvPair = (i: number, field: 'key' | 'value', val: string) => {
     setKvPairs((prev) => prev.map((pair, idx) => (idx === i ? { ...pair, [field]: val } : pair)));
+    setDetailsError('');
+  };
 
   const onSubmit = async (data: SignupFormData) => {
     setSubmitting(true);
 
     try {
+      const hasIncompleteDetail = kvPairs.some(
+        (pair) => !pair.key.trim() || !pair.value.trim()
+      );
+      if (hasIncompleteDetail) {
+        setDetailsError('Complete both the label and value for each custom field.');
+        return;
+      }
+      setDetailsError('');
+
       const rest = { ...data };
       delete (rest as Partial<SignupFormData>).confirmPassword;
 
@@ -167,13 +184,13 @@ export default function SignupPage() {
       )}
 
       <Card className="w-full max-w-6xl overflow-hidden rounded-2xl border-border bg-card shadow-xl shadow-foreground/[0.045]">
-        <CardHeader className="flex-row items-center space-x-3 space-y-0 border-b border-border/70 px-5 py-4 text-left sm:px-7">
-          <Logo size="sm" className="shrink-0" />
-          <div className="min-w-0">
+        <CardHeader className="flex-row items-center gap-3 space-x-0 space-y-0 border-b border-border/70 px-5 py-4 text-left sm:gap-4 sm:px-7">
+          <Logo variant="icon" size="md" className="shrink-0" />
+          <div className="min-w-0 flex-1 space-y-1">
             <CardTitle className="font-display text-xl font-bold leading-tight tracking-[-0.03em] text-foreground">
               Create your account
             </CardTitle>
-            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+            <p className="max-w-2xl text-xs font-medium leading-5 text-muted-foreground">
               Complete every field below to set up your SifyForms account.
             </p>
           </div>
@@ -414,6 +431,9 @@ export default function SignupPage() {
                       <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                         <Input
                           aria-label={`Additional detail ${index + 1} label`}
+                          aria-invalid={Boolean(detailsError && !pair.key.trim())}
+                          aria-describedby={detailsError ? 'custom-details-error' : undefined}
+                          required
                           placeholder="Label"
                           value={pair.key}
                           className={inputClassName}
@@ -421,6 +441,9 @@ export default function SignupPage() {
                         />
                         <Input
                           aria-label={`Additional detail ${index + 1} value`}
+                          aria-invalid={Boolean(detailsError && !pair.value.trim())}
+                          aria-describedby={detailsError ? 'custom-details-error' : undefined}
+                          required
                           placeholder="Value"
                           value={pair.value}
                           className={`${inputClassName} col-span-2 row-start-2 sm:col-span-1 sm:row-auto`}
@@ -440,6 +463,13 @@ export default function SignupPage() {
                 )}
               </div>
             </details>
+
+            {detailsError && (
+              <p id="custom-details-error" role="alert" className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+                <CircleAlert className="h-3.5 w-3.5 shrink-0" />
+                {detailsError}
+              </p>
+            )}
           </CardContent>
 
           <CardFooter className="flex-col-reverse justify-between gap-3 border-t border-border/70 bg-muted/20 px-5 py-3.5 sm:flex-row sm:px-7">
