@@ -16,12 +16,20 @@ export default {
     extend: {
       fontFamily: {
         sans: [
-          "TheSans",
+          "var(--font-inter)",
+          "Inter Variable",
+          "Inter",
           "system-ui",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
-          "Roboto",
+          "sans-serif",
+        ],
+        display: [
+          "var(--font-geist)",
+          "Geist Variable",
+          "Inter Variable",
+          "system-ui",
           "sans-serif",
         ],
       },

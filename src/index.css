@@ -57,6 +57,10 @@
 
 @layer base {
   :root {
+    /* Typography is centralized here so product fonts can be changed once. */
+    --font-inter: 'Inter Variable';
+    --font-geist: 'Geist Variable';
+
     /* the mark's gradient, for hero and brand surfaces */
     --brand-from: 268 45% 30%;
     --brand-mid: 285 38% 36%;
@@ -144,9 +148,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'TheSans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    /* Only 400 and 700 are shipped; let the browser stop inventing the rest. */
-    font-synthesis-weight: none;
+    font-family: var(--font-inter), 'Inter Variable', 'TheSans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
   /* Selection picks up the accent rather than the browser default blue. */
@@ -192,21 +194,49 @@
     border-color: hsl(var(--primary) / 0.18);
   }
 
-  /* Low-contrast texture used on marketing and authentication surfaces. */
-  .landing-dot-pattern {
-    background-image: radial-gradient(hsl(var(--primary) / 0.14) 0.7px, transparent 0.7px);
-    background-size: 18px 18px;
-    -webkit-mask-image: linear-gradient(to bottom, black, transparent 88%);
-    mask-image: linear-gradient(to bottom, black, transparent 88%);
+  /**
+   * Public-page theme. Landing and authentication screens intentionally use a
+   * crisp white/slate foundation with the logo gradient reserved for emphasis.
+   * Keeping these values in one scope makes the public site easy to retheme
+   * without changing the authenticated product workspace.
+   */
+  .public-shell {
+    --brand-from: 265 72% 31%;
+    --brand-mid: 285 68% 39%;
+    --brand-to: 331 82% 54%;
+
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 265 67% 36%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 20% 97%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 20% 98%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 270 45% 96%;
+    --accent-foreground: 265 67% 30%;
+
+    --border: 214 24% 90%;
+    --input: 214 24% 88%;
+    --ring: 265 67% 42%;
+    --radius: 0.625rem;
+
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
-  .auth-panel-pattern {
+  .public-subtle-grid {
     background-image:
-      linear-gradient(hsl(var(--primary-foreground) / 0.055) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--primary-foreground) / 0.055) 1px, transparent 1px);
-    background-size: 42px 42px;
-    -webkit-mask-image: linear-gradient(145deg, black, transparent 82%);
-    mask-image: linear-gradient(145deg, black, transparent 82%);
+      linear-gradient(hsl(var(--foreground) / 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.025) 1px, transparent 1px);
+    background-size: 32px 32px;
+    -webkit-mask-image: linear-gradient(to bottom, black, transparent 75%);
+    mask-image: linear-gradient(to bottom, black, transparent 75%);
   }
 }
 
