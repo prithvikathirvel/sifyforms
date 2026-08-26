@@ -3,7 +3,7 @@ import { Button } from './button';
 import { Label } from './label';
 import { Download, Eye, EyeOff, File, Image, FileText } from 'lucide-react';
 import type { FormField } from '../../types';
-import { getDownloadUrl } from '../../lib/dms';
+import { getDownloadUrl, triggerBrowserDownload } from '../../lib/dms';
 
 interface SubmissionData {
   [key: string]: any;
@@ -477,7 +477,7 @@ export default function SubmissionViewer({ fields, data, redactedFields }: Submi
     const handleDmsDownload = async () => {
       try {
         const url = await getDownloadUrl(fileData.documentId);
-        window.open(url, '_blank');
+        await triggerBrowserDownload(url, fileData.filename || 'download');
       } catch {
         alert('Failed to get download link.');
       }
@@ -486,14 +486,19 @@ export default function SubmissionViewer({ fields, data, redactedFields }: Submi
     return (
       <Card key={key} className="p-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleDmsDownload}
+            className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0 hover:bg-muted/80"
+            title="Download file"
+          >
             <FileIcon className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{fileData.filename}</p>
+          </button>
+          <button type="button" onClick={handleDmsDownload} className="flex-1 min-w-0 text-left">
+            <p className="text-sm font-medium truncate hover:underline">{fileData.filename}</p>
             <p className="text-xs text-muted-foreground">{formatSize(fileData.size)}</p>
-          </div>
-          <Button type="button" variant="ghost" size="sm" onClick={handleDmsDownload}>
+          </button>
+          <Button type="button" variant="ghost" size="sm" onClick={handleDmsDownload} title="Download">
             <Download className="h-4 w-4" />
           </Button>
         </div>

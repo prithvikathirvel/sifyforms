@@ -2,46 +2,64 @@ import React, { useState, useRef } from 'react';
 import { Button } from './button';
 import { Label } from './label';
 import { Card } from './card';
-import { Upload, X, File, Image, FileText, Download, Loader2, CheckCircle2 } from 'lucide-react';
-import type { FormField, DmsFileReference } from '../../types';
-import { uploadFilePublic, getDownloadUrl } from '../../lib/dms';
+import { Upload, X, File, Image, FileText, Download, CheckCircle2 } from 'lucide-react';
+import type { FormField, FormFileValue } from '../../types';
+import {
+  getDownloadUrl,
+  getPublicDownloadUrl,
+  createPendingLocalFile,
+  isPendingLocalFile,
+  isDmsFileReference,
+  downloadLocalFile,
+  triggerBrowserDownload,
+  resolveMaxSizeBytes,
+} from '../../lib/dms';
 
 interface DmsFileUploadProps {
   field: FormField;
-  value: DmsFileReference[] | null;
-  onChange: (files: DmsFileReference[] | null) => void;
+  value: FormFileValue[] | null;
+  onChange: (files: FormFileValue[] | null) => void;
   formId: string;
   error?: string;
   disabled?: boolean;
   hideLabel?: boolean;
+  /** When true (default), files stay local until final form submission. */
+  deferUpload?: boolean;
+  /** Public form respondents must use the public download endpoint. */
+  publicDownload?: boolean;
 }
 
-interface UploadingFile {
-  id: string;
-  name: string;
-  size: number;
-  progress: number;
-  error?: string;
-}
-
-export default function DmsFileUpload({ field, value, onChange, formId, error, disabled, hideLabel = false }: DmsFileUploadProps) {
-  const [uploading, setUploading] = useState<UploadingFile[]>([]);
+export default function DmsFileUpload({
+  field,
+  value,
+  onChange,
+  formId,
+  error,
+  disabled,
+  hideLabel = false,
+  deferUpload = true,
+  publicDownload = false,
+}: DmsFileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fileConfig = field.fileConfig || {};
   const accept = fileConfig.accept?.join(',') || '*/*';
-  const maxSize = fileConfig.maxSize || 10; // MB
+  const maxSizeBytes = resolveMaxSizeBytes(fileConfig.maxSize) || 10 * 1024 * 1024;
+  const minSizeBytes = fileConfig.minSize
+    ? (fileConfig.minSize > 1024 ? fileConfig.minSize : fileConfig.minSize * 1024 * 1024)
+    : 0;
   const multiple = fileConfig.multiple || false;
   const maxFiles = fileConfig.maxFiles || 1;
   const currentFiles = value || [];
+  const maxSizeMb = Math.max(1, Math.round(maxSizeBytes / (1024 * 1024)));
 
   const validateFile = (file: File): string | null => {
-    if (fileConfig.minSize && file.size < fileConfig.minSize * 1024 * 1024) {
-      return `File size must be at least ${fileConfig.minSize} MB`;
+    if (minSizeBytes && file.size < minSizeBytes) {
+      return `File size must be at least ${(minSizeBytes / (1024 * 1024)).toFixed(1)} MB`;
     }
-    if (file.size > maxSize * 1024 * 1024) {
-      return `File size exceeds ${maxSize} MB`;
+    if (file.size > maxSizeBytes) {
+      return `File size exceeds ${maxSizeMb} MB`;
     }
     if (fileConfig.accept && fileConfig.accept.length > 0) {
       const isAccepted = fileConfig.accept.some((acceptType: string) => {
@@ -54,7 +72,7 @@ export default function DmsFileUpload({ field, value, onChange, formId, error, d
     return null;
   };
 
-  const handleFiles = async (files: FileList | null) => {
+  const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     const fileArray = Array.from(files);
@@ -74,42 +92,9 @@ export default function DmsFileUpload({ field, value, onChange, formId, error, d
     }
     if (validFiles.length === 0) return;
 
-    // Upload each file via DMS
-    const newUploading: UploadingFile[] = validFiles.map((f) => ({
-      id: `${f.name}-${Date.now()}-${Math.random()}`,
-      name: f.name,
-      size: f.size,
-      progress: 0,
-    }));
-    setUploading((prev) => [...prev, ...newUploading]);
-
-    const results: DmsFileReference[] = [];
-    for (let i = 0; i < validFiles.length; i++) {
-      const file = validFiles[i];
-      const uploadState = newUploading[i];
-      try {
-        const ref = await uploadFilePublic(file, formId, field.id, (percent) => {
-          setUploading((prev) =>
-            prev.map((u) => (u.id === uploadState.id ? { ...u, progress: percent } : u)),
-          );
-        });
-        results.push(ref);
-        setUploading((prev) => prev.filter((u) => u.id !== uploadState.id));
-      } catch (err: any) {
-        setUploading((prev) =>
-          prev.map((u) =>
-            u.id === uploadState.id
-              ? { ...u, error: err.response?.data?.error || err.message || 'Upload failed' }
-              : u,
-          ),
-        );
-      }
-    }
-
-    if (results.length > 0) {
-      const updated = multiple ? [...currentFiles, ...results] : results;
-      onChange(updated);
-    }
+    const pending = validFiles.map(createPendingLocalFile);
+    const updated = multiple ? [...currentFiles, ...pending] : pending;
+    onChange(updated);
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -131,14 +116,17 @@ export default function DmsFileUpload({ field, value, onChange, formId, error, d
     onChange(next.length > 0 ? next : null);
   };
 
-  const removeUploadingFile = (id: string) => {
-    setUploading((prev) => prev.filter((u) => u.id !== id));
-  };
-
-  const handleDownload = async (ref: DmsFileReference) => {
+  const handleDownload = async (ref: FormFileValue) => {
     try {
-      const url = await getDownloadUrl(ref.documentId);
-      window.open(url, '_blank');
+      if (isPendingLocalFile(ref)) {
+        downloadLocalFile(ref.file);
+        return;
+      }
+      if (!isDmsFileReference(ref)) return;
+      const url = publicDownload
+        ? await getPublicDownloadUrl(ref.documentId, formId)
+        : await getDownloadUrl(ref.documentId);
+      await triggerBrowserDownload(url, ref.filename);
     } catch {
       alert('Failed to get download link.');
     }
@@ -153,8 +141,8 @@ export default function DmsFileUpload({ field, value, onChange, formId, error, d
   };
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) return Image;
-    if (mimeType.includes('pdf') || mimeType.includes('document')) return FileText;
+    if (mimeType?.startsWith('image/')) return Image;
+    if (mimeType?.includes('pdf') || mimeType?.includes('document')) return FileText;
     return File;
   };
 
@@ -196,61 +184,36 @@ export default function DmsFileUpload({ field, value, onChange, formId, error, d
           {multiple ? 'Drop files here or click to browse' : 'Drop file here or click to browse'}
         </p>
         <p className="text-xs text-muted-foreground">
-          {getAcceptedTypesText()} • Max size: {maxSize} MB
+          {getAcceptedTypesText()} • Max size: {maxSizeMb} MB
           {multiple && ` • Max ${maxFiles} files`}
         </p>
       </div>
 
-      {/* Files in-progress */}
-      {uploading.length > 0 && (
-        <div className="space-y-2">
-          {uploading.map((u) => (
-            <Card key={u.id} className="p-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
-                  {u.error ? <X className="h-5 w-5 text-destructive" /> : <Loader2 className="h-5 w-5 animate-spin text-primary" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{u.name}</p>
-                  {u.error ? (
-                    <p className="text-xs text-destructive">{u.error}</p>
-                  ) : (
-                    <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                      <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${u.progress}%` }} />
-                    </div>
-                  )}
-                </div>
-                {u.error && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => removeUploadingFile(u.id)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Uploaded DMS files */}
       {currentFiles.length > 0 && (
         <div className="space-y-2">
           <div className="text-sm font-medium text-muted-foreground">
-            {currentFiles.length === 1 ? 'Uploaded file' : `Uploaded files (${currentFiles.length})`}
+            {currentFiles.length === 1 ? 'Selected file' : `Selected files (${currentFiles.length})`}
           </div>
           {currentFiles.map((ref, index) => {
-            const FileIcon = getFileIcon(ref.mimeType);
+            const mime = isPendingLocalFile(ref) ? ref.mimeType : ref.mimeType;
+            const name = isPendingLocalFile(ref) ? ref.filename : ref.filename;
+            const size = isPendingLocalFile(ref) ? ref.size : ref.size;
+            const pending = isPendingLocalFile(ref);
+            const FileIcon = getFileIcon(mime);
             return (
-              <Card key={ref.documentId} className="p-3">
+              <Card key={pending ? ref.pendingId : ref.documentId} className="p-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
                     <FileIcon className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{ref.filename}</p>
+                    <p className="text-sm font-medium truncate">{name}</p>
                     <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground">{formatFileSize(ref.size)}</p>
-                      <CheckCircle2 className="h-3 w-3 text-green-500" />
-                      <span className="text-xs text-green-600">Uploaded</span>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(size)}</p>
+                      <CheckCircle2 className={`h-3 w-3 ${pending ? 'text-amber-500' : 'text-green-500'}`} />
+                      <span className={`text-xs ${pending ? 'text-amber-700' : 'text-green-600'}`}>
+                        {pending ? (deferUpload ? 'Ready — uploads on submit' : 'Ready') : 'Uploaded'}
+                      </span>
                     </div>
                   </div>
                   <div className="flex gap-1">

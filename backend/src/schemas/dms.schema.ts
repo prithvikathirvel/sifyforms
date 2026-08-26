@@ -28,3 +28,8 @@ export const ConfirmUploadSchema = z.object({
 export const DownloadSchema = z.object({
   versionNumber: z.number().int().optional(),
 });
+
+export const PublicDownloadSchema = z.object({
+  formId: z.string().min(1),
+  versionNumber: z.number().int().optional(),
+});

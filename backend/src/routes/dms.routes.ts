@@ -5,6 +5,7 @@ import {
   confirmUpload,
   downloadUrl,
   previewUrl,
+  publicDownloadUrl,
 } from '../controllers/express/dms.controller';
 import { validate } from '../middleware/validate.middleware';
 import { authMiddleware, orgMiddleware } from '../middleware/auth.middleware';
@@ -13,23 +14,30 @@ import {
   PublicInitiateUploadSchema,
   ConfirmUploadSchema,
   DownloadSchema,
+  PublicDownloadSchema,
 } from '../schemas/dms.schema';
 import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
-// Rate limit public DMS uploads: 30 requests per 5 minutes per IP
 const publicUploadLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 30,
   message: { error: 'Too many upload requests, please try again later.' },
 });
 
-// Public routes (for form respondents uploading files)
+const publicDownloadLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many download requests, please try again later.' },
+});
+
+// Public routes (form respondents)
 router.post('/upload/public-initiate', publicUploadLimiter, validate(PublicInitiateUploadSchema), publicInitiateUpload);
 router.post('/upload/public-confirm/:documentId', publicUploadLimiter, validate(ConfirmUploadSchema), confirmUpload);
+router.post('/download/public/:documentId', publicDownloadLimiter, validate(PublicDownloadSchema), publicDownloadUrl);
 
-// Protected routes (for authenticated form builders/admins)
+// Protected routes (authenticated form builders/admins)
 router.use(authMiddleware);
 router.use(orgMiddleware);
 

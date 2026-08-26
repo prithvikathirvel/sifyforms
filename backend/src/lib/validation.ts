@@ -179,8 +179,9 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
       }
       for (const f of files) {
         if (typeof f !== 'object' || !f) continue;
-        if (cfg.maxSize && f.size && f.size > cfg.maxSize * 1024 * 1024) {
-          errors[field.id] = `File "${f.filename || f.name}" exceeds maximum size (${cfg.maxSize} MB).`;
+        const maxBytes = cfg.maxSize > 1024 ? cfg.maxSize : cfg.maxSize * 1024 * 1024;
+        if (cfg.maxSize && f.size && f.size > maxBytes) {
+          errors[field.id] = `File "${f.filename || f.name}" exceeds maximum size.`;
           break;
         }
         if (cfg.accept && cfg.accept.length > 0) {

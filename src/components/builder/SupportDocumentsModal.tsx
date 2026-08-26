@@ -16,6 +16,7 @@ interface SupportDocument {
     fileType?: string;
     fileData?: string;
     documentId?: string;
+    pendingFile?: File;
 }
 
 interface SupportDocumentsModalProps {
@@ -38,8 +39,8 @@ export function SupportDocumentsModal({
     dmsEnabled = false,
 }: SupportDocumentsModalProps) {
     const [localDocuments, setLocalDocuments] = useState<SupportDocument[]>([]);
-    const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
-    const [uploadProgress, setUploadProgress] = useState(0);
+    const [saving, setSaving] = useState(false);
+    const [saveProgress, setSaveProgress] = useState(0);
     const [uploadError, setUploadError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -48,8 +49,8 @@ export function SupportDocumentsModal({
                 ...doc,
                 mode: doc.mode || (doc.documentId ? 'dms' : doc.fileData ? 'upload' : 'link') as 'link' | 'upload' | 'dms'
             })));
-            setUploadingIndex(null);
-            setUploadProgress(0);
+            setSaving(false);
+            setSaveProgress(0);
             setUploadError(null);
         }
     }, [isOpen, field.supportDocuments]);
@@ -68,42 +69,80 @@ export function SupportDocumentsModal({
         reader.readAsDataURL(file);
     };
 
-    const handleDmsUpload = async (index: number, file: File) => {
-        if (!orgId || !formId) {
-            setUploadError('Organization or form context is missing.');
-            return;
-        }
-        setUploadingIndex(index);
-        setUploadProgress(0);
+    const handleDmsFileSelect = (index: number, file: File) => {
         setUploadError(null);
-        try {
-            const ref = await uploadFileAuthenticated(file, 'support-doc', orgId, formId, (pct) => {
-                setUploadProgress(pct);
-            });
-            updateDocument(index, {
-                documentId: ref.documentId,
-                fileName: ref.filename,
-                fileType: ref.mimeType,
-                fileData: undefined,
-                url: undefined,
-            });
-        } catch (err: any) {
-            setUploadError(err.response?.data?.error || err.message || 'Upload failed');
-        } finally {
-            setUploadingIndex(null);
-            setUploadProgress(0);
-        }
+        updateDocument(index, {
+            fileName: file.name,
+            fileType: file.type,
+            pendingFile: file,
+            fileData: undefined,
+            url: undefined,
+        });
     };
 
     if (!isOpen) return null;
 
-    const handleSave = () => {
+    const persistableDoc = (doc: SupportDocument) => {
+        const { pendingFile: _pending, ...rest } = doc;
+        return rest;
+    };
+
+    const handleSave = async () => {
         const missingLabel = localDocuments.some((doc) => !doc.label.trim());
         if (missingLabel) {
             alert('Display Label is required for all documents.');
             return;
         }
-        onUpdate({ supportDocuments: localDocuments });
+
+        const pending = localDocuments.filter((doc) => doc.mode === 'dms' && doc.pendingFile);
+        if (pending.length > 0) {
+            if (!orgId || !formId) {
+                setUploadError('Organization or form context is missing. Save the form first, then attach DMS documents.');
+                return;
+            }
+            setSaving(true);
+            setSaveProgress(0);
+            setUploadError(null);
+            try {
+                const uploaded: SupportDocument[] = [];
+                for (let i = 0; i < localDocuments.length; i++) {
+                    const doc = localDocuments[i];
+                    if (doc.mode === 'dms' && doc.pendingFile) {
+                        const ref = await uploadFileAuthenticated(
+                            doc.pendingFile,
+                            'support-doc',
+                            orgId,
+                            formId,
+                            (pct) => {
+                                const base = (i / localDocuments.length) * 100;
+                                setSaveProgress(Math.round(base + pct / localDocuments.length));
+                            },
+                        );
+                        uploaded.push({
+                            ...persistableDoc(doc),
+                            documentId: ref.documentId,
+                            fileName: ref.filename,
+                            fileType: ref.mimeType,
+                            fileData: undefined,
+                            url: undefined,
+                            mode: 'dms',
+                        });
+                    } else {
+                        uploaded.push(persistableDoc(doc));
+                    }
+                }
+                onUpdate({ supportDocuments: uploaded });
+                onClose();
+            } catch (err: any) {
+                setUploadError(err.response?.data?.error || err.message || 'Upload failed');
+            } finally {
+                setSaving(false);
+                setSaveProgress(0);
+            }
+            return;
+        }
+
+        onUpdate({ supportDocuments: localDocuments.map(persistableDoc) });
         onClose();
     };
 
@@ -138,7 +177,7 @@ export function SupportDocumentsModal({
                         </CardTitle>
                         <p className="text-xs text-muted-foreground">Add reference documents or links for the candidate to review.</p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
+                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full" disabled={saving}>
                         <X className="h-5 w-5" />
                     </Button>
                 </CardHeader>
@@ -146,7 +185,7 @@ export function SupportDocumentsModal({
                 <CardContent className="flex-1 p-6 space-y-6">
                     <div className="flex items-center justify-between">
                         <Label className="text-sm font-semibold">Configured Documents</Label>
-                        <Button variant="outline" size="sm" onClick={addDocument} className="bg-plum-50 text-plum-700 border-plum-200 hover:bg-plum-100">
+                        <Button variant="outline" size="sm" onClick={addDocument} className="bg-plum-50 text-plum-700 border-plum-200 hover:bg-plum-100" disabled={saving}>
                             <Plus className="h-3.5 w-3.5 mr-1" />
                             Add Document
                         </Button>
@@ -172,6 +211,7 @@ export function SupportDocumentsModal({
                                                 onChange={(e) => updateDocument(index, { label: e.target.value })}
                                                 placeholder="e.g. Guidelines"
                                                 className={`h-9 text-sm font-medium ${!doc.label.trim() ? 'border-red-400' : ''}`}
+                                                disabled={saving}
                                             />
                                             {!doc.label.trim() && (
                                                 <p className="text-xs text-red-500 mt-1">Display label is required</p>
@@ -182,6 +222,7 @@ export function SupportDocumentsModal({
                                             size="sm"
                                             onClick={() => removeDocument(index)}
                                             className="ml-2 h-8 w-8 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-full"
+                                            disabled={saving}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -192,14 +233,15 @@ export function SupportDocumentsModal({
                                             <Label className="text-[11px] font-bold uppercase text-muted-foreground block mb-2">Content Type</Label>
                                             <select
                                                 value={doc.mode}
+                                                disabled={saving}
                                                 onChange={(e) => {
                                                     const mode = e.target.value as 'link' | 'upload' | 'dms';
                                                     if (mode === 'link') {
-                                                        updateDocument(index, { mode: 'link', fileData: undefined, fileName: undefined, fileType: undefined, documentId: undefined, url: '' });
+                                                        updateDocument(index, { mode: 'link', fileData: undefined, fileName: undefined, fileType: undefined, documentId: undefined, pendingFile: undefined, url: '' });
                                                     } else if (mode === 'upload') {
-                                                        updateDocument(index, { mode: 'upload', url: '', documentId: undefined, fileData: undefined, fileName: undefined });
+                                                        updateDocument(index, { mode: 'upload', url: '', documentId: undefined, pendingFile: undefined, fileData: undefined, fileName: undefined });
                                                     } else {
-                                                        updateDocument(index, { mode: 'dms', url: '', fileData: undefined, documentId: undefined, fileName: undefined });
+                                                        updateDocument(index, { mode: 'dms', url: '', fileData: undefined, documentId: undefined, pendingFile: undefined, fileName: undefined });
                                                     }
                                                 }}
                                                 className="w-full h-9 rounded border border-border px-3 text-sm bg-white font-medium"
@@ -212,43 +254,31 @@ export function SupportDocumentsModal({
 
                                         {doc.mode === 'dms' ? (
                                             <div className="space-y-2 bg-white p-3 rounded border border-dashed border-border">
-                                                {doc.documentId && (
+                                                {(doc.documentId || doc.pendingFile || doc.fileName) && (
                                                     <div className="flex items-center gap-2">
-                                                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                                        <span className="text-sm font-semibold text-muted-foreground">{doc.fileName || 'Uploaded'}</span>
-                                                        <span className="text-xs text-green-600">(stored in DMS)</span>
+                                                        <CheckCircle2 className={`h-4 w-4 ${doc.pendingFile ? 'text-amber-500' : 'text-green-500'}`} />
+                                                        <span className="text-sm font-semibold text-muted-foreground">{doc.fileName || 'Selected file'}</span>
+                                                        <span className={`text-xs ${doc.pendingFile ? 'text-amber-700' : 'text-green-600'}`}>
+                                                            {doc.pendingFile ? '(uploads when you save)' : '(stored in DMS)'}
+                                                        </span>
                                                     </div>
                                                 )}
-                                                {uploadingIndex === index ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                                        <div className="flex-1">
-                                                            <div className="w-full bg-muted rounded-full h-1.5">
-                                                                <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-xs text-muted-foreground">{uploadProgress}%</span>
+                                                <label className="block">
+                                                    <div className="px-3 py-2 bg-plum-50 hover:bg-plum-100 border border-plum-200 rounded cursor-pointer text-center text-sm font-semibold text-plum-700 transition-colors flex items-center justify-center gap-2">
+                                                        <Upload className="h-4 w-4" />
+                                                        {doc.documentId || doc.pendingFile ? 'Replace File' : 'Choose File'}
                                                     </div>
-                                                ) : (
-                                                    <label className="block">
-                                                        <div className="px-3 py-2 bg-plum-50 hover:bg-plum-100 border border-plum-200 rounded cursor-pointer text-center text-sm font-semibold text-plum-700 transition-colors flex items-center justify-center gap-2">
-                                                            <Upload className="h-4 w-4" />
-                                                            {doc.documentId ? 'Replace File' : 'Upload to DMS'}
-                                                        </div>
-                                                        <input
-                                                            type="file"
-                                                            className="hidden"
-                                                            onChange={(e) => {
-                                                                const file = e.target.files?.[0];
-                                                                if (file) handleDmsUpload(index, file);
-                                                                e.target.value = '';
-                                                            }}
-                                                        />
-                                                    </label>
-                                                )}
-                                                {uploadError && uploadingIndex === null && (
-                                                    <p className="text-xs text-destructive">{uploadError}</p>
-                                                )}
+                                                    <input
+                                                        type="file"
+                                                        className="hidden"
+                                                        disabled={saving}
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) handleDmsFileSelect(index, file);
+                                                            e.target.value = '';
+                                                        }}
+                                                    />
+                                                </label>
                                             </div>
                                         ) : doc.mode === 'upload' ? (
                                             <div className="space-y-2 bg-white p-3 rounded border border-dashed border-border">
@@ -266,6 +296,7 @@ export function SupportDocumentsModal({
                                                     <input
                                                         type="file"
                                                         className="hidden"
+                                                        disabled={saving}
                                                         onChange={(e) => {
                                                             const file = e.target.files?.[0];
                                                             if (file) handleFileUpload(index, file);
@@ -281,6 +312,7 @@ export function SupportDocumentsModal({
                                                     onChange={(e) => updateDocument(index, { url: e.target.value })}
                                                     placeholder="https://example.com/document.pdf"
                                                     className="h-9 text-sm"
+                                                    disabled={saving}
                                                 />
                                                 {doc.url && (
                                                     <a
@@ -300,12 +332,22 @@ export function SupportDocumentsModal({
                             ))}
                         </div>
                     )}
+                    {uploadError && (
+                        <p className="text-sm text-destructive">{uploadError}</p>
+                    )}
                 </CardContent>
 
                 <CardFooter className="flex justify-between border-t py-4 bg-muted">
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSave} className="bg-brand-600 hover:bg-brand-700 text-white shadow-md">
-                        Save Documents
+                    <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+                    <Button onClick={handleSave} disabled={saving} className="bg-brand-600 hover:bg-brand-700 text-white shadow-md">
+                        {saving ? (
+                            <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Uploading{saveProgress ? ` ${saveProgress}%` : ''}...
+                            </>
+                        ) : (
+                            'Save Documents'
+                        )}
                     </Button>
                 </CardFooter>
             </Card>

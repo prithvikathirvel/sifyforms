@@ -19,8 +19,8 @@ import DmsFileUpload from '../components/ui/DmsFileUpload';
 import SignaturePad from '../components/ui/SignaturePad';
 import { MultiSelectField } from '../components/builder/MultiSelectField';
 import TableField from '../components/ui/TableField';
-import { getDownloadUrl } from '../lib/dms';
-import type { Form, FormField, FormLayout, DateConstraint, AssessmentResult, VotingResult, FormBrandingSection, DmsFileReference } from '../types';
+import { getPublicDownloadUrl, resolveFilesForSubmission, resolveSignatureForSubmission, triggerBrowserDownload } from '../lib/dms';
+import type { Form, FormField, FormLayout, DateConstraint, AssessmentResult, VotingResult, FormBrandingSection, DmsFileReference, FormFileValue } from '../types';
 
 const BRANDING_JUSTIFY: Record<string, string> = {
   left: 'justify-start',
@@ -47,18 +47,18 @@ const CONDITIONAL_REQUIRED_MESSAGE = 'This field is required';
  * e.g. logo left + text center). Footer: plain text below the form, no bar.
  * Hidden when disabled or empty; legacy sections without the flag stay visible.
  */
-function FormBranding({ section, variant }: { section?: FormBrandingSection; variant: 'header' | 'footer' }) {
+function FormBranding({ section, variant, formId }: { section?: FormBrandingSection; variant: 'header' | 'footer'; formId?: string }) {
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    if (section?.logoDocumentId && !section.logoUrl) {
-      getDownloadUrl(section.logoDocumentId)
+    if (section?.logoDocumentId && formId) {
+      getPublicDownloadUrl(section.logoDocumentId, formId)
         .then((url) => setResolvedLogoUrl(url))
-        .catch(() => setResolvedLogoUrl(undefined));
+        .catch(() => setResolvedLogoUrl(section?.logoUrl));
     } else {
       setResolvedLogoUrl(section?.logoUrl);
     }
-  }, [section?.logoDocumentId, section?.logoUrl]);
+  }, [section?.logoDocumentId, section?.logoUrl, formId]);
 
   if (!section || section.enabled === false) return null;
 
@@ -120,7 +120,8 @@ function FieldsByWidth({
   uniquenessSuccess,
   externalValidationErrors,
   externalValidationSuccess,
-  externalValidationLoading
+  externalValidationLoading,
+  formId,
 }: {
   fields: FormField[];
   errors: any;
@@ -132,6 +133,7 @@ function FieldsByWidth({
   externalValidationErrors: Record<string, string>;
   externalValidationSuccess: Record<string, string>;
   externalValidationLoading: Record<string, boolean>;
+  formId?: string;
 }) {
   // Group consecutive fields by width to maintain order
   const groupFieldsByWidthConsecutive = () => {
@@ -196,10 +198,10 @@ function FieldsByWidth({
     };
 
     const handleDmsDownload = async (doc: typeof docs[number]) => {
-      if (!doc.documentId) return;
+      if (!doc.documentId || !formId) return;
       try {
-        const url = await getDownloadUrl(doc.documentId);
-        window.open(url, '_blank');
+        const url = await getPublicDownloadUrl(doc.documentId, formId);
+        await triggerBrowserDownload(url, doc.fileName || doc.label || 'document');
       } catch {
         alert('Failed to fetch document. Please try again.');
       }
@@ -208,17 +210,18 @@ function FieldsByWidth({
     return (
       <div className="flex flex-wrap gap-2 mt-1" data-testid={`support-documents-${field.id}`}>
         {docs.map((doc) => {
-          if (doc.documentId && doc.mode === 'dms') {
+          if (doc.documentId) {
             return (
               <button
+                type="button"
                 key={doc.id || `${field.id}-${doc.label}`}
                 onClick={() => handleDmsDownload(doc)}
                 className="inline-flex items-center text-xs text-plum-600 hover:text-plum-800 bg-plum-50 px-2 py-1 rounded border border-plum-100 transition-colors"
-                title={`View ${doc.fileName || doc.label}`}
+                title={`Download ${doc.fileName || doc.label}`}
               >
                 <FileText className="h-3 w-3 mr-1" />
                 {doc.label}
-                <span className="ml-1 text-green-700">(view)</span>
+                <span className="ml-1 text-green-700">(download)</span>
               </button>
             );
           }
@@ -226,6 +229,7 @@ function FieldsByWidth({
           if (doc.fileData) {
             return (
               <button
+                type="button"
                 key={doc.id || `${field.id}-${doc.label}`}
                 onClick={() => handleDownload(doc)}
                 className="inline-flex items-center text-xs text-plum-600 hover:text-plum-800 bg-plum-50 px-2 py-1 rounded border border-plum-100 transition-colors"
@@ -614,10 +618,19 @@ export default function PublicFormPage() {
     if (authStep !== 'done' || !authIdentity || !form?.settings?.partialSubmission?.enabled) return;
     if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
     draftSaveTimer.current = setTimeout(() => {
+      const draftSafe: Record<string, unknown> = {};
+      Object.entries(formValues || {}).forEach(([key, val]) => {
+        if (val instanceof File || val instanceof FileList) return;
+        if (Array.isArray(val) && val.some((item) => item instanceof File || (item && typeof item === 'object' && (item as any).status === 'pending'))) {
+          return;
+        }
+        if (val && typeof val === 'object' && (val as any).status === 'pending') return;
+        draftSafe[key] = val;
+      });
       api.post('/drafts', {
         formId: form.id,
         identity: authIdentity,
-        data: formValues,
+        data: draftSafe,
         stepIndex: currentStepIndex,
       }).catch(() => {});
     }, 3000);
@@ -1417,10 +1430,27 @@ export default function PublicFormPage() {
 
     setIsSubmitting(true);
     try {
-      // Convert File objects to base64 for submission (skip DMS references)
+      const dmsEnabled = form.settings?.dms?.enabled === true;
+      const fieldsById = new Map((form.schema?.fields || []).map((f) => [f.id, f]));
+
+      // Convert File objects to base64, or upload pending files/signatures to DMS on final submit
       const processedData = await Promise.all(
         Object.entries(data).map(async ([key, value]) => {
-          // DMS file references are already in final form
+          const field = fieldsById.get(key);
+
+          if (dmsEnabled && field?.type === 'file') {
+            const uploaded = await resolveFilesForSubmission(value, form.id, field.id);
+            if (uploaded) setValue(key, uploaded, { shouldValidate: false });
+            return [key, uploaded];
+          }
+
+          if (dmsEnabled && field?.type === 'signature') {
+            const uploaded = await resolveSignatureForSubmission(value, form.id, field.id);
+            if (uploaded) setValue(key, uploaded, { shouldValidate: false });
+            return [key, uploaded];
+          }
+
+          // Already-uploaded DMS file references
           if (Array.isArray(value) && value.length > 0 && value[0]?.documentId) {
             return [key, value];
           }
@@ -2162,10 +2192,12 @@ export default function PublicFormPage() {
               <input type="hidden" {...register(field.id, opts)} />
               <DmsFileUpload
                 field={field}
-                value={formValues[field.id] as DmsFileReference[] | null}
+                value={formValues[field.id] as FormFileValue[] | null}
                 onChange={(files) => setValue(field.id, files, { shouldValidate: true })}
                 formId={form.id}
                 hideLabel={true}
+                deferUpload
+                publicDownload
               />
             </>
           );
@@ -2588,7 +2620,10 @@ export default function PublicFormPage() {
           return value.name;
         }
         if (Array.isArray(value)) {
-          return `${value.length} file(s) selected`;
+          const names = value
+            .map((v: any) => v?.filename || v?.name || (v instanceof File ? v.name : null))
+            .filter(Boolean);
+          return names.length > 0 ? names.join(', ') : `${value.length} file(s) selected`;
         }
       }
 
@@ -2606,7 +2641,7 @@ export default function PublicFormPage() {
 
     return (
       <div className="min-h-screen bg-muted/30">
-        <FormBranding section={form.settings?.header} variant="header" />
+        <FormBranding section={form.settings?.header} variant="header" formId={form.id} />
         <div className="p-4">
         <div className="max-w-2xl mx-auto py-8">
           <Card>
@@ -2669,7 +2704,7 @@ export default function PublicFormPage() {
               </div>
             </CardContent>
           </Card>
-          <FormBranding section={form.settings?.footer} variant="footer" />
+          <FormBranding section={form.settings?.footer} variant="footer" formId={form.id} />
         </div>
         </div>
       </div>
@@ -2818,7 +2853,7 @@ export default function PublicFormPage() {
       className="min-h-screen bg-background text-foreground transition-colors duration-300"
       data-theme={form?.settings?.theme || 'default'}
     >
-      <FormBranding section={form.settings?.header} variant="header" />
+      <FormBranding section={form.settings?.header} variant="header" formId={form.id} />
       <div className="py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
         <Card className="form-card border-border shadow-xl">
@@ -2911,6 +2946,7 @@ export default function PublicFormPage() {
                   externalValidationErrors={externalValidationErrors}
                   externalValidationSuccess={externalValidationSuccess}
                   externalValidationLoading={externalValidationLoading}
+                  formId={form.id}
                 />
               </fieldset>
 
@@ -3021,7 +3057,7 @@ export default function PublicFormPage() {
           </CardContent>
         </Card>
 
-        <FormBranding section={form.settings?.footer} variant="footer" />
+        <FormBranding section={form.settings?.footer} variant="footer" formId={form.id} />
 
         <p className="flex items-center justify-center gap-1.5 text-center text-sm text-muted-foreground mt-4">
           Powered by <Logo variant="icon" size="sm" withWordmark />

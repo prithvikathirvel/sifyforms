@@ -10,6 +10,7 @@ import {
   DMS_FOLDER_MAP_BRANDING,
   DMS_FOLDER_MAP_SIGNATURE,
 } from '../../config/dms.config';
+import { resolveMaxSizeBytes } from '../../utils/fileSize';
 import logger from '../../utils/logger';
 
 const CONTEXT_TO_FOLDER_MAP: Record<string, string> = {
@@ -19,16 +20,47 @@ const CONTEXT_TO_FOLDER_MAP: Record<string, string> = {
   signature: DMS_FOLDER_MAP_SIGNATURE,
 };
 
+function collectPublicDocumentIds(schema: any, settings: any): Set<string> {
+  const ids = new Set<string>();
+  for (const field of schema?.fields || []) {
+    for (const doc of field.supportDocuments || []) {
+      if (doc?.documentId) ids.add(String(doc.documentId));
+    }
+  }
+  if (settings?.header?.logoDocumentId) ids.add(String(settings.header.logoDocumentId));
+  if (settings?.footer?.logoDocumentId) ids.add(String(settings.footer.logoDocumentId));
+  return ids;
+}
+
+function parseJson(raw: string | undefined, fallback: any) {
+  try {
+    return JSON.parse(raw || '');
+  } catch {
+    return fallback;
+  }
+}
+
 export async function initiateUpload(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!DMS_ENABLED) {
       res.status(StatusCodes.SERVICE_UNAVAILABLE).json({ error: 'DMS is not enabled on this server.' });
       return;
     }
-    const { filename, mimeType, size, context, orgId, formId, idempotencyKey } = req.body;
+    const { filename, mimeType, size, context, formId, fieldId, idempotencyKey } = req.body;
+    const orgId = req.orgId || req.body.orgId;
     const folderMap = CONTEXT_TO_FOLDER_MAP[context];
     if (!folderMap) {
       res.status(StatusCodes.BAD_REQUEST).json({ error: `Invalid context: ${context}` });
+      return;
+    }
+    if (!orgId) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'Organization is required.' });
+      return;
+    }
+
+    const form = await formDao.findFormByIdAndOrg(formId, orgId);
+    if (!form) {
+      res.status(StatusCodes.NOT_FOUND).json({ error: 'Form not found in this organization.' });
       return;
     }
 
@@ -38,7 +70,7 @@ export async function initiateUpload(req: AuthRequest, res: Response): Promise<v
       size,
       folderMap,
       folderVars: { orgId, formId },
-      metadata: { orgId, formId },
+      metadata: { orgId, formId, ...(fieldId ? { fieldId } : {}), context },
       idempotencyKey,
       userId: req.user?.id,
     });
@@ -65,21 +97,19 @@ export async function publicInitiateUpload(req: Request, res: Response): Promise
     }
     const { filename, mimeType, size, formId, fieldId, idempotencyKey } = req.body;
 
-    // Validate form exists, is published, and has DMS enabled
     const form = await formDao.findFormById(formId);
     if (!form || !form.isPublished) {
       res.status(StatusCodes.NOT_FOUND).json({ error: 'Form not found or not published.' });
       return;
     }
 
-    const settings = JSON.parse(form.settings || '{}');
+    const settings = parseJson(form.settings, {});
     if (!settings.dms?.enabled) {
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'File storage is not enabled for this form.' });
       return;
     }
 
-    // Validate field exists and is a file field
-    const schema = JSON.parse(form.schema || '{}');
+    const schema = parseJson(form.schema, {});
     const field = (schema.fields || []).find((f: any) => f.id === fieldId);
     if (!field || (field.type !== 'file' && field.type !== 'signature')) {
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid file field.' });
@@ -88,11 +118,11 @@ export async function publicInitiateUpload(req: Request, res: Response): Promise
 
     const folderMap = field.type === 'signature' ? DMS_FOLDER_MAP_SIGNATURE : DMS_FOLDER_MAP_SUBMISSIONS;
 
-    // Validate file constraints from fileConfig
     if (field.fileConfig) {
-      if (field.fileConfig.maxSize && size && size > field.fileConfig.maxSize * 1024 * 1024) {
+      const maxBytes = resolveMaxSizeBytes(field.fileConfig.maxSize);
+      if (maxBytes && size && size > maxBytes) {
         res.status(StatusCodes.BAD_REQUEST).json({
-          error: `File size exceeds maximum allowed (${field.fileConfig.maxSize} MB).`,
+          error: `File size exceeds maximum allowed.`,
         });
         return;
       }
@@ -114,7 +144,6 @@ export async function publicInitiateUpload(req: Request, res: Response): Promise
       }
     }
 
-    // Also check form-level DMS limits
     if (settings.dms.maxFileSize && size && size > settings.dms.maxFileSize * 1024 * 1024) {
       res.status(StatusCodes.BAD_REQUEST).json({
         error: `File size exceeds form maximum (${settings.dms.maxFileSize} MB).`,
@@ -141,7 +170,7 @@ export async function publicInitiateUpload(req: Request, res: Response): Promise
       size,
       folderMap,
       folderVars: { orgId, formId },
-      metadata: { orgId, formId, fieldId },
+      metadata: { orgId, formId, fieldId, context: field.type === 'signature' ? 'signature' : 'submission' },
       idempotencyKey,
     });
 
@@ -186,7 +215,20 @@ export async function downloadUrl(req: AuthRequest, res: Response): Promise<void
     const documentId = Array.isArray(req.params.documentId) ? req.params.documentId[0] : req.params.documentId;
     const { versionNumber } = req.body;
 
+    if (req.orgId) {
+      const document = await dmsService.getDocument(documentId);
+      const metaOrg = dmsService.extractDocumentOrgId(document);
+      if (metaOrg && metaOrg !== req.orgId) {
+        res.status(StatusCodes.FORBIDDEN).json({ error: 'Access denied to this document.' });
+        return;
+      }
+    }
+
     const url = await dmsService.getDownloadUrl(documentId, versionNumber);
+    if (!url) {
+      res.status(StatusCodes.NOT_FOUND).json({ error: 'Download URL not available.' });
+      return;
+    }
     res.status(StatusCodes.OK).json({ url });
   } catch (error: any) {
     logger.error('DMS --> downloadUrl --> Error', error);
@@ -204,10 +246,69 @@ export async function previewUrl(req: AuthRequest, res: Response): Promise<void>
     const documentId = Array.isArray(req.params.documentId) ? req.params.documentId[0] : req.params.documentId;
     const { versionNumber } = req.body;
 
+    if (req.orgId) {
+      const document = await dmsService.getDocument(documentId);
+      const metaOrg = dmsService.extractDocumentOrgId(document);
+      if (metaOrg && metaOrg !== req.orgId) {
+        res.status(StatusCodes.FORBIDDEN).json({ error: 'Access denied to this document.' });
+        return;
+      }
+    }
+
     const url = await dmsService.getPreviewUrl(documentId, versionNumber);
+    if (!url) {
+      res.status(StatusCodes.NOT_FOUND).json({ error: 'Preview URL not available.' });
+      return;
+    }
     res.status(StatusCodes.OK).json({ url });
   } catch (error: any) {
     logger.error('DMS --> previewUrl --> Error', error);
+    const status = error.response?.status || StatusCodes.INTERNAL_SERVER_ERROR;
+    res.status(status).json({ error: error.response?.data?.message || error.message });
+  }
+}
+
+/**
+ * Public download for documents that a published form intentionally exposes:
+ * support documents and branding logos. Submission/signature files are never
+ * included — those stay behind auth.
+ */
+export async function publicDownloadUrl(req: Request, res: Response): Promise<void> {
+  try {
+    if (!DMS_ENABLED) {
+      res.status(StatusCodes.SERVICE_UNAVAILABLE).json({ error: 'DMS is not enabled on this server.' });
+      return;
+    }
+    const documentId = Array.isArray(req.params.documentId) ? req.params.documentId[0] : req.params.documentId;
+    const { formId, versionNumber } = req.body;
+
+    const form = await formDao.findFormById(formId);
+    if (!form || !form.isPublished) {
+      res.status(StatusCodes.NOT_FOUND).json({ error: 'Form not found or not published.' });
+      return;
+    }
+
+    const settings = parseJson(form.settings, {});
+    if (settings.isFormActive === false) {
+      res.status(StatusCodes.FORBIDDEN).json({ error: 'This form is no longer accepting submissions.' });
+      return;
+    }
+
+    const schema = parseJson(form.schema, {});
+    const allowed = collectPublicDocumentIds(schema, settings);
+    if (!documentId || !allowed.has(documentId)) {
+      res.status(StatusCodes.FORBIDDEN).json({ error: 'Document is not available on this form.' });
+      return;
+    }
+
+    const url = await dmsService.getDownloadUrl(documentId, versionNumber);
+    if (!url) {
+      res.status(StatusCodes.NOT_FOUND).json({ error: 'Download URL not available.' });
+      return;
+    }
+    res.status(StatusCodes.OK).json({ url });
+  } catch (error: any) {
+    logger.error('DMS --> publicDownloadUrl --> Error', error);
     const status = error.response?.status || StatusCodes.INTERNAL_SERVER_ERROR;
     res.status(status).json({ error: error.response?.data?.message || error.message });
   }

@@ -236,7 +236,12 @@ export const FormFieldSchema = z.object({
   supportDocuments: z.array(z.object({
     id: z.string(),
     label: z.string(),
-    url: z.string(),
+    mode: z.enum(['link', 'upload', 'dms']).optional(),
+    url: z.string().optional(),
+    fileName: z.string().optional(),
+    fileType: z.string().optional(),
+    fileData: z.string().optional(),
+    documentId: z.string().optional(),
   })).optional(),
   tableConfig: z.object({
     columns: z.array(z.object({
@@ -317,6 +322,7 @@ export const FormSettingsSchema = z.object({
   header: z.object({
     enabled: z.boolean().optional(),
     logoUrl: z.string().optional(),
+    logoDocumentId: z.string().optional(),
     text: z.string().optional(),
     logoPosition: z.enum(['left', 'center', 'right']).optional(),
     textPosition: z.enum(['left', 'center', 'right']).optional(),
@@ -325,6 +331,7 @@ export const FormSettingsSchema = z.object({
     enabled: z.boolean().optional(),
     // legacy field — footer no longer renders a logo but old settings may carry one
     logoUrl: z.string().optional(),
+    logoDocumentId: z.string().optional(),
     text: z.string().optional(),
   }).optional(),
   authentication: z.any().optional(),

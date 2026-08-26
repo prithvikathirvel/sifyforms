@@ -127,3 +127,22 @@ export async function getPreviewUrl(
   );
   return data.signedUrl?.url || '';
 }
+
+export async function getDocument(documentId: string): Promise<any | null> {
+  try {
+    const { data } = await client.get(`/documents/${encodeURIComponent(documentId)}`);
+    return data?.document || data;
+  } catch {
+    return null;
+  }
+}
+
+export function extractDocumentOrgId(document: any): string | undefined {
+  if (!document || typeof document !== 'object') return undefined;
+  return (
+    document.metadata?.orgId ||
+    document.document?.metadata?.orgId ||
+    document.folderVars?.orgId ||
+    document.orgId
+  );
+}

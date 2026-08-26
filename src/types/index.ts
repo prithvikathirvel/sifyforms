@@ -528,6 +528,19 @@ export interface DmsFileReference {
   status: 'pending_upload' | 'active';
 }
 
+/** Local file held in the form until final submit / Save Documents. */
+export interface PendingLocalFile {
+  pendingId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  status: 'pending';
+  /** In-memory File; never persisted to the API. */
+  file: File;
+}
+
+export type FormFileValue = DmsFileReference | PendingLocalFile;
+
 export type BrandingPosition = 'left' | 'center' | 'right';
 
 /**

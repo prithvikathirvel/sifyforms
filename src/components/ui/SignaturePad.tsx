@@ -1,9 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from './button';
 import { Label } from './label';
-import { Trash2, Loader2, CheckCircle2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { FormField, DmsFileReference } from '../../types';
-import { uploadFilePublic } from '../../lib/dms';
 
 interface SignaturePadProps {
   field: FormField;
@@ -19,16 +18,12 @@ export default function SignaturePad({
   field,
   value,
   onChange,
-  formId,
-  dmsEnabled = false,
   disabled = false,
   hideLabel = false,
 }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -87,36 +82,20 @@ export default function SignaturePad({
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasSignature(false);
-    setUploadError(null);
     onChange(null);
   };
 
-  const saveSignature = useCallback(async () => {
+  const saveSignature = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !hasSignature) return;
+    // Capture locally only. DMS upload happens on final form submission.
+    const dataUrl = canvas.toDataURL('image/png');
+    onChange(dataUrl);
+  }, [hasSignature, onChange]);
 
-    if (dmsEnabled && formId) {
-      setUploading(true);
-      setUploadError(null);
-      try {
-        const blob = await new Promise<Blob>((resolve, reject) => {
-          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Failed to create image'))), 'image/png');
-        });
-        const file = new File([blob], `signature-${field.id}-${Date.now()}.png`, { type: 'image/png' });
-        const ref = await uploadFilePublic(file, formId, field.id);
-        onChange(ref);
-      } catch (err: any) {
-        setUploadError(err.response?.data?.error || err.message || 'Upload failed');
-      } finally {
-        setUploading(false);
-      }
-    } else {
-      const dataUrl = canvas.toDataURL('image/png');
-      onChange(dataUrl);
-    }
-  }, [hasSignature, dmsEnabled, formId, field.id, onChange]);
-
-  const isUploaded = value && typeof value === 'object' && 'documentId' in value;
+  const isConfirmed =
+    (value && typeof value === 'object' && 'documentId' in value) ||
+    (typeof value === 'string' && value.startsWith('data:'));
 
   return (
     <div className="space-y-2">
@@ -127,14 +106,20 @@ export default function SignaturePad({
         </Label>
       )}
 
-      {isUploaded ? (
-        <div className="flex items-center gap-2 p-3 border rounded-lg bg-green-50">
-          <CheckCircle2 className="h-5 w-5 text-green-500" />
-          <span className="text-sm font-medium text-green-700">Signature captured</span>
-          <Button type="button" variant="ghost" size="sm" onClick={clearSignature} disabled={disabled}>
-            <Trash2 className="h-4 w-4" />
-            Re-sign
-          </Button>
+      {isConfirmed ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 p-3 border rounded-lg bg-green-50">
+            <span className="text-sm font-medium text-green-700">Signature captured</span>
+            <Button type="button" variant="ghost" size="sm" onClick={clearSignature} disabled={disabled}>
+              <Trash2 className="h-4 w-4" />
+              Re-sign
+            </Button>
+          </div>
+          {typeof value === 'string' && value.startsWith('data:') && (
+            <div className="border rounded-md p-2 bg-white inline-block">
+              <img src={value} alt="Signature" className="max-h-[100px] object-contain" />
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -169,22 +154,14 @@ export default function SignaturePad({
               variant="default"
               size="sm"
               onClick={saveSignature}
-              disabled={disabled || !hasSignature || uploading}
+              disabled={disabled || !hasSignature}
             >
-              {uploading ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Confirm Signature'
-              )}
+              Confirm Signature
             </Button>
           </div>
         </>
       )}
 
-      {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
       {field.helpText && <p className="text-sm text-muted-foreground">{field.helpText}</p>}
     </div>
   );

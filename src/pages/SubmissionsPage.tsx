@@ -45,11 +45,19 @@ function formatValue(value: unknown): string {
   if (value === null || value === undefined) return '-';
   if (Array.isArray(value)) {
     if (value.length === 0) return '-';
-    if (typeof value[0] === 'object' && value[0] !== null) return `${value.length} file${value.length > 1 ? 's' : ''}`;
+    if (typeof value[0] === 'object' && value[0] !== null) {
+      const names = value
+        .map((v: any) => v?.filename || v?.name)
+        .filter(Boolean);
+      if (names.length > 0) return `📎 ${names.join(', ')}`;
+      return `${value.length} file${value.length > 1 ? 's' : ''}`;
+    }
     return value.join(', ');
   }
   if (typeof value === 'object') {
-    if (value !== null && (value as any).name) return `📎 ${(value as any).name}`;
+    const obj = value as any;
+    if (obj.filename) return `📎 ${obj.filename}`;
+    if (obj.name) return `📎 ${obj.name}`;
     return JSON.stringify(value);
   }
   return String(value);

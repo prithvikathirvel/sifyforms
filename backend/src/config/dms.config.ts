@@ -17,7 +17,7 @@ export const DMS_FOLDER_MAP_BRANDING =
   process.env.DMS_FOLDER_MAP_BRANDING || 'branding';
 
 export const DMS_FOLDER_MAP_SIGNATURE =
-  process.env.DMS_FOLDER_MAP_SIGNATURE || 'signature';
+  process.env.DMS_FOLDER_MAP_SIGNATURE || 'signatures';
 
 // Max signed URL TTL before re-requesting (seconds)
 export const DMS_SIGNED_URL_TTL = Number(process.env.DMS_SIGNED_URL_TTL || 900);
