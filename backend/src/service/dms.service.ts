@@ -130,7 +130,7 @@ export async function getPreviewUrl(
 
 export async function getDocument(documentId: string): Promise<any | null> {
   try {
-    const { data } = await client.get(`/documents/${encodeURIComponent(documentId)}`);
+    const { data } = await client.get<{ document?: any } & Record<string, any>>(`/documents/${encodeURIComponent(documentId)}`);
     return data?.document || data;
   } catch {
     return null;
