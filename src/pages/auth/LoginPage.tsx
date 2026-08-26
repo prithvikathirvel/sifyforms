@@ -12,6 +12,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
 import { AuthLayout } from '../../components/auth/AuthLayout';
+import { Logo } from '../../components/ui/Logo';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -59,11 +60,9 @@ export default function LoginPage() {
   return (
     <AuthLayout>
       <Card className="w-full max-w-[27.5rem] overflow-hidden rounded-2xl border-border bg-card shadow-xl shadow-foreground/[0.045]">
-        <CardHeader className="items-center space-y-0 px-6 pb-7 pt-8 text-center sm:px-8 sm:pt-9">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-primary shadow-sm">
-            <LockKeyhole className="h-[18px] w-[18px]" strokeWidth={2} />
-          </span>
-          <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Welcome back</p>
+        <CardHeader className="items-center space-y-0 px-6 pb-6 pt-7 text-center sm:px-8">
+          <Logo size="sm" />
+          <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Welcome back</p>
           <CardTitle className="mt-2 font-display text-2xl font-bold leading-tight tracking-[-0.03em] text-foreground">
             Sign in to your account
           </CardTitle>

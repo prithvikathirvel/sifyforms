@@ -47,9 +47,8 @@
 /**
  * SifyForms design tokens.
  *
- * Taken from the product mark: a plum-to-magenta gradient with the queen picked
- * out in orchid. Neutrals carry a slight plum bias so greys sit with the accent
- * instead of fighting it.
+ * The supplied violet-to-magenta mark provides the accent while neutral UI
+ * surfaces use a clean slate scale for consistent enterprise contrast.
  *
  * Every colour in the app resolves through these tokens or through the
  * plum / brand / ink scales in tailwind.config.js. Nothing should hardcode a hex.
@@ -61,31 +60,30 @@
     --font-inter: 'Inter Variable';
     --font-geist: 'Geist Variable';
 
-    /* the mark's gradient, for hero and brand surfaces */
-    --brand-from: 268 45% 30%;
-    --brand-mid: 285 38% 36%;
-    --brand-to: 300 40% 46%;
+    /* Brand and neutral palette. Public and product pages share these tokens. */
+    --brand-from: 265 72% 31%;
+    --brand-mid: 285 68% 39%;
+    --brand-to: 331 82% 54%;
 
-    --background: 285 40% 99%;
-    --foreground: 274 30% 18%;
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 274 30% 18%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 274 30% 18%;
+    --popover-foreground: 222 47% 11%;
 
-    /* the queen's orchid */
-    --primary: 316 53% 45%;
-    --primary-foreground: 316 60% 98%;
+    --primary: 265 67% 36%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 282 32% 95%;
-    --secondary-foreground: 268 45% 25%;
+    --secondary: 220 20% 97%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 282 28% 96%;
-    --muted-foreground: 276 16% 47%;
+    --muted: 220 20% 98%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 300 40% 95%;
-    --accent-foreground: 316 54% 30%;
+    --accent: 270 45% 96%;
+    --accent-foreground: 265 67% 30%;
 
     /* semantic status stays distinct from the accent, tuned to sit beside it */
     --destructive: 352 72% 50%;
@@ -95,11 +93,11 @@
     --warning: 32 88% 36%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 282 24% 90%;
-    --input: 282 24% 90%;
-    --ring: 316 53% 45%;
+    --border: 214 24% 90%;
+    --input: 214 24% 88%;
+    --ring: 265 67% 42%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
   }
 
   .dark {
@@ -149,6 +147,16 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-inter), 'Inter Variable', 'TheSans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-geist), 'Geist Variable', var(--font-inter), 'Inter Variable', system-ui, sans-serif;
+    letter-spacing: -0.02em;
   }
 
   /* Selection picks up the accent rather than the browser default blue. */

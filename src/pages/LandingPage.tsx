@@ -123,9 +123,9 @@ export default function LandingPage() {
             </Link>
             <Link
               to="/auth/signup"
-              className={cn(buttonVariants({ size: 'sm' }), 'h-9 rounded-lg px-3.5 text-[13px] font-semibold shadow-sm shadow-primary/15')}
+              className={cn(buttonVariants({ size: 'sm' }), 'h-9 rounded-lg px-3.5 text-xs font-semibold shadow-sm shadow-primary/15')}
             >
-              Get Started Free
+              Get Started
             </Link>
           </div>
         </div>
@@ -137,12 +137,7 @@ export default function LandingPage() {
           <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-64 w-[36rem] max-w-full -translate-x-1/2 rounded-full bg-primary/[0.045] blur-3xl" aria-hidden="true" />
 
           <div className="mx-auto max-w-5xl px-5 py-20 text-center sm:px-6 sm:py-24 lg:px-8 lg:py-32">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground shadow-sm">
-              <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
-              Form building, simplified
-            </div>
-
-            <h1 className="mx-auto mt-6 max-w-4xl font-display text-4xl font-bold leading-[1.08] tracking-[-0.04em] text-foreground sm:text-5xl lg:text-6xl">
+            <h1 className="mx-auto max-w-4xl font-display text-4xl font-bold leading-[1.08] tracking-[-0.04em] text-foreground sm:text-5xl lg:text-6xl">
               Create Registration Forms{' '}
               <span className="text-brand-gradient">in Minutes</span>
             </h1>
@@ -288,9 +283,9 @@ export default function LandingPage() {
 
               <Link
                 to="/auth/signup"
-                className={cn(buttonVariants({ size: 'lg' }), 'h-11 w-full rounded-lg text-[13px] font-semibold shadow-sm shadow-primary/15')}
+                className={cn(buttonVariants({ size: 'lg' }), 'h-11 w-full rounded-lg text-xs font-semibold shadow-sm shadow-primary/15')}
               >
-                Get Started Free
+                Get Started
               </Link>
             </div>
           </div>

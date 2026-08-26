@@ -24,17 +24,18 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../comp
 import { Select } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
 import { AuthLayout } from '../../components/auth/AuthLayout';
+import { Logo } from '../../components/ui/Logo';
 
 const signupSchema = z.object({
   email: z.string().email('Invalid email format. Only letters, numbers, and dots are allowed.'),
   password: z.string().min(1, 'Password is required'),
   confirmPassword: z.string(),
   username: z.string().min(3, 'Username must be at least 3 characters long').max(25, 'Username cannot exceed 25 characters'),
-  firstName: z.union([z.string().min(3, 'First name must be at least 3 characters long').max(25, 'First name cannot exceed 25 characters'), z.literal('')]).optional(),
-  lastName: z.union([z.string().min(3, 'Last name must be at least 3 characters long').max(25, 'Last name cannot exceed 25 characters'), z.literal('')]).optional(),
-  phone: z.union([z.string().max(10, 'Phone number cannot exceed 10 digits'), z.literal('')]).optional(),
-  gender: z.enum(['Male', 'Female', 'Other']).optional(),
-  address: z.union([z.string().min(3).max(50), z.literal('')]).optional(),
+  firstName: z.string().min(3, 'First name must be at least 3 characters long').max(25, 'First name cannot exceed 25 characters'),
+  lastName: z.string().min(3, 'Last name must be at least 3 characters long').max(25, 'Last name cannot exceed 25 characters'),
+  phone: z.string().regex(/^\d{10}$/, 'Phone number must contain exactly 10 digits'),
+  gender: z.enum(['Male', 'Female', 'Other'], { error: 'Gender is required' }),
+  address: z.string().min(3, 'Address must be at least 3 characters long').max(50, 'Address cannot exceed 50 characters'),
   additionalDetails: z.record(z.string(), z.unknown()).optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -46,8 +47,8 @@ type FormError = { message?: string } | undefined;
 
 const inputClassName = 'h-10 min-w-0 rounded-lg border-input bg-background text-base placeholder:text-[13px] sm:text-[13px]';
 
-function OptionalLabel() {
-  return <span className="ml-1 font-normal text-muted-foreground">(optional)</span>;
+function RequiredMark() {
+  return <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>;
 }
 
 function FieldError({ id, error }: { id: string; error: FormError }) {
@@ -153,7 +154,7 @@ export default function SignupPage() {
   };
 
   return (
-    <AuthLayout contentClassName="items-start">
+    <AuthLayout contentClassName="items-start lg:items-center">
       {successMsg && (
         <div
           role="status"
@@ -165,19 +166,21 @@ export default function SignupPage() {
         </div>
       )}
 
-      <Card className="w-full max-w-5xl overflow-hidden rounded-2xl border-border bg-card shadow-xl shadow-foreground/[0.045]">
-        <CardHeader className="items-center space-y-0 border-b border-border/70 px-6 py-7 text-center sm:px-8">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Start for free</p>
-          <CardTitle className="mt-2 font-display text-2xl font-bold leading-tight tracking-[-0.03em] text-foreground">
-            Create your account
-          </CardTitle>
-          <p className="mt-2 max-w-xl text-[13px] font-medium leading-5 text-muted-foreground">
-            Enter your account details. Profile information is optional and can be updated later.
-          </p>
+      <Card className="w-full max-w-6xl overflow-hidden rounded-2xl border-border bg-card shadow-xl shadow-foreground/[0.045]">
+        <CardHeader className="flex-row items-center space-x-3 space-y-0 border-b border-border/70 px-5 py-4 text-left sm:px-7">
+          <Logo size="sm" className="shrink-0" />
+          <div className="min-w-0">
+            <CardTitle className="font-display text-xl font-bold leading-tight tracking-[-0.03em] text-foreground">
+              Create your account
+            </CardTitle>
+            <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">
+              Complete every field below to set up your SifyForms account.
+            </p>
+          </div>
         </CardHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          <CardContent className="space-y-7 px-5 py-7 sm:px-8">
+          <CardContent className="space-y-4 px-5 py-4 sm:px-7 sm:py-5">
             {error && (
               <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-destructive/20 bg-destructive/[0.045] px-3.5 py-3 text-[13px] font-medium leading-5 text-destructive">
                 <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
@@ -185,17 +188,18 @@ export default function SignupPage() {
               </div>
             )}
 
-            <div className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-border/70">
-              <section aria-labelledby="account-details-heading" className="min-w-0 space-y-5 lg:pr-8">
+            <div className="grid min-w-0 gap-5 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-border/70">
+              <section aria-labelledby="account-details-heading" className="min-w-0 space-y-3 lg:pr-6">
                 <div id="account-details-heading">
                   <SectionHeading icon={KeyRound} title="Account details" description="Required information used to access your workspace." />
                 </div>
 
-                <div className="grid min-w-0 gap-x-4 gap-y-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-x-4 gap-y-3 sm:grid-cols-2">
                   <div className="min-w-0 space-y-1.5">
-                    <Label htmlFor="username" className="text-xs font-semibold">Username</Label>
+                    <Label htmlFor="username" className="text-xs font-semibold">Username <RequiredMark /></Label>
                     <Input
                       id="username"
+                      required
                       type="text"
                       autoComplete="username"
                       placeholder="e.g. johndoe"
@@ -209,9 +213,10 @@ export default function SignupPage() {
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
-                    <Label htmlFor="email" className="text-xs font-semibold">Email address</Label>
+                    <Label htmlFor="email" className="text-xs font-semibold">Email address <RequiredMark /></Label>
                     <Input
                       id="email"
+                      required
                       type="email"
                       inputMode="email"
                       autoComplete="email"
@@ -225,10 +230,11 @@ export default function SignupPage() {
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
-                    <Label htmlFor="password" className="text-xs font-semibold">Password</Label>
+                    <Label htmlFor="password" className="text-xs font-semibold">Password <RequiredMark /></Label>
                     <div className="relative">
                       <Input
                         id="password"
+                        required
                         type={showPasswords ? 'text' : 'password'}
                         autoComplete="new-password"
                         placeholder="Create a password"
@@ -251,10 +257,11 @@ export default function SignupPage() {
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
-                    <Label htmlFor="confirmPassword" className="text-xs font-semibold">Confirm password</Label>
+                    <Label htmlFor="confirmPassword" className="text-xs font-semibold">Confirm password <RequiredMark /></Label>
                     <div className="relative">
                       <Input
                         id="confirmPassword"
+                        required
                         type={showPasswords ? 'text' : 'password'}
                         autoComplete="new-password"
                         placeholder="Repeat your password"
@@ -272,16 +279,17 @@ export default function SignupPage() {
                 </div>
               </section>
 
-              <section aria-labelledby="profile-details-heading" className="min-w-0 space-y-5 border-t border-border/70 pt-7 lg:border-t-0 lg:pl-8 lg:pt-0">
+              <section aria-labelledby="profile-details-heading" className="min-w-0 space-y-3 border-t border-border/70 pt-5 lg:border-t-0 lg:pl-6 lg:pt-0">
                 <div id="profile-details-heading">
-                  <SectionHeading icon={UserRound} title="Profile details" description="Optional information to personalize your account." />
+                  <SectionHeading icon={UserRound} title="Profile details" description="Required information used to complete your profile." />
                 </div>
 
-                <div className="grid min-w-0 gap-x-4 gap-y-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-x-4 gap-y-3 sm:grid-cols-2">
                   <div className="min-w-0 space-y-1.5">
-                    <Label htmlFor="firstName" className="text-xs font-semibold">First name <OptionalLabel /></Label>
+                    <Label htmlFor="firstName" className="text-xs font-semibold">First name <RequiredMark /></Label>
                     <Input
                       id="firstName"
+                      required
                       type="text"
                       autoComplete="given-name"
                       placeholder="John"
@@ -294,9 +302,10 @@ export default function SignupPage() {
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
-                    <Label htmlFor="lastName" className="text-xs font-semibold">Last name <OptionalLabel /></Label>
+                    <Label htmlFor="lastName" className="text-xs font-semibold">Last name <RequiredMark /></Label>
                     <Input
                       id="lastName"
+                      required
                       type="text"
                       autoComplete="family-name"
                       placeholder="Doe"
@@ -309,9 +318,10 @@ export default function SignupPage() {
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
-                    <Label htmlFor="phone" className="text-xs font-semibold">Phone <OptionalLabel /></Label>
+                    <Label htmlFor="phone" className="text-xs font-semibold">Phone <RequiredMark /></Label>
                     <Input
                       id="phone"
+                      required
                       type="tel"
                       inputMode="numeric"
                       autoComplete="tel"
@@ -321,7 +331,7 @@ export default function SignupPage() {
                       aria-invalid={Boolean(errors.phone)}
                       aria-describedby={errors.phone ? 'phone-error' : undefined}
                       onKeyDown={(event) => {
-                        if (!/[0-9]/.test(event.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.key)) {
+                        if (event.key.length === 1 && !/[0-9]/.test(event.key) && !event.ctrlKey && !event.metaKey) {
                           event.preventDefault();
                         }
                       }}
@@ -335,9 +345,10 @@ export default function SignupPage() {
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
-                    <Label htmlFor="gender" className="text-xs font-semibold">Gender <OptionalLabel /></Label>
+                    <Label htmlFor="gender" className="text-xs font-semibold">Gender <RequiredMark /></Label>
                     <Select
                       id="gender"
+                      required
                       options={[
                         { label: 'Male', value: 'Male' },
                         { label: 'Female', value: 'Female' },
@@ -353,9 +364,10 @@ export default function SignupPage() {
                   </div>
 
                   <div className="min-w-0 space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="address" className="text-xs font-semibold">Address <OptionalLabel /></Label>
+                    <Label htmlFor="address" className="text-xs font-semibold">Address <RequiredMark /></Label>
                     <Textarea
                       id="address"
+                      required
                       autoComplete="street-address"
                       placeholder="Enter your address"
                       rows={2}
@@ -373,9 +385,9 @@ export default function SignupPage() {
             </div>
 
             <details className="group overflow-hidden rounded-xl border border-border bg-background">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 marker:hidden sm:px-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-2.5 marker:hidden sm:px-5">
                 <div>
-                  <h2 className="font-display text-[13px] font-bold tracking-tight text-foreground">Additional details <OptionalLabel /></h2>
+                  <h2 className="font-display text-[13px] font-bold tracking-tight text-foreground">Additional details</h2>
                   <p className="mt-1 text-xs font-medium text-muted-foreground">Add custom profile information if needed.</p>
                 </div>
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground">
@@ -383,7 +395,7 @@ export default function SignupPage() {
                 </span>
               </summary>
 
-              <div className="space-y-4 border-t border-border bg-muted/20 px-4 py-4 sm:px-5">
+              <div className="space-y-3 border-t border-border bg-muted/20 px-4 py-3 sm:px-5">
                 <div className="flex items-center justify-between gap-4">
                   <p className="text-[11px] font-medium leading-5 text-muted-foreground">Use a short label and its corresponding value.</p>
                   <Button type="button" variant="outline" size="sm" onClick={addKvPair} className="shrink-0 rounded-lg text-xs font-semibold">
@@ -430,7 +442,7 @@ export default function SignupPage() {
             </details>
           </CardContent>
 
-          <CardFooter className="flex-col-reverse justify-between gap-4 border-t border-border/70 bg-muted/20 px-5 py-5 sm:flex-row sm:px-8">
+          <CardFooter className="flex-col-reverse justify-between gap-3 border-t border-border/70 bg-muted/20 px-5 py-3.5 sm:flex-row sm:px-7">
             <p className="text-center text-xs font-medium text-muted-foreground sm:text-left">
               Already have an account?{' '}
               <Link to="/auth/login" className="font-semibold text-primary underline-offset-4 hover:underline">

@@ -40,7 +40,7 @@ export default {
          *
          *   plum  - surfaces, the gradient's dark end, sidebar and hero grounds
          *   brand - the accent: buttons, links, active state, the gradient's light end
-         *   ink   - neutrals, biased toward plum so greys read as chosen, not default
+         *   ink   - clean slate neutrals shared across product and public pages
          */
         plum: {
           50: "#F4F1FA",
@@ -69,17 +69,17 @@ export default {
           950: "#3B0F2E",
         },
         ink: {
-          50: "#FAF9FC",
-          100: "#F3F1F7",
-          200: "#E7E3EE",
-          300: "#D3CDDD",
-          400: "#A79FB6",
-          500: "#7D758C",
-          600: "#5F586D",
-          700: "#4A4455",
-          800: "#332F3C",
-          900: "#221F29",
-          950: "#15131A",
+          50: "#F8FAFC",
+          100: "#F1F5F9",
+          200: "#E2E8F0",
+          300: "#CBD5E1",
+          400: "#94A3B8",
+          500: "#64748B",
+          600: "#475569",
+          700: "#334155",
+          800: "#1E293B",
+          900: "#0F172A",
+          950: "#020617",
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
