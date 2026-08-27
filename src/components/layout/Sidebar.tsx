@@ -5,16 +5,18 @@ import { Logo } from '../ui/Logo';
 import OrgSwitcher from './OrgSwitcher';
 import { usePermissions, ACTIONS } from '../../hooks/usePermissions';
 import {
-  LayoutDashboard,
-  Settings,
-  Plus,
   FolderOpen,
+  LayoutDashboard,
   LogOut,
-  Users,
-  User,
-  ChevronsUpDown,
-  ShieldCheck,
   Network,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Settings,
+  ShieldCheck,
+  User,
+  Users,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { logout } from '../../store/authSlice';
@@ -25,17 +27,27 @@ interface SidebarProps {
   onCreateForm: () => void;
 }
 
+const SIDEBAR_COLLAPSED_KEY = 'sifyforms.sidebar.collapsed';
+const COLLAPSED_WIDTH = 'w-[4.5rem]';
+
+function initialCollapsedState(): boolean {
+  // Compact screens always start as an icon rail so page content keeps its width.
+  if (window.matchMedia('(max-width: 1023px)').matches) return true;
+  const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+  return saved === 'true';
+}
+
 export default function Sidebar({ onCreateForm }: SidebarProps) {
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.auth);
-
-  const { can } = usePermissions();
   const navigate = useNavigate();
+  const { user } = useAppSelector((state) => state.auth);
+  const { can } = usePermissions();
+
+  const [collapsed, setCollapsed] = useState(initialCollapsedState);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close on an outside click or Escape, as a menu is expected to.
   useEffect(() => {
     if (!menuOpen) return;
     const onPointerDown = (event: MouseEvent) => {
@@ -52,149 +64,201 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
     };
   }, [menuOpen]);
 
+  const updateCollapsed = (next: boolean) => {
+    setCollapsed(next);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+    if (next) setMenuOpen(false);
+  };
+
+  const collapseAfterCompactNavigation = () => {
+    if (window.matchMedia('(max-width: 1023px)').matches) updateCollapsed(true);
+  };
+
   const handleLogout = () => {
     dispatch(resetOrg());
     dispatch(logout());
   };
 
-  // A destination the role cannot open is worse than no link at all - it
-  // advertises a feature and then refuses it. Each entry names the permission
-  // that its page requires.
   const navItems = [
-    {
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-      href: '/dashboard',
-      permission: null,
-    },
-    {
-      label: 'Forms',
-      icon: FolderOpen,
-      href: '/forms',
-      permission: ACTIONS.VIEW_FORM,
-    },
-    {
-      label: 'Members',
-      icon: Users,
-      href: '/members',
-      permission: ACTIONS.VIEW_MEMBERS,
-    },
-    {
-      label: 'Teams',
-      icon: Network,
-      href: '/teams',
-      permission: ACTIONS.VIEW_TEAM,
-    },
-    {
-      label: 'Roles',
-      icon: ShieldCheck,
-      href: '/roles',
-      permission: ACTIONS.VIEW_MEMBERS,
-    },
-    {
-      label: 'Organization',
-      icon: Settings,
-      href: '/settings',
-      permission: ACTIONS.MANAGE_ORG,
-    },
-  ].filter(item => !item.permission || can(item.permission));
+    { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', permission: null },
+    { label: 'Forms', icon: FolderOpen, href: '/forms', permission: ACTIONS.VIEW_FORM },
+    { label: 'Members', icon: Users, href: '/members', permission: ACTIONS.VIEW_MEMBERS },
+    { label: 'Teams', icon: Network, href: '/teams', permission: ACTIONS.VIEW_TEAM },
+    { label: 'Roles', icon: ShieldCheck, href: '/roles', permission: ACTIONS.VIEW_MEMBERS },
+    { label: 'Organization', icon: Settings, href: '/settings', permission: ACTIONS.MANAGE_ORG },
+  ].filter((item) => !item.permission || can(item.permission));
+
+  const isItemActive = (href: string) =>
+    href === '/forms'
+      ? location.pathname === '/forms' || location.pathname.startsWith('/forms/')
+      : location.pathname === href;
+
+  const userInitial = user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U';
 
   return (
-    <div className="flex flex-col h-screen sticky top-0 w-64 shrink-0 bg-card border-r">
-      {/* Logo */}
-      <div className="px-4 py-5 border-b">
-        <Link to="/dashboard" className="flex items-center">
-          <Logo size="lg" />
-        </Link>
-      </div>
-
-      {/* Organization switcher */}
-      <OrgSwitcher />
-
-      {/* Create Form Button */}
-      {can(ACTIONS.CREATE_FORM) && (
-        <div className="p-4">
-          <Button onClick={onCreateForm} className="w-full">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Form
-          </Button>
-        </div>
-      )}
-
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-        {navItems.map((item) => {
-          const isActive =
-            item.href === '/forms'
-              ? location.pathname === '/forms' || location.pathname.startsWith('/forms/')
-              : location.pathname === item.href;
-          return (
-            <div key={item.label}>
-              <Link
-                to={item.href}
-                className={cn(
-                  'flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span>{item.label}</span>
-              </Link>
-            </div>
-          );
-        })}
-      </nav>
-
-      {/* User - pinned to the bottom by the flex-1 nav above it */}
-      <div ref={menuRef} className="relative mt-auto shrink-0 border-t">
+    <>
+      {!collapsed && (
         <button
           type="button"
-          onClick={() => setMenuOpen(v => !v)}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          className="flex w-full items-center gap-2 p-4 text-left transition-colors hover:bg-muted"
-        >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
-            {user?.name?.charAt(0).toUpperCase() || 'U'}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium">{user?.name}</span>
-            <span className="block truncate text-xs text-muted-foreground">{user?.email}</span>
-          </span>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-        </button>
+          aria-label="Close navigation"
+          onClick={() => updateCollapsed(true)}
+          className="fixed inset-0 z-40 hidden bg-ink-950/20 backdrop-blur-[1px] max-lg:block"
+        />
+      )}
 
-        {menuOpen && (
-          <div
-            role="menu"
-            className="absolute bottom-full left-2 right-2 z-30 mb-1 overflow-hidden rounded-md border bg-popover py-1 shadow-lg"
-          >
+      <div
+        aria-hidden="true"
+        className={cn(
+          'relative h-screen w-[4.5rem] shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          collapsed ? 'lg:w-[4.5rem]' : 'lg:w-64'
+        )}
+      >
+        <aside
+          aria-label="Application sidebar"
+          className={cn(
+            'fixed left-0 top-0 z-50 flex h-[100dvh] flex-col border-r border-border/80 bg-card shadow-[4px_0_18px_-14px_hsl(var(--foreground)/0.2)] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] lg:sticky lg:h-screen',
+            collapsed ? COLLAPSED_WIDTH : 'w-64'
+          )}
+        >
+          <div className={cn('flex h-16 shrink-0 items-center border-b border-border/70', collapsed ? 'gap-1 px-1.5' : 'gap-2 px-3')}>
+            <Link
+              to="/dashboard"
+              aria-label="SifyForms dashboard"
+              title={collapsed ? 'SifyForms dashboard' : undefined}
+              className={cn('flex min-w-0 flex-1 items-center rounded-lg', collapsed && 'justify-center')}
+              onClick={collapseAfterCompactNavigation}
+            >
+              <Logo variant={collapsed ? 'icon' : 'lockup'} size="sm" />
+            </Link>
             <button
               type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                navigate('/account');
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+              onClick={() => updateCollapsed(!collapsed)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className={cn(
+                'flex shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+                collapsed ? 'h-7 w-7' : 'h-8 w-8'
+              )}
             >
-              <User className="h-4 w-4 shrink-0 text-muted-foreground" />
-              View profile
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={handleLogout}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-muted"
-            >
-              <LogOut className="h-4 w-4 shrink-0" />
-              Log out
+              {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </button>
           </div>
-        )}
+
+          <OrgSwitcher collapsed={collapsed} onCompactNavigate={collapseAfterCompactNavigation} />
+
+          {can(ACTIONS.CREATE_FORM) && (
+            <div className={cn('shrink-0', collapsed ? 'p-2' : 'p-3')}>
+              <Button
+                onClick={() => {
+                  onCreateForm();
+                  collapseAfterCompactNavigation();
+                }}
+                size={collapsed ? 'icon' : 'default'}
+                title={collapsed ? 'Create form' : undefined}
+                aria-label={collapsed ? 'Create form' : undefined}
+                className={cn('rounded-lg shadow-sm shadow-primary/10', collapsed ? 'mx-auto h-10 w-10' : 'w-full')}
+              >
+                <Plus className={cn('h-4 w-4 shrink-0', !collapsed && 'mr-2')} strokeWidth={2.25} />
+                {!collapsed && <span>Create form</span>}
+              </Button>
+            </div>
+          )}
+
+          <nav className="min-h-0 flex-1 overflow-y-auto px-2.5 py-2" aria-label="Primary navigation">
+            {!collapsed && (
+              <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Workspace
+              </p>
+            )}
+            <div className="space-y-1">
+              {navItems.map((item) => {
+                const isActive = isItemActive(item.href);
+                return (
+                  <Link
+                    key={item.label}
+                    to={item.href}
+                    title={collapsed ? item.label : undefined}
+                    aria-label={collapsed ? item.label : undefined}
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={collapseAfterCompactNavigation}
+                    className={cn(
+                      'group relative flex h-10 items-center rounded-lg text-[13px] font-semibold transition-colors duration-200',
+                      collapsed ? 'justify-center px-0' : 'gap-3 px-2.5',
+                      isActive
+                        ? 'bg-primary/[0.075] text-primary'
+                        : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                    )}
+                  >
+                    {isActive && <span className="absolute left-0 h-5 w-0.5 rounded-r-full bg-primary" aria-hidden="true" />}
+                    <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={isActive ? 2.25 : 2} />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+
+          <div ref={menuRef} className={cn('relative mt-auto shrink-0 border-t border-border/70', collapsed ? 'p-2' : 'p-2.5')}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              title={collapsed ? 'Account menu' : undefined}
+              className={cn(
+                'flex w-full items-center rounded-xl text-left transition-colors hover:bg-muted/80',
+                collapsed ? 'h-11 justify-center px-0' : 'gap-2.5 p-2'
+              )}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
+                {userInitial}
+              </span>
+              {!collapsed && (
+                <>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-semibold text-foreground">{user?.name || 'Your account'}</span>
+                    <span className="mt-0.5 block truncate text-[11px] font-medium text-muted-foreground">{user?.email}</span>
+                  </span>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </>
+              )}
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                className={cn(
+                  'absolute z-50 overflow-hidden rounded-xl border border-border bg-popover py-1.5 shadow-xl shadow-foreground/10',
+                  collapsed ? 'bottom-0 left-full ml-2 w-52' : 'bottom-full left-0 right-0 mb-2'
+                )}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate('/account');
+                    collapseAfterCompactNavigation();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] font-medium transition-colors hover:bg-muted"
+                >
+                  <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  View profile
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/[0.06]"
+                >
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  Log out
+                </button>
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
-    </div>
+    </>
   );
 }

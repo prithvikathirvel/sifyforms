@@ -133,12 +133,8 @@ export default function LandingPage() {
 
       <main>
         <section className="relative isolate overflow-hidden border-b border-border/70">
-          <div className="public-subtle-grid pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] opacity-70" aria-hidden="true" />
-          <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-64 w-[36rem] max-w-full -translate-x-1/2 rounded-full bg-primary/[0.045] blur-3xl" aria-hidden="true" />
-          <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
-            <span className="landing-ambient-orb absolute -left-20 top-20 h-56 w-56 rounded-full border border-primary/[0.08] bg-primary/[0.035] blur-[1px]" />
-            <span className="landing-ambient-orb landing-ambient-orb-delayed absolute -right-16 bottom-10 h-44 w-44 rounded-full border border-primary/[0.07] bg-primary/[0.025] blur-[1px]" />
-          </div>
+          <div className="public-subtle-grid pointer-events-none absolute inset-x-0 top-0 -z-10 h-[30rem] opacity-90" aria-hidden="true" />
+          <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-64 w-[36rem] max-w-full -translate-x-1/2 bg-primary/[0.035] blur-3xl" aria-hidden="true" />
 
           <div className="mx-auto max-w-5xl px-5 py-20 text-center sm:px-6 sm:py-24 lg:px-8 lg:py-32">
             <h1 className="mx-auto max-w-4xl font-display text-4xl font-bold leading-[1.08] tracking-[-0.04em] text-foreground sm:text-5xl lg:text-6xl">

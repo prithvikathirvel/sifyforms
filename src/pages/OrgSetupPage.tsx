@@ -181,13 +181,18 @@ export default function OrgSetupPage() {
   return (
     <div className="public-shell flex min-h-[100dvh] flex-col bg-muted/20 lg:h-[100dvh] lg:overflow-hidden">
       <header className="shrink-0 border-b border-border/70 bg-background">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Logo size="md" />
-          <div className="min-w-0 text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Workspace setup</p>
-            <p className="mt-0.5 max-w-[11rem] truncate text-xs font-semibold text-foreground sm:max-w-xs">
-              {user?.name || user?.email || 'Your account'}
-            </p>
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Logo size="sm" />
+          <div className="flex min-w-0 items-center gap-2.5 border-l border-border pl-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/[0.08] text-xs font-bold text-primary">
+              {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
+            </span>
+            <div className="hidden min-w-0 text-left sm:block">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Signed in as</p>
+              <p className="mt-0.5 max-w-52 truncate text-xs font-semibold text-foreground">
+                {user?.name || user?.email || 'Your account'}
+              </p>
+            </div>
           </div>
         </div>
       </header>
@@ -311,9 +316,9 @@ export default function OrgSetupPage() {
               </Card>
             </div>
           ) : (
-            <div className={cn('grid h-full min-h-0 gap-4', hasBothChoiceTypes && 'lg:grid-cols-2')}>
+            <div className={cn('grid h-full min-h-0 content-start gap-4', hasBothChoiceTypes && 'lg:grid-cols-2')}>
               {incomingInvites.length > 0 && (
-                <Card className="flex min-h-0 flex-col rounded-2xl border-border shadow-sm">
+                <Card className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border-border shadow-sm">
                   <CardHeader className="shrink-0 border-b border-border/70 px-5 py-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
@@ -354,7 +359,7 @@ export default function OrgSetupPage() {
               )}
 
               {organizations.length > 0 && (
-                <Card className="flex min-h-0 flex-col rounded-2xl border-border shadow-sm">
+                <Card className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border-border shadow-sm">
                   <CardHeader className="shrink-0 border-b border-border/70 px-5 py-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
