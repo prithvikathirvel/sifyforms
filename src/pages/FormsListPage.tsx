@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
-import { fetchForms, deleteForm } from '../store/formsSlice';
+import { fetchForms } from '../store/formsSlice';
 import { getSession } from '../store/authSlice';
 import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import { fetchTeams } from '../store/teamsSlice';
@@ -9,20 +8,12 @@ import type { TeamNode } from '../types';
 import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
 import CreateFormModal from '../components/forms/CreateFormModal';
+import FormWorkspaceCard from '../components/forms/FormWorkspaceCard';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
+import { Card, CardContent } from '../components/ui/card';
 import {
   FileText,
-  BarChart3,
-  Clock,
-  Edit,
-  Eye,
-  Trash2,
-  Inbox,
   Loader2,
-  Copy,
-  Share2,
   Search,
   X,
   ChevronLeft,
@@ -38,7 +29,6 @@ const PAGE_SIZE = 12;
 
 export default function FormsListPage() {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { currentOrg } = useAppSelector((state) => state.org);
   const { forms, isLoading } = useAppSelector((state) => state.forms);
 
@@ -128,14 +118,6 @@ export default function FormsListPage() {
   const handleSortChange = (value: SortOption) => {
     setSortOption(value);
     setCurrentPage(1);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
   };
 
   if (!currentOrg) {
@@ -292,150 +274,12 @@ export default function FormsListPage() {
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {paginatedForms.map((form) => (
-                  <Card key={form.id} className="group flex flex-col overflow-hidden rounded-xl border-border/80 bg-card shadow-none transition-colors hover:border-primary/25">
-                    <CardHeader className="shrink-0 px-5 pb-3 pt-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="line-clamp-2 font-display text-[15px] font-bold leading-5 text-foreground transition-colors group-hover:text-primary sm:text-base">
-                            {form.name}
-                          </CardTitle>
-                          <CardDescription className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                            <Users className="h-3 w-3 shrink-0" />
-                            {form.teamId ? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
-                          </CardDescription>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={form.isPublished
-                            ? 'shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : 'shrink-0 border-border bg-muted/50 text-muted-foreground'}
-                        >
-                          {form.isPublished ? 'Published' : 'Draft'}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="flex flex-1 flex-col space-y-4 px-5 pb-5 pt-2">
-                      {/* Stats Row */}
-                      <div className="grid shrink-0 grid-cols-2 gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
-                        <div className="flex items-center space-x-2">
-                          <div className="p-1.5 sm:p-2 bg-primary/[0.055] rounded-lg flex-shrink-0">
-                            <Inbox className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-base sm:text-lg font-bold text-foreground truncate">
-                              {form.submissionCount || 0}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">Submissions</div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <div className="p-1.5 sm:p-2 bg-primary/[0.055] rounded-lg flex-shrink-0">
-                            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs sm:text-sm font-bold text-foreground truncate">
-                              {formatDate(form.updatedAt)}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">Updated</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="space-y-2 sm:space-y-3 flex-1 flex flex-col justify-end mt-auto">
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          {form.access?.canEdit !== false && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigate(`/forms/${form.id}/edit`)}
-                              className="flex-1 border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 text-xs sm:text-sm rounded-lg"
-                            >
-                              <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
-                              Edit
-                            </Button>
-                          )}
-                          {form.isPublished && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const orgSlug = currentOrg?.slug || 'default-org';
-                                const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-                                window.open(`${BASE_URL}/${orgSlug}/${form.slug}`, '_blank');
-                              }}
-                              className="flex-1 border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 text-xs sm:text-sm rounded-lg"
-                            >
-                              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
-                              Preview
-                            </Button>
-                          )}
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          {(form.access?.canViewResponses !== false || form.access?.canViewResults) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigate(`/forms/${form.id}/submissions`)}
-                              className="flex-1 border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 text-xs sm:text-sm rounded-lg"
-                            >
-                              <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
-                              {form.access && !form.access.canViewResponses ? 'Results' : 'Submissions'}
-                            </Button>
-                          )}
-
-                          <div className="flex gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const orgSlug = currentOrg?.slug || 'default-org';
-                                const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-                                navigator.clipboard.writeText(`${BASE_URL}/${orgSlug}/${form.slug}`);
-                              }}
-                              className="border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 w-9 p-0 text-xs sm:text-sm rounded-lg"
-                              title="Copy link"
-                            >
-                              <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </Button>
-
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const orgSlug = currentOrg?.slug || 'default-org';
-                                const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-                                window.open(`${BASE_URL}/${orgSlug}/${form.slug}`, '_blank');
-                              }}
-                              className="border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 w-9 p-0 text-xs sm:text-sm rounded-lg"
-                              title="Share form"
-                            >
-                              <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </Button>
-
-                            {form.access?.canDelete !== false && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  if (window.confirm(`Are you sure you want to delete "${form.name}"?`)) {
-                                    dispatch(deleteForm(form.id));
-                                  }
-                                }}
-                                className="border-red-200 hover:border-red-300 hover:bg-red-50 transition-colors h-9 w-9 p-0 text-xs sm:text-sm rounded-lg"
-                                title="Delete form"
-                              >
-                                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <FormWorkspaceCard
+                    key={form.id}
+                    form={form}
+                    orgSlug={currentOrg.slug || 'default-org'}
+                    teamName={form.teamId ? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
+                  />
                 ))}
               </div>
 
