@@ -328,12 +328,15 @@ export async function getStats(orgId: string, userId: string, seeAllTeams: boole
     .map(team => ({
       id: team.id,
       name: team.name,
+      parentId: team.parentId,
+      path: team.path,
       depth: team.depth,
       memberCount: team._count.members,
       forms: byTeam.get(team.id)?.forms ?? 0,
       submissions: byTeam.get(team.id)?.submissions ?? 0,
     }))
-    .sort((a, b) => b.submissions - a.submissions || b.forms - a.forms);
+    // Materialized path keeps every parent immediately before its descendants.
+    .sort((a, b) => a.path.localeCompare(b.path));
 
   return {
     totalForms: visibleForms.length,
