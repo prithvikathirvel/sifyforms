@@ -60,8 +60,8 @@
     --font-inter: 'Inter Variable';
     --font-geist: 'Geist Variable';
 
-    /* Solid logo color; intentionally separate from decorative brand gradients. */
-    --logo-blue: 221 83% 53%;
+    /* Solid logo color (#521E99); change this single token to retheme the mark. */
+    --logo-color: 265 67% 36%;
 
     /* Brand and neutral palette. Public and product pages share these tokens. */
     --brand-from: 265 72% 31%;
@@ -248,6 +248,26 @@
     background-size: 32px 32px;
     -webkit-mask-image: linear-gradient(to bottom, black, transparent 75%);
     mask-image: linear-gradient(to bottom, black, transparent 75%);
+  }
+
+  .landing-ambient-orb {
+    animation: landing-ambient-drift 14s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .landing-ambient-orb-delayed {
+    animation-delay: -7s;
+    animation-direction: reverse;
+  }
+
+  @keyframes landing-ambient-drift {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(18px, -12px, 0) scale(1.04);
+    }
   }
 }
 

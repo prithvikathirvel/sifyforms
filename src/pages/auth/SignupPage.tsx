@@ -47,6 +47,10 @@ type FormError = { message?: string } | undefined;
 
 const inputClassName = 'h-10 min-w-0 rounded-lg border-input bg-background text-base placeholder:text-[13px] sm:text-[13px]';
 
+// Keep the complete custom-details implementation in place for a later release.
+// Only the UI is hidden for now; payload construction and validation remain unchanged.
+const SHOW_ADDITIONAL_DETAILS = false;
+
 function RequiredMark() {
   return <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>;
 }
@@ -401,7 +405,10 @@ export default function SignupPage() {
               </section>
             </div>
 
-            <details className="group overflow-hidden rounded-xl border border-border bg-background">
+            {/* Additional Details UI is intentionally hidden for the current release. */}
+            {SHOW_ADDITIONAL_DETAILS && (
+              <>
+                <details className="group overflow-hidden rounded-xl border border-border bg-background">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-2.5 marker:hidden sm:px-5">
                 <div>
                   <h2 className="font-display text-[13px] font-bold tracking-tight text-foreground">Additional details</h2>
@@ -464,11 +471,13 @@ export default function SignupPage() {
               </div>
             </details>
 
-            {detailsError && (
-              <p id="custom-details-error" role="alert" className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-                <CircleAlert className="h-3.5 w-3.5 shrink-0" />
-                {detailsError}
-              </p>
+                {detailsError && (
+                  <p id="custom-details-error" role="alert" className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+                    <CircleAlert className="h-3.5 w-3.5 shrink-0" />
+                    {detailsError}
+                  </p>
+                )}
+              </>
             )}
           </CardContent>
 
