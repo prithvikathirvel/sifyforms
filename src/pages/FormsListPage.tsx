@@ -21,7 +21,6 @@ import {
   Trash2,
   Inbox,
   Loader2,
-  MoreVertical,
   Copy,
   Share2,
   Search,
@@ -180,7 +179,7 @@ export default function FormsListPage() {
                   placeholder="Search forms…"
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-border rounded-full bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition-all"
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -198,7 +197,7 @@ export default function FormsListPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => handleStatusChange(e.target.value as StatusFilter)}
-                  className="appearance-none pl-9 pr-8 py-2 text-sm border border-border rounded-full bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 cursor-pointer transition-all"
+                  className="appearance-none pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 cursor-pointer transition-all"
                 >
                   <option value="all">All Status</option>
                   <option value="published">Published</option>
@@ -216,7 +215,7 @@ export default function FormsListPage() {
                       setTeamFilter(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="appearance-none pl-9 pr-8 py-2 text-sm border border-border rounded-full bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 cursor-pointer transition-all"
+                    className="appearance-none pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 cursor-pointer transition-all"
                   >
                     <option value="all">All Teams</option>
                     {[...teamsById.entries()].map(([id, name]) => (
@@ -233,7 +232,7 @@ export default function FormsListPage() {
                 <select
                   value={sortOption}
                   onChange={(e) => handleSortChange(e.target.value as SortOption)}
-                  className="appearance-none pl-4 pr-8 py-2 text-sm border border-border rounded-full bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 cursor-pointer transition-all"
+                  className="appearance-none pl-4 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 cursor-pointer transition-all"
                 >
                   <option value="newest">Newest First</option>
                   <option value="oldest">Oldest First</option>
@@ -249,15 +248,15 @@ export default function FormsListPage() {
           {isLoading ? (
             <div className="flex items-center justify-center py-32">
               <div className="text-center">
-                <Loader2 className="h-12 w-12 animate-spin text-brand-600 mx-auto mb-4" />
+                <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
                 <p className="text-muted-foreground">Loading your forms...</p>
               </div>
             </div>
           ) : forms.length === 0 ? (
-            <Card className="border-0 shadow-xl bg-white">
-              <CardContent className="py-20 text-center">
-                <div className="w-24 h-24 bg-primary/[0.07] rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FileText className="h-12 w-12 text-brand-600" />
+            <Card className="rounded-xl border-dashed border-border bg-card shadow-none">
+              <CardContent className="py-16 text-center">
+                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/[0.06]">
+                  <FileText className="h-6 w-6 text-primary" strokeWidth={1.8} />
                 </div>
                 <h3 className="text-2xl font-bold text-foreground mb-3">No forms yet</h3>
                 <p className="text-muted-foreground mb-8 max-w-md mx-auto">
@@ -265,7 +264,7 @@ export default function FormsListPage() {
                 </p>
                 <Button
                   onClick={() => setShowCreateModal(true)}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-10 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 border-0 font-medium"
+                  className="h-10 rounded-lg px-5"
                   size="lg"
                 >
                   <FileText className="h-5 w-5 mr-2" />
@@ -274,7 +273,7 @@ export default function FormsListPage() {
               </CardContent>
             </Card>
           ) : filteredForms.length === 0 ? (
-            <Card className="border-0 shadow-lg bg-white">
+            <Card className="rounded-xl border-border bg-card shadow-none">
               <CardContent className="py-12 text-center">
                 <Search className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-muted-foreground mb-2">No forms match your search</h3>
@@ -282,7 +281,7 @@ export default function FormsListPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-full"
+                  className="rounded-lg"
                   onClick={() => { handleSearchChange(''); handleStatusChange('all'); }}
                 >
                   Clear filters
@@ -291,50 +290,37 @@ export default function FormsListPage() {
             </Card>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {paginatedForms.map((form) => (
-                  <Card key={form.id} className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-white overflow-hidden flex flex-col">
-                    <div className="h-1 bg-primary"></div>
-
-                    <CardHeader className="pb-4 flex-shrink-0">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1 mr-2 sm:mr-3 min-w-0">
-                          <CardTitle className="text-base sm:text-lg font-bold text-foreground mb-2 line-clamp-2 group-hover:text-brand-600 transition-colors">
+                  <Card key={form.id} className="group flex flex-col overflow-hidden rounded-xl border-border/80 bg-card shadow-none transition-colors hover:border-primary/25">
+                    <CardHeader className="shrink-0 px-5 pb-3 pt-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="line-clamp-2 font-display text-[15px] font-bold leading-5 text-foreground transition-colors group-hover:text-primary sm:text-base">
                             {form.name}
                           </CardTitle>
-                          <CardDescription className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <CardDescription className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
                             <Users className="h-3 w-3 shrink-0" />
                             {form.teamId ? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
                           </CardDescription>
                         </div>
-                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                          <Badge
-                            variant={form.isPublished ? 'success' : 'secondary'}
-                            className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${
-                              form.isPublished
-                                ? 'bg-green-100 text-green-800 border-green-200'
-                                : 'bg-muted text-foreground border-border'
-                            }`}
-                          >
-                            {form.isPublished ? '🟢 Published' : '📝 Draft'}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Badge
+                          variant="outline"
+                          className={form.isPublished
+                            ? 'shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'shrink-0 border-border bg-muted/50 text-muted-foreground'}
+                        >
+                          {form.isPublished ? 'Published' : 'Draft'}
+                        </Badge>
                       </div>
                     </CardHeader>
 
-                    <CardContent className="space-y-3 sm:space-y-4 flex-1 flex flex-col">
+                    <CardContent className="flex flex-1 flex-col space-y-4 px-5 pb-5 pt-2">
                       {/* Stats Row */}
-                      <div className="grid grid-cols-2 gap-3 sm:gap-4 flex-shrink-0">
+                      <div className="grid shrink-0 grid-cols-2 gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
                         <div className="flex items-center space-x-2">
-                          <div className="p-1.5 sm:p-2 bg-brand-50 rounded-lg flex-shrink-0">
-                            <Inbox className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-brand-600" />
+                          <div className="p-1.5 sm:p-2 bg-primary/[0.055] rounded-lg flex-shrink-0">
+                            <Inbox className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-base sm:text-lg font-bold text-foreground truncate">
@@ -345,8 +331,8 @@ export default function FormsListPage() {
                         </div>
 
                         <div className="flex items-center space-x-2">
-                          <div className="p-1.5 sm:p-2 bg-brand-50 rounded-lg flex-shrink-0">
-                            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-brand-600" />
+                          <div className="p-1.5 sm:p-2 bg-primary/[0.055] rounded-lg flex-shrink-0">
+                            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-xs sm:text-sm font-bold text-foreground truncate">
@@ -365,7 +351,7 @@ export default function FormsListPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => navigate(`/forms/${form.id}/edit`)}
-                              className="flex-1 border-border hover:border-brand-300 hover:bg-brand-50 transition-colors h-9 text-xs sm:text-sm rounded-full"
+                              className="flex-1 border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 text-xs sm:text-sm rounded-lg"
                             >
                               <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
                               Edit
@@ -380,7 +366,7 @@ export default function FormsListPage() {
                                 const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
                                 window.open(`${BASE_URL}/${orgSlug}/${form.slug}`, '_blank');
                               }}
-                              className="flex-1 border-border hover:border-brand-300 hover:bg-brand-50 transition-colors h-9 text-xs sm:text-sm rounded-full"
+                              className="flex-1 border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 text-xs sm:text-sm rounded-lg"
                             >
                               <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
                               Preview
@@ -394,7 +380,7 @@ export default function FormsListPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => navigate(`/forms/${form.id}/submissions`)}
-                              className="flex-1 border-border hover:border-brand-300 hover:bg-brand-50 transition-colors h-9 text-xs sm:text-sm rounded-full"
+                              className="flex-1 border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 text-xs sm:text-sm rounded-lg"
                             >
                               <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
                               {form.access && !form.access.canViewResponses ? 'Results' : 'Submissions'}
@@ -410,7 +396,7 @@ export default function FormsListPage() {
                                 const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
                                 navigator.clipboard.writeText(`${BASE_URL}/${orgSlug}/${form.slug}`);
                               }}
-                              className="border-border hover:border-brand-300 hover:bg-brand-50 transition-colors h-9 px-2 text-xs sm:text-sm rounded-full"
+                              className="border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 w-9 p-0 text-xs sm:text-sm rounded-lg"
                               title="Copy link"
                             >
                               <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -424,7 +410,7 @@ export default function FormsListPage() {
                                 const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
                                 window.open(`${BASE_URL}/${orgSlug}/${form.slug}`, '_blank');
                               }}
-                              className="border-border hover:border-brand-300 hover:bg-brand-50 transition-colors h-9 px-2 text-xs sm:text-sm rounded-full"
+                              className="border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 w-9 p-0 text-xs sm:text-sm rounded-lg"
                               title="Share form"
                             >
                               <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -439,7 +425,7 @@ export default function FormsListPage() {
                                     dispatch(deleteForm(form.id));
                                   }
                                 }}
-                                className="border-red-200 hover:border-red-300 hover:bg-red-50 transition-colors h-9 px-2 text-xs sm:text-sm rounded-full"
+                                className="border-red-200 hover:border-red-300 hover:bg-red-50 transition-colors h-9 w-9 p-0 text-xs sm:text-sm rounded-lg"
                                 title="Delete form"
                               >
                                 <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -465,7 +451,7 @@ export default function FormsListPage() {
                       size="sm"
                       disabled={safePage === 1}
                       onClick={() => setCurrentPage(safePage - 1)}
-                      className="rounded-full h-8 w-8 p-0 border-border"
+                      className="rounded-lg h-8 w-8 p-0 border-border"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
@@ -485,7 +471,7 @@ export default function FormsListPage() {
                             variant={p === safePage ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setCurrentPage(p as number)}
-                            className={`rounded-full h-8 w-8 p-0 text-xs ${
+                            className={`rounded-lg h-8 w-8 p-0 text-xs ${
                               p === safePage
                                 ? 'bg-primary text-primary-foreground border-primary'
                                 : 'border-border'
@@ -500,7 +486,7 @@ export default function FormsListPage() {
                       size="sm"
                       disabled={safePage === totalPages}
                       onClick={() => setCurrentPage(safePage + 1)}
-                      className="rounded-full h-8 w-8 p-0 border-border"
+                      className="rounded-lg h-8 w-8 p-0 border-border"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
