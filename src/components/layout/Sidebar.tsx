@@ -120,34 +120,32 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
             collapsed ? COLLAPSED_WIDTH : 'w-64'
           )}
         >
-          <div className={cn('flex h-16 shrink-0 items-center border-b border-border/70', collapsed ? 'gap-1 px-1.5' : 'gap-2 px-3')}>
+          <div className={cn('flex h-16 shrink-0 items-center border-b border-border/70', collapsed ? 'justify-center px-2' : 'px-4')}>
             <Link
               to="/dashboard"
               aria-label="SifyForms dashboard"
               title={collapsed ? 'SifyForms dashboard' : undefined}
-              className={cn('flex min-w-0 flex-1 items-center rounded-lg', collapsed && 'justify-center')}
+              className={cn('flex min-w-0 items-center rounded-lg', collapsed ? 'flex-none justify-center' : 'flex-1')}
               onClick={collapseAfterCompactNavigation}
             >
               <Logo variant={collapsed ? 'icon' : 'lockup'} size="sm" />
             </Link>
-            <button
-              type="button"
-              onClick={() => updateCollapsed(!collapsed)}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              className={cn(
-                'flex shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-                collapsed ? 'h-7 w-7' : 'h-8 w-8'
-              )}
-            >
-              {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => updateCollapsed(!collapsed)}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="absolute -right-3 top-[1.125rem] z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-[color,background-color,transform] duration-200 hover:bg-muted hover:text-foreground active:scale-95"
+          >
+            {collapsed ? <PanelLeftOpen className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
+          </button>
 
           <OrgSwitcher collapsed={collapsed} onCompactNavigate={collapseAfterCompactNavigation} />
 
           {can(ACTIONS.CREATE_FORM) && (
-            <div className={cn('shrink-0', collapsed ? 'p-2' : 'p-3')}>
+            <div className={cn('flex shrink-0 justify-center', collapsed ? 'px-2 py-2.5' : 'p-3')}>
               <Button
                 onClick={() => {
                   onCreateForm();
@@ -156,7 +154,7 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
                 size={collapsed ? 'icon' : 'default'}
                 title={collapsed ? 'Create form' : undefined}
                 aria-label={collapsed ? 'Create form' : undefined}
-                className={cn('rounded-lg shadow-sm shadow-primary/10', collapsed ? 'mx-auto h-10 w-10' : 'w-full')}
+                className={cn('rounded-lg shadow-sm shadow-primary/10', collapsed ? 'h-10 w-10 p-0' : 'w-full')}
               >
                 <Plus className={cn('h-4 w-4 shrink-0', !collapsed && 'mr-2')} strokeWidth={2.25} />
                 {!collapsed && <span>Create form</span>}

@@ -181,7 +181,7 @@ export default function OrgSetupPage() {
   return (
     <div className="public-shell flex min-h-[100dvh] flex-col bg-muted/20 lg:h-[100dvh] lg:overflow-hidden">
       <header className="shrink-0 border-b border-border/70 bg-background">
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex h-14 w-full items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
           <Logo size="sm" />
           <div className="flex min-w-0 items-center gap-2.5 border-l border-border pl-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/[0.08] text-xs font-bold text-primary">
@@ -197,17 +197,17 @@ export default function OrgSetupPage() {
         </div>
       </header>
 
-      <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col px-4 sm:px-6 lg:px-8">
+      <main className="flex min-h-0 w-full flex-1 flex-col px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
         <div className="flex shrink-0 flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between lg:py-5">
-          <div className="flex min-w-0 items-start gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/[0.055] text-primary">
               {showCreate ? <Plus className="h-[18px] w-[18px]" /> : <Building2 className="h-[18px] w-[18px]" />}
             </span>
-            <div className="min-w-0">
-              <h1 className="font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            <div className="min-w-0 space-y-1.5">
+              <h1 className="font-display text-xl font-bold leading-tight tracking-tight text-foreground sm:text-2xl">
                 {showCreate ? 'Create your organization' : 'Choose your workspace'}
               </h1>
-              <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground sm:text-[13px]">
+              <p className="text-xs font-medium leading-5 text-muted-foreground sm:text-[13px]">
                 {showCreate
                   ? 'Set up the workspace where your team will create and manage forms.'
                   : 'Continue to an organization or respond to a pending invitation.'}

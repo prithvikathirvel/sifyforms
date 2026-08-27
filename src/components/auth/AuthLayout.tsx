@@ -12,7 +12,7 @@ interface AuthLayoutProps {
 export function AuthLayout({ children, contentClassName }: AuthLayoutProps) {
   return (
     <div className="public-shell flex min-h-[100dvh] flex-col overflow-x-hidden bg-background">
-      <nav className="mx-auto flex w-full max-w-7xl shrink-0 px-3 pt-3 sm:px-5 sm:pt-4" aria-label="Authentication navigation">
+      <nav className="flex w-full shrink-0 px-3 pt-3 sm:px-5 sm:pt-4 lg:px-8 xl:px-10 2xl:px-12" aria-label="Authentication navigation">
         <Link
           to="/"
           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[11px] font-semibold text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
