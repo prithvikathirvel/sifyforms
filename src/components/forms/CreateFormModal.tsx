@@ -194,7 +194,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
       {renderTeamPicker()}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <Card
-        className="cursor-pointer hover:border-brand-500 transition-colors bg-gradient-to-br from-brand-50 to-brand-50 border-brand-200"
+        className="cursor-pointer hover:border-brand-500 transition-colors bg-primary/[0.04] border-primary/20"
         onClick={() => setStep('ai')}
       >
         <CardHeader className="text-center">
@@ -202,7 +202,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
             <Wand2 className="h-12 w-12 text-brand-600" />
             <Sparkles className="h-4 w-4 text-brand-500 -ml-2 -mt-2" />
           </div>
-          <CardTitle className="text-lg bg-gradient-to-r from-plum-800 to-brand-500 bg-clip-text text-transparent">AI Creation</CardTitle>
+          <CardTitle className="text-lg text-primary">AI Creation</CardTitle>
           <CardDescription>Describe and generate instantly</CardDescription>
         </CardHeader>
       </Card>

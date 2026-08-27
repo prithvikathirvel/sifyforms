@@ -15,7 +15,8 @@
     "rbac:seed": "ts-node src/scripts/seedRbac.ts",
     "db:setup": "node scripts/db-setup.mjs",
     "db:deploy": "node scripts/db-migrate.mjs",
-    "db:import-sqlite": "node scripts/db-import-sqlite.mjs"
+    "db:import-sqlite": "node scripts/db-import-sqlite.mjs",
+    "test:security": "node --test -r ts-node/register src/lib/__tests__/turnstileReplay.test.ts"
   },
   "keywords": [],
   "author": "",

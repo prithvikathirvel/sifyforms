@@ -39,7 +39,7 @@ export default {
          * graduates toward magenta, with the queen's orchid as the accent.
          *
          *   plum  - surfaces, the gradient's dark end, sidebar and hero grounds
-         *   brand - the accent: buttons, links, active state, the gradient's light end
+         *   brand - single-hue primary scale centered on #521E99
          *   ink   - clean slate neutrals shared across product and public pages
          */
         plum: {
@@ -56,17 +56,17 @@ export default {
           950: "#26143A",
         },
         brand: {
-          50: "#FBF3F9",
-          100: "#F6E4F1",
-          200: "#EFC9E4",
-          300: "#E3A3D2",
-          400: "#D373BB",
-          500: "#C24BA4",
-          600: "#AE3690",
-          700: "#8F2B76",
-          800: "#75255F",
-          900: "#61224F",
-          950: "#3B0F2E",
+          50: "#F7F4FB",
+          100: "#EEE8F6",
+          200: "#DDD0EC",
+          300: "#C4ABE0",
+          400: "#A47ECD",
+          500: "#7B4CAF",
+          600: "#521E99",
+          700: "#451980",
+          800: "#391669",
+          900: "#2E1254",
+          950: "#1D0A37",
         },
         ink: {
           50: "#F8FAFC",

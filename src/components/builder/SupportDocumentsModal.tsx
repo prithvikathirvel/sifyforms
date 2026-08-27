@@ -200,7 +200,7 @@ export function SupportDocumentsModal({
                     ) : (
                         <div className="space-y-4">
                             {localDocuments.map((doc, index) => (
-                                <div key={doc.id} className="p-4 bg-gradient-to-br from-ink-50 to-ink-100 border border-border rounded-lg shadow-md">
+                                <div key={doc.id} className="p-4 bg-muted/20 border border-border rounded-lg shadow-md">
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex-1">
                                             <Label className="text-[11px] font-bold uppercase text-muted-foreground block mb-2">

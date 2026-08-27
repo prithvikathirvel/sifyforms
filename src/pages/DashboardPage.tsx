@@ -104,6 +104,7 @@ function StatTile({
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { user } = useAppSelector((state) => state.auth);
   const { currentOrg } = useAppSelector((state) => state.org);
   const { forms, isLoading } = useAppSelector((state) => state.forms);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -140,10 +141,10 @@ export default function DashboardPage() {
     <div className="flex h-screen bg-muted/30">
       <Sidebar onCreateForm={() => setShowCreateModal(true)} />
 
-      <main className="min-w-0 flex-1 overflow-auto bg-gradient-to-br from-ink-50 to-ink-100">
+      <main className="min-w-0 flex-1 overflow-auto bg-muted/20">
         <PageHeader
           title="Overview"
-          description={`${currentOrg?.name || 'Your workspace'} · Forms, submissions, and recent activity`}
+          description={`Welcome back, ${user?.firstName || user?.name || 'there'} · ${currentOrg?.name || 'Your workspace'} activity`}
           actions={canCreateForm ? (
             <Button onClick={() => setShowCreateModal(true)} className="h-9 rounded-lg px-3.5">
               <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
@@ -273,7 +274,7 @@ export default function DashboardPage() {
                 {canCreateForm && (
                   <Button
                     onClick={() => setShowCreateModal(true)}
-                    className="bg-gradient-to-r from-plum-800 to-brand-500 hover:from-plum-900 hover:to-brand-600 text-white w-full sm:w-auto border-0 rounded-full font-medium"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto border-0 rounded-full font-medium"
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     Create Form
@@ -292,7 +293,7 @@ export default function DashboardPage() {
             ) : forms.length === 0 ? (
               <Card className="border-0 shadow-xl bg-white">
                 <CardContent className="py-16 text-center">
-                  <div className="w-24 h-24 bg-gradient-to-br from-brand-100 to-brand-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <div className="w-24 h-24 bg-primary/[0.07] rounded-full flex items-center justify-center mx-auto mb-6">
                     <FileText className="h-12 w-12 text-brand-600" />
                   </div>
                   <h3 className="text-2xl font-bold text-foreground mb-3">No forms yet</h3>
@@ -302,7 +303,7 @@ export default function DashboardPage() {
                   {canCreateForm && (
                     <Button
                       onClick={() => setShowCreateModal(true)}
-                      className="bg-gradient-to-r from-plum-800 to-brand-500 hover:from-plum-900 hover:to-brand-600 text-white px-10 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 border-0 font-medium"
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 px-10 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 border-0 font-medium"
                       size="lg"
                     >
                       <FileText className="h-5 w-5 mr-2" />
@@ -316,7 +317,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6">
                   {recentForms.map((form) => (
                     <Card key={form.id} className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 bg-white overflow-hidden flex flex-col">
-                      <div className="h-2 bg-gradient-to-r from-plum-800 to-brand-500"></div>
+                      <div className="h-1 bg-primary"></div>
 
                       <CardHeader className="pb-4 flex-shrink-0">
                         <div className="flex items-start justify-between mb-3">

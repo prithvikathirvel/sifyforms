@@ -1,8 +1,11 @@
 import axios from 'axios';
+import { claimVerifiedTurnstileToken } from '../lib/turnstileReplay';
 import { createError } from '../utils/errors';
+import prisma from '../utils/prisma';
 
 const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const EXPECTED_ACTION = 'form_submission';
+const REPLAY_RECORD_TTL_MS = 10 * 60 * 1000;
 
 interface TurnstileVerificationResponse {
   success: boolean;
@@ -77,5 +80,23 @@ export async function verifyTurnstileToken(
     (!result.hostname || !allowedHostnames.includes(result.hostname.toLowerCase()))
   ) {
     throw createError(400, 'Security verification hostname is not allowed');
+  }
+
+  // Cloudflare production tokens are single-use, but its always-pass test keys
+  // intentionally do not model that guarantee. A unique database claim gives
+  // consistent replay protection in test and production and across replicas.
+  await claimVerifiedTurnstileToken(
+    prisma.turnstileTokenUse,
+    responseToken,
+    formId,
+    new Date(Date.now() + REPLAY_RECORD_TTL_MS),
+  );
+
+  // Keep the replay table small without adding a cleanup operation to every
+  // request. This is best-effort; the unique claim above is the security step.
+  if (Math.random() < 0.02) {
+    void prisma.turnstileTokenUse
+      .deleteMany({ where: { expiresAt: { lt: new Date() } } })
+      .catch(() => undefined);
   }
 }

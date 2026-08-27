@@ -238,6 +238,19 @@ model FormShare {
   @@index([formId])
 }
 
+/// A hashed record of a verified Turnstile token. The unique token hash is an
+/// application-level replay guard, including when Cloudflare test keys are used.
+model TurnstileTokenUse {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique @db.VarChar(64)
+  formId    String
+  usedAt    DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@index([formId, usedAt])
+}
+
 model Submission {
   id     String @id @default(cuid())
   formId String

@@ -96,7 +96,7 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFo
             <Button 
               onClick={handleGenerateForm}
               disabled={!prompt.trim() || isGenerating}
-              className="w-full bg-gradient-to-r from-plum-800 to-brand-500 hover:from-plum-900 hover:to-brand-600"
+              className="w-full bg-primary hover:bg-primary/90"
             >
               {isGenerating ? (
                 <>
@@ -125,8 +125,8 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFo
           {isGenerating && (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <div className="relative">
-                <div className="w-16 h-16 bg-gradient-to-r from-plum-800 to-brand-500 rounded-full animate-pulse"></div>
-                <div className="absolute inset-0 w-16 h-16 bg-gradient-to-r from-plum-800 to-brand-500 rounded-full animate-ping opacity-20"></div>
+                <div className="w-16 h-16 bg-primary rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 w-16 h-16 bg-primary rounded-full animate-ping opacity-20"></div>
                 <Wand2 className="absolute inset-0 w-16 h-16 text-white flex items-center justify-center" />
               </div>
               <div className="text-center space-y-2">
@@ -215,7 +215,7 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFo
               </Button>
               <Button 
                 onClick={handleCreateForm}
-                className="flex-1 bg-gradient-to-r from-plum-800 to-brand-500 hover:from-plum-900 hover:to-brand-600"
+                className="flex-1 bg-primary hover:bg-primary/90"
               >
                 <FileText className="h-4 w-4 mr-2" />
                 Create Form

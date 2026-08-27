@@ -69,6 +69,20 @@ Postman can copy the request format, but it cannot invent a valid Cloudflare-sig
 
 This does not mean all automation becomes impossible. Sophisticated attackers can still use real browsers or challenge-solving services. Turnstile is therefore one industry-standard security layer and should be used together with rate limiting and monitoring.
 
+### Follow-up verification — repeated token replay
+
+During verification, the same Turnstile token was accepted more than once. Cloudflare production verification normally treats tokens as single-use, but Cloudflare's always-pass test secret intentionally returns success and does not provide a realistic replay test. A repeated success can therefore happen when test credentials are used, or when replay protection depends only on the provider response.
+
+We added a server-side replay guard that does not depend on the Cloudflare key mode:
+
+- After Cloudflare verification succeeds, the backend stores only a SHA-256 hash of the token.
+- The token hash has a unique database index, so only one request can claim it—even when requests arrive concurrently or hit different API instances.
+- A second request with the same token receives `409 Security verification token has already been used`.
+- Token records expire after ten minutes and are cleaned up opportunistically.
+- The system fails closed if the replay record cannot be stored.
+
+This requires the included `TurnstileTokenUse` SQL migration to be applied before deploying the updated backend.
+
 ### Additional cleanup
 
 - The old client-generated math CAPTCHA is no longer trusted or displayed.
@@ -98,7 +112,7 @@ Cloudflare's official test keys are documented in `.env.example` for local and a
 
 ### Database impact
 
-No database migration was required for Turnstile. Verification happens before the existing submission write.
+A small `TurnstileTokenUse` table was added for cross-instance replay protection. It stores only the token's SHA-256 hash, form ID, use time, and expiry time. The raw Turnstile token is never stored.
 
 ### Deployment note
 
@@ -114,7 +128,9 @@ The frontend site key and backend secret must be deployed together. If the backe
 - The shared submission service rejects requests without a valid token.
 - Express, GCP, and Lambda submission handlers use the protected shared service.
 - Existing builder/admin assessment data remains available.
-- No database migration was needed for these two fixes.
+- Reusing the same verified token is blocked by a unique token-hash claim.
+- The included replay-guard database migration must be applied during deployment.
+- Automated replay tests cover token hashing, duplicate rejection, and fail-closed database behavior (`npm run test:security`).
 
 ## Recommended next security work
 

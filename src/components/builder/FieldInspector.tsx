@@ -1512,8 +1512,8 @@ export default function FieldInspector({
           {isAISubmitting && (
             <div className="flex flex-col items-center justify-center py-8 space-y-4">
               <div className="relative">
-                <div className="w-12 h-12 bg-gradient-to-r from-plum-800 to-brand-500 rounded-full animate-pulse"></div>
-                <div className="absolute inset-0 w-12 h-12 bg-gradient-to-r from-plum-800 to-brand-500 rounded-full animate-ping opacity-20"></div>
+                <div className="w-12 h-12 bg-primary rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 w-12 h-12 bg-primary rounded-full animate-ping opacity-20"></div>
                 <Wand2 className="absolute inset-0 w-12 h-12 text-white flex items-center justify-center" />
               </div>
               <p className="text-center text-brand-600 font-medium">
@@ -1525,7 +1525,7 @@ export default function FieldInspector({
           {/* increased space above footer */}
           <DialogFooter className="space-x-2 justify-center mt-8">
             <Button
-              className="bg-gradient-to-r from-plum-800 to-brand-500 hover:from-plum-900 hover:to-brand-600 text-white"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={handleAISubmit}
               disabled={isAISubmitting || aiPrompt.trim() === ''}
             >
