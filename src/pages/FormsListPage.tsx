@@ -7,6 +7,7 @@ import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import { fetchTeams } from '../store/teamsSlice';
 import type { TeamNode } from '../types';
 import Sidebar from '../components/layout/Sidebar';
+import PageHeader from '../components/layout/PageHeader';
 import CreateFormModal from '../components/forms/CreateFormModal';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -153,30 +154,22 @@ export default function FormsListPage() {
     <div className="flex h-screen bg-muted/30">
       <Sidebar onCreateForm={() => setShowCreateModal(true)} />
 
-      <main className="flex-1 overflow-auto bg-gradient-to-br from-ink-50 to-ink-100">
+      <main className="min-w-0 flex-1 overflow-auto bg-gradient-to-br from-ink-50 to-ink-100">
+        <PageHeader
+          icon={FileText}
+          title="Forms"
+          description={isLoading
+            ? 'Loading your forms…'
+            : `${filteredForms.length} of ${forms.length} form${forms.length !== 1 ? 's' : ''} in ${currentOrg.name}`}
+          actions={can(ACTIONS.CREATE_FORM) ? (
+            <Button onClick={() => setShowCreateModal(true)} className="h-9 rounded-lg px-3.5">
+              <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
+              <span className="hidden sm:inline">Create form</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
+          ) : undefined}
+        />
         <div className="p-4 sm:p-6 lg:p-8">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Forms</h1>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {isLoading
-                  ? 'Loading…'
-                  : `${filteredForms.length} of ${forms.length} form${forms.length !== 1 ? 's' : ''}`}
-              </p>
-            </div>
-            {can(ACTIONS.CREATE_FORM) && (
-              <Button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-gradient-to-r from-plum-800 to-brand-500 hover:from-plum-900 hover:to-brand-600 text-white px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 w-full sm:w-auto border-0 font-medium"
-                size="lg"
-              >
-                <FileText className="h-5 w-5 mr-2" />
-                Create Form
-              </Button>
-            )}
-          </div>
-
           {/* Search / Filter / Sort bar */}
           {!isLoading && forms.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-3 mb-6">

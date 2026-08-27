@@ -4,12 +4,13 @@ import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
 import { updateOrganization, deleteOrganization, setCurrentOrg } from '../store/orgSlice';
 import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import Sidebar from '../components/layout/Sidebar';
+import PageHeader from '../components/layout/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select } from '../components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Building2, Loader2, Link2, TriangleAlert, Check } from 'lucide-react';
+import { Building2, Loader2, Link2, TriangleAlert, Check, Settings } from 'lucide-react';
 
 /**
  * Organization settings.
@@ -50,6 +51,8 @@ export default function OrgSettingsPage() {
 
   useEffect(() => {
     if (!currentOrg) return;
+    // Reset the editor when the active organization changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setName(currentOrg.name ?? '');
     setIndustry(currentOrg.industry ?? '');
     setLogo(currentOrg.logo ?? '');
@@ -93,13 +96,13 @@ export default function OrgSettingsPage() {
     <div className="flex min-h-screen bg-muted/30">
       <Sidebar onCreateForm={() => {}} />
 
-      <main className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-2xl space-y-6 p-6 lg:p-8">
-          <div>
-            <h1 className="text-2xl font-bold">Organization settings</h1>
-            <p className="text-muted-foreground">Details for {currentOrg.name}</p>
-          </div>
-
+      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+        <PageHeader
+          icon={Settings}
+          title="Organization settings"
+          description={`Identity, public address, and controls for ${currentOrg.name}`}
+        />
+        <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6 lg:p-8">
           {error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
           )}

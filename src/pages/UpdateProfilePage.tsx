@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
+import PageHeader from '../components/layout/PageHeader';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
 import { updateProfile, fetchKeycloakUserByEmail } from '../store/authSlice';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
@@ -112,22 +113,21 @@ export default function UpdateProfilePage() {
     <div className="flex h-screen bg-muted/20">
       <Sidebar onCreateForm={() => {}} />
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
+      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+        <PageHeader
+          icon={UserCog}
+          title="Edit profile"
+          description="Update your personal and account information"
+          actions={(
+            <Button variant="outline" onClick={() => navigate('/account')} className="h-9 rounded-lg px-3.5">
+              <ArrowLeft className="mr-2 h-4 w-4" strokeWidth={1.9} />
+              <span className="hidden sm:inline">Back to profile</span>
+              <span className="sm:hidden">Back</span>
+            </Button>
+          )}
+        />
         <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-          <div className="mx-auto w-full max-w-4xl space-y-5">
-            <header>
-              <button
-                type="button"
-                onClick={() => navigate('/account')}
-                className="mb-3 inline-flex h-8 items-center gap-1.5 rounded-lg text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to profile
-              </button>
-              <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Edit profile</h1>
-              <p className="mt-1.5 text-[13px] font-medium text-muted-foreground">Update your personal and account information.</p>
-            </header>
-
+          <div className="mx-auto w-full max-w-4xl">
             <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-sm">
               <CardHeader className="border-b border-border/70 px-5 py-4 sm:px-6">
                 <div className="flex items-start gap-3">

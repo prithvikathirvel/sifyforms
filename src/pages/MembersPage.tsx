@@ -12,6 +12,7 @@ import {
 import { usePermissions, ACTIONS, useRoleOptions, roleLabel } from '../hooks/usePermissions';
 import { fetchRoles } from '../store/rolesSlice';
 import Sidebar from '../components/layout/Sidebar';
+import PageHeader from '../components/layout/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -32,7 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
-import { Loader2, UserPlus, Trash2, Mail, ShieldCheck } from 'lucide-react';
+import { Loader2, UserPlus, Trash2, Mail, ShieldCheck, Users } from 'lucide-react';
 
 /**
  * Organization members and invitations.
@@ -97,22 +98,20 @@ export default function MembersPage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar onCreateForm={() => {}} />
-      <main className="flex-1 p-6 space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Members</h1>
-            <p className="text-muted-foreground">
-              People in {currentOrg?.name ?? 'this organization'}
-            </p>
-          </div>
-          {canInvite && (
-            <Button onClick={() => setInviteOpen(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Invite member
+      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+        <PageHeader
+          icon={Users}
+          title="Members"
+          description={`People and invitations in ${currentOrg?.name ?? 'this organization'}`}
+          actions={canInvite ? (
+            <Button onClick={() => setInviteOpen(true)} className="h-9 rounded-lg px-3.5">
+              <UserPlus className="mr-2 h-4 w-4" strokeWidth={1.9} />
+              <span className="hidden sm:inline">Invite member</span>
+              <span className="sm:hidden">Invite</span>
             </Button>
-          )}
-        </div>
-
+          ) : undefined}
+        />
+        <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         {error && (
           <div
             className="flex items-center justify-between gap-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
@@ -302,6 +301,7 @@ export default function MembersPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </main>
     </div>
   );

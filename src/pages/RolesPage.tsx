@@ -10,6 +10,7 @@ import {
 } from '../store/rolesSlice';
 import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import Sidebar from '../components/layout/Sidebar';
+import PageHeader from '../components/layout/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -170,22 +171,20 @@ export default function RolesPage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar onCreateForm={() => {}} />
-      <main className="flex-1 space-y-6 p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Roles</h1>
-            <p className="text-muted-foreground">
-              What each role is allowed to do, across organizations and teams.
-            </p>
-          </div>
-          {canManage && (
-            <Button onClick={() => setDraft(emptyDraft())}>
-              <Plus className="mr-2 h-4 w-4" />
-              New role
+      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+        <PageHeader
+          icon={ShieldCheck}
+          title="Roles"
+          description="Permission sets for organization and team responsibilities"
+          actions={canManage ? (
+            <Button onClick={() => setDraft(emptyDraft())} className="h-9 rounded-lg px-3.5">
+              <Plus className="mr-2 h-4 w-4" strokeWidth={1.9} />
+              <span className="hidden sm:inline">New role</span>
+              <span className="sm:hidden">New</span>
             </Button>
-          )}
-        </div>
-
+          ) : undefined}
+        />
+        <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         {error && (
           <div
             className="flex items-center justify-between gap-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
@@ -405,6 +404,7 @@ export default function RolesPage() {
             )}
           </DialogContent>
         </Dialog>
+        </div>
       </main>
     </div>
   );

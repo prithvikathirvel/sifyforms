@@ -72,7 +72,7 @@ export default function OrgSwitcher({ collapsed = false, onCompactNavigate }: Or
         )}
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.065] text-primary">
-          <Building2 className="h-4 w-4" strokeWidth={2.15} />
+          <Building2 className="h-4 w-4" strokeWidth={1.8} />
         </span>
         {!collapsed && (
           <>

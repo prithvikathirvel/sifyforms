@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
 import { fetchForms, deleteForm } from '../store/formsSlice';
 // import { getSession } from '../store/authSlice';
 import Sidebar from '../components/layout/Sidebar';
+import PageHeader from '../components/layout/PageHeader';
 import CreateFormModal from '../components/forms/CreateFormModal';
 import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import { Button } from '../components/ui/button';
@@ -11,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Badge } from '../components/ui/badge';
 import {
   FileText,
+  LayoutDashboard,
   BarChart3,
   Clock,
   Edit,
@@ -103,7 +105,6 @@ function StatTile({
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { user } = useAppSelector((state) => state.auth);
   const { currentOrg } = useAppSelector((state) => state.org);
   const { forms, isLoading } = useAppSelector((state) => state.forms);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -111,17 +112,18 @@ export default function DashboardPage() {
   const canCreateForm = can(ACTIONS.CREATE_FORM);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
 
-  const fetchStats = async () => {
-    try {
-      const response = await api.get('/forms/stats');
-      setStats({ ...EMPTY_STATS, ...response.data });
-    } catch (_) {}
-  };
-
   useEffect(() => {
+    let active = true;
     dispatch(fetchForms());
-    fetchStats();
-  }, []);
+    api.get('/forms/stats')
+      .then((response) => {
+        if (active) setStats({ ...EMPTY_STATS, ...response.data });
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [dispatch]);
 
   const recentForms = [...forms]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
@@ -139,32 +141,20 @@ export default function DashboardPage() {
     <div className="flex h-screen bg-muted/30">
       <Sidebar onCreateForm={() => setShowCreateModal(true)} />
 
-      <main className="flex-1 overflow-auto bg-gradient-to-br from-ink-50 to-ink-100">
+      <main className="min-w-0 flex-1 overflow-auto bg-gradient-to-br from-ink-50 to-ink-100">
+        <PageHeader
+          icon={LayoutDashboard}
+          title="Overview"
+          description={`${currentOrg?.name || 'Your workspace'} · Forms, submissions, and recent activity`}
+          actions={canCreateForm ? (
+            <Button onClick={() => setShowCreateModal(true)} className="h-9 rounded-lg px-3.5">
+              <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
+              <span className="hidden sm:inline">Create form</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
+          ) : undefined}
+        />
         <div className="p-4 sm:p-6 lg:p-8">
-          {/* Header */}
-          <div className="mb-6 sm:mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
-                  Welcome back, {user?.name || 'there'}! 👋
-                </h1>
-                <p className="text-base sm:text-lg text-muted-foreground">
-                  Here's what's happening with your forms today
-                </p>
-              </div>
-              {canCreateForm && (
-                <Button
-                  onClick={() => setShowCreateModal(true)}
-                  className="bg-gradient-to-r from-plum-800 to-brand-500 hover:from-plum-900 hover:to-brand-600 text-white px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 w-full sm:w-auto border-0 font-medium"
-                  size="lg"
-                >
-                  <FileText className="h-5 w-5 mr-2" />
-                  Create Form
-                </Button>
-              )}
-            </div>
-          </div>
-
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
             <StatTile

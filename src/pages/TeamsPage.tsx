@@ -14,6 +14,7 @@ import { fetchMembers } from '../store/membersSlice';
 import { usePermissions, ACTIONS, useRoleOptions, roleLabel } from '../hooks/usePermissions';
 import { fetchRoles } from '../store/rolesSlice';
 import Sidebar from '../components/layout/Sidebar';
+import PageHeader from '../components/layout/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -189,23 +190,20 @@ export default function TeamsPage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar onCreateForm={() => {}} />
-      <main className="flex-1 space-y-6 p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Teams</h1>
-            <p className="text-muted-foreground">
-              Teams in {currentOrg?.name ?? 'this organization'}. Sub-teams inherit their parent's
-              roles.
-            </p>
-          </div>
-          {can(ACTIONS.CREATE_TEAM) && (
-            <Button onClick={() => openCreate(null)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New team
+      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+        <PageHeader
+          icon={Users}
+          title="Teams"
+          description={`Team structure and inherited roles in ${currentOrg?.name ?? 'this organization'}`}
+          actions={can(ACTIONS.CREATE_TEAM) ? (
+            <Button onClick={() => openCreate(null)} className="h-9 rounded-lg px-3.5">
+              <Plus className="mr-2 h-4 w-4" strokeWidth={1.9} />
+              <span className="hidden sm:inline">New team</span>
+              <span className="sm:hidden">New</span>
             </Button>
-          )}
-        </div>
-
+          ) : undefined}
+        />
+        <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         {error && (
           <div
             className="flex items-center justify-between gap-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
@@ -371,6 +369,7 @@ export default function TeamsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </main>
     </div>
   );

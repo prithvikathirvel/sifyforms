@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../hooks/useAppDispatch';
 import { roleLabel } from '../hooks/usePermissions';
 import Sidebar from '../components/layout/Sidebar';
+import PageHeader from '../components/layout/PageHeader';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Building2, Pencil, User } from 'lucide-react';
@@ -20,33 +21,25 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const { currentOrg, organizations } = useAppSelector((state) => state.org);
-  const userInitial = user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U';
 
   return (
     <div className="flex h-screen bg-muted/20">
       <Sidebar onCreateForm={() => {}} />
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-          <header className="flex flex-col gap-4 rounded-2xl border border-border/80 bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div className="flex min-w-0 items-center gap-4">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-sm shadow-primary/15">
-                {userInitial}
-              </span>
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">Account</p>
-                <h1 className="mt-1 truncate font-display text-2xl font-bold tracking-tight text-foreground">
-                  {user?.name || 'Your profile'}
-                </h1>
-                <p className="mt-1 truncate text-xs font-medium text-muted-foreground">{user?.email}</p>
-              </div>
-            </div>
-            <Button onClick={() => navigate('/account/edit')} className="h-9 shrink-0 rounded-lg px-4">
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit profile
+      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+        <PageHeader
+          icon={User}
+          title="Profile"
+          description={user?.email || 'Your personal account information'}
+          actions={(
+            <Button onClick={() => navigate('/account/edit')} className="h-9 rounded-lg px-3.5">
+              <Pencil className="mr-2 h-4 w-4" strokeWidth={1.9} />
+              <span className="hidden sm:inline">Edit profile</span>
+              <span className="sm:hidden">Edit</span>
             </Button>
-          </header>
-
+          )}
+        />
+        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
           <div className="grid items-start gap-5 lg:grid-cols-[1.08fr_0.92fr]">
             <Card className="rounded-2xl border-border shadow-sm">
               <CardHeader className="border-b border-border/70 px-5 py-4 sm:px-6">
