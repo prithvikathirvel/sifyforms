@@ -766,7 +766,7 @@ export default function FormBuilderPage() {
   const selectedField = builder.schema.fields.find((f) => f.id === builder.selectedFieldId);
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="app-shell min-h-screen bg-workspace">
       {/* Header */}
       <header className="bg-background border-b sticky top-0 z-10">
         <div className="flex items-center justify-between px-4 py-3">

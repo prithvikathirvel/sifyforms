@@ -70,6 +70,8 @@
 
     --background: 0 0% 100%;
     --foreground: 222 47% 11%;
+    /* Quiet product canvas: separates white cards without making pages look grey. */
+    --workspace: 225 25% 97%;
 
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -110,6 +112,7 @@
 
     --background: 270 38% 9%;
     --foreground: 290 25% 96%;
+    --workspace: 270 34% 10%;
 
     --card: 269 33% 13%;
     --card-foreground: 290 25% 96%;
@@ -253,6 +256,17 @@
     background-size: 32px 32px;
     -webkit-mask-image: linear-gradient(to bottom, black, transparent 82%);
     mask-image: linear-gradient(to bottom, black, transparent 82%);
+  }
+}
+
+/*
+ * Laptop-density pass. A 15px rem between 1024px and 1599px gives dense
+ * enterprise workspaces more usable room at browser 100%, while mobile keeps
+ * accessible 16px sizing and large monitors retain the full-size scale.
+ */
+@media (min-width: 1024px) and (max-width: 1599px) {
+  html {
+    font-size: 15px;
   }
 }
 

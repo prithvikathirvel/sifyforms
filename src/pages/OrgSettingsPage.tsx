@@ -93,15 +93,15 @@ export default function OrgSettingsPage() {
   const publicUrl = `${window.location.origin}/${currentOrg.slug}`;
 
   return (
-    <div className="flex min-h-screen bg-muted/30">
+    <div className="app-shell flex min-h-screen bg-workspace">
       <Sidebar onCreateForm={() => {}} />
 
-      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+      <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
         <PageHeader
           title="Organization settings"
           description={`Identity, public address, and controls for ${currentOrg.name}`}
         />
-        <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-5 lg:p-6">
           {error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
           )}

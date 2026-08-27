@@ -169,9 +169,9 @@ export default function RolesPage() {
     : 0;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="app-shell flex min-h-screen bg-workspace">
       <Sidebar onCreateForm={() => {}} />
-      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+      <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
         <PageHeader
           title="Roles"
           description="Permission sets for organization and team responsibilities"
@@ -183,7 +183,7 @@ export default function RolesPage() {
             </Button>
           ) : undefined}
         />
-        <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="space-y-5 p-4 sm:p-5 lg:p-6">
         {error && (
           <div
             className="flex items-center justify-between gap-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive"

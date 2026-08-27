@@ -110,10 +110,10 @@ export default function UpdateProfilePage() {
   };
 
   return (
-    <div className="flex h-screen bg-muted/20">
+    <div className="app-shell flex h-screen bg-workspace">
       <Sidebar onCreateForm={() => {}} />
 
-      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+      <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
         <PageHeader
           title="Edit profile"
           description="Update your personal and account information"
@@ -125,7 +125,7 @@ export default function UpdateProfilePage() {
             </Button>
           )}
         />
-        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <div className="mx-auto w-full max-w-6xl p-4 sm:p-5 lg:p-6">
           <div className="mx-auto w-full max-w-4xl">
             <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-sm">
               <CardHeader className="border-b border-border/70 px-5 py-4 sm:px-6">

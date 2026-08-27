@@ -28,7 +28,7 @@ interface SidebarProps {
 }
 
 const SIDEBAR_COLLAPSED_KEY = 'sifyforms.sidebar.collapsed';
-const COLLAPSED_WIDTH = 'w-[4.5rem]';
+const COLLAPSED_WIDTH = 'w-[4.25rem]';
 
 function initialCollapsedState(): boolean {
   // Compact screens always start as an icon rail so page content keeps its width.
@@ -109,18 +109,18 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
       <div
         aria-hidden="true"
         className={cn(
-          'relative h-screen w-[4.5rem] shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-          collapsed ? 'lg:w-[4.5rem]' : 'lg:w-64'
+          'relative h-screen w-[4.25rem] shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          collapsed ? 'lg:w-[4.25rem]' : 'lg:w-60'
         )}
       >
         <aside
           aria-label="Application sidebar"
           className={cn(
             'fixed left-0 top-0 z-50 flex h-[100dvh] flex-col border-r border-border/70 bg-card transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] lg:sticky lg:h-screen',
-            collapsed ? COLLAPSED_WIDTH : 'w-64'
+            collapsed ? COLLAPSED_WIDTH : 'w-60'
           )}
         >
-          <div className={cn('flex h-16 shrink-0 items-center border-b border-border/70', collapsed ? 'justify-center px-2' : 'px-4')}>
+          <div className={cn('flex h-14 shrink-0 items-center border-b border-border/70', collapsed ? 'justify-center px-2' : 'px-4')}>
             <Link
               to="/dashboard"
               aria-label="SifyForms dashboard"
@@ -174,14 +174,14 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
                     aria-current={isActive ? 'page' : undefined}
                     onClick={collapseAfterCompactNavigation}
                     className={cn(
-                      'group relative flex h-10 items-center rounded-lg text-[13px] font-medium transition-colors duration-200',
+                      'group relative flex h-9 items-center rounded-lg text-[13px] font-medium transition-colors duration-200',
                       collapsed ? 'justify-center px-0' : 'gap-3 px-2.5',
                       isActive
                         ? 'bg-primary/[0.055] text-primary'
                         : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                     )}
                   >
-                    <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
+                    <item.icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
                     {!collapsed && <span className="truncate">{item.label}</span>}
                   </Link>
                 );
@@ -199,7 +199,7 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
                 title={collapsed ? 'Account menu' : undefined}
                 className={cn(
                   'flex min-w-0 flex-1 items-center rounded-xl text-left transition-colors hover:bg-muted/70',
-                  collapsed ? 'h-10 w-full flex-none justify-center px-0' : 'gap-2.5 p-2'
+                  collapsed ? 'h-9 w-full flex-none justify-center px-0' : 'gap-2.5 p-2'
                 )}
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/[0.09] text-xs font-bold text-primary">

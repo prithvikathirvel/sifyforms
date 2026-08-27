@@ -132,10 +132,10 @@ export default function FormsListPage() {
   }
 
   return (
-    <div className="flex h-screen bg-muted/30">
+    <div className="app-shell flex h-screen bg-workspace">
       <Sidebar onCreateForm={() => setShowCreateModal(true)} />
 
-      <main className="min-w-0 flex-1 overflow-auto bg-muted/20">
+      <main className="min-w-0 flex-1 overflow-auto bg-workspace">
         <PageHeader
           title="Forms"
           description={isLoading
@@ -149,7 +149,7 @@ export default function FormsListPage() {
             </Button>
           ) : undefined}
         />
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-5 lg:p-6">
           {/* Search / Filter / Sort bar */}
           {!isLoading && forms.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -272,7 +272,7 @@ export default function FormsListPage() {
             </Card>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {paginatedForms.map((form) => (
                   <FormWorkspaceCard
                     key={form.id}

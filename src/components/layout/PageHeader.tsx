@@ -10,7 +10,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
     <header className="shrink-0 border-b border-border/70 bg-card">
-      <div className="flex min-h-16 w-full min-w-0 items-center justify-between gap-3 px-4 py-2.5 sm:px-5 lg:px-6">
+      <div className="flex min-h-14 w-full min-w-0 items-center justify-between gap-3 px-4 py-2 sm:px-5 lg:px-6">
         <div className="min-w-0">
           <h1 className="truncate font-display text-[15px] font-bold leading-5 tracking-tight text-foreground sm:text-base">
             {title}

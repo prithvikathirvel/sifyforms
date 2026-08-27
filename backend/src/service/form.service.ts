@@ -293,7 +293,7 @@ export async function getStats(orgId: string, userId: string, seeAllTeams: boole
   const topForms = [...visibleForms]
     .filter(f => f._count.submissions > 0)
     .sort((a, b) => b._count.submissions - a._count.submissions)
-    .slice(0, 5)
+    .slice(0, 4)
     .map(f => ({
       id: f.id,
       name: f.name,
@@ -304,7 +304,7 @@ export async function getStats(orgId: string, userId: string, seeAllTeams: boole
 
   const recentForms = [...visibleForms]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, 5)
+    .slice(0, 4)
     .map(f => ({
       id: f.id,
       name: f.name,

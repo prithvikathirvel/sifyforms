@@ -23,10 +23,10 @@ export default function ProfilePage() {
   const { currentOrg, organizations } = useAppSelector((state) => state.org);
 
   return (
-    <div className="flex h-screen bg-muted/20">
+    <div className="app-shell flex h-screen bg-workspace">
       <Sidebar onCreateForm={() => {}} />
 
-      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
+      <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
         <PageHeader
           title="Profile"
           description={user?.email || 'Your personal account information'}
@@ -38,7 +38,7 @@ export default function ProfilePage() {
             </Button>
           )}
         />
-        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <div className="mx-auto w-full max-w-6xl p-4 sm:p-5 lg:p-6">
           <div className="grid items-start gap-5 lg:grid-cols-[1.08fr_0.92fr]">
             <Card className="rounded-2xl border-border shadow-sm">
               <CardHeader className="border-b border-border/70 px-5 py-4 sm:px-6">

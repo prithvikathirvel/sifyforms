@@ -68,7 +68,7 @@ export default function OrgSwitcher({ collapsed = false, onCompactNavigate }: Or
         title={collapsed ? currentOrg.name : undefined}
         className={cn(
           'flex w-full items-center rounded-xl text-left transition-colors hover:bg-muted/80',
-          collapsed ? 'h-11 justify-center px-0' : 'gap-2.5 p-2'
+          collapsed ? 'h-10 justify-center px-0' : 'gap-2.5 px-2 py-1.5'
         )}
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.065] text-primary">
