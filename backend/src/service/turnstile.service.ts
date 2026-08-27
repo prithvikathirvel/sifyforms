@@ -1,13 +1,10 @@
 import axios from 'axios';
-import { claimVerifiedTurnstileToken } from '../lib/turnstileReplay';
 import { createError } from '../utils/errors';
-import prisma from '../utils/prisma';
 
 const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const EXPECTED_ACTION = 'form_submission';
-const REPLAY_RECORD_TTL_MS = 10 * 60 * 1000;
 
-interface TurnstileVerificationResponse {
+export interface TurnstileVerificationResponse {
   success: boolean;
   hostname?: string;
   action?: string;
@@ -19,6 +16,34 @@ function canonicalClientIp(ip: string | null): string | undefined {
   if (!ip) return undefined;
   const first = ip.split(',')[0]?.trim();
   return first || undefined;
+}
+
+/** Interpret Siteverify exactly once; Cloudflare owns expiry and replay state. */
+export function assertTurnstileVerification(
+  result: TurnstileVerificationResponse,
+  formId: string,
+  allowedHostnames: string[],
+): void {
+  if (!result.success) {
+    const codes = result['error-codes'] ?? [];
+    if (codes.includes('timeout-or-duplicate')) {
+      throw createError(409, 'Security verification expired or was already used. Please try again.');
+    }
+    throw createError(400, 'Security verification failed. Please refresh and try again.');
+  }
+
+  if (result.action !== EXPECTED_ACTION) {
+    throw createError(400, 'Security verification action is invalid');
+  }
+  if (result.cdata !== formId) {
+    throw createError(400, 'Security verification does not match this form');
+  }
+  if (
+    allowedHostnames.length > 0 &&
+    (!result.hostname || !allowedHostnames.includes(result.hostname.toLowerCase()))
+  ) {
+    throw createError(400, 'Security verification hostname is not allowed');
+  }
 }
 
 /**
@@ -58,45 +83,10 @@ export async function verifyTurnstileToken(
     throw createError(503, 'Security verification is temporarily unavailable');
   }
 
-  if (!result.success) {
-    throw createError(400, 'Security verification failed. Please refresh and try again.');
-  }
-
-  // These values are supplied to the widget by our frontend. Cloudflare test
-  // keys may omit them, so reject mismatches while allowing an omitted value.
-  if (result.action && result.action !== EXPECTED_ACTION) {
-    throw createError(400, 'Security verification failed');
-  }
-  if (result.cdata && result.cdata !== formId) {
-    throw createError(400, 'Security verification does not match this form');
-  }
-
   const allowedHostnames = (process.env.TURNSTILE_EXPECTED_HOSTNAMES || '')
     .split(',')
     .map((hostname) => hostname.trim().toLowerCase())
     .filter(Boolean);
-  if (
-    allowedHostnames.length > 0 &&
-    (!result.hostname || !allowedHostnames.includes(result.hostname.toLowerCase()))
-  ) {
-    throw createError(400, 'Security verification hostname is not allowed');
-  }
 
-  // Cloudflare production tokens are single-use, but its always-pass test keys
-  // intentionally do not model that guarantee. A unique database claim gives
-  // consistent replay protection in test and production and across replicas.
-  await claimVerifiedTurnstileToken(
-    prisma.turnstileTokenUse,
-    responseToken,
-    formId,
-    new Date(Date.now() + REPLAY_RECORD_TTL_MS),
-  );
-
-  // Keep the replay table small without adding a cleanup operation to every
-  // request. This is best-effort; the unique claim above is the security step.
-  if (Math.random() < 0.02) {
-    void prisma.turnstileTokenUse
-      .deleteMany({ where: { expiresAt: { lt: new Date() } } })
-      .catch(() => undefined);
-  }
+  assertTurnstileVerification(result, formId, allowedHostnames);
 }
