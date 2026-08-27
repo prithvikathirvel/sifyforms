@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import axios from 'axios';
 import { createError } from '../utils/errors';
 import logger from '../utils/logger';
@@ -12,6 +13,7 @@ const CLOUDFLARE_TEST_SECRETS = new Set([
 
 export interface TurnstileVerificationResponse {
   success: boolean;
+  challenge_ts?: string;
   hostname?: string;
   action?: string;
   cdata?: string;
@@ -65,11 +67,17 @@ export async function verifyTurnstileToken(
   if (!secret) {
     throw createError(503, 'Security verification is not configured');
   }
-  if (
-    CLOUDFLARE_TEST_SECRETS.has(secret) &&
-    process.env.TURNSTILE_ALLOW_TEST_KEYS !== 'true'
-  ) {
+  const usesTestSecret = CLOUDFLARE_TEST_SECRETS.has(secret);
+  if (usesTestSecret && process.env.TURNSTILE_ALLOW_TEST_KEYS !== 'true') {
     throw createError(503, 'Cloudflare Turnstile test credentials are not allowed in this environment');
+  }
+
+  const allowedHostnames = (process.env.TURNSTILE_EXPECTED_HOSTNAMES || '')
+    .split(',')
+    .map((hostname) => hostname.trim().toLowerCase())
+    .filter(Boolean);
+  if (!usesTestSecret && allowedHostnames.length === 0) {
+    throw createError(503, 'Cloudflare Turnstile frontend hostnames are not configured');
   }
 
   const responseToken = token?.trim();
@@ -95,10 +103,18 @@ export async function verifyTurnstileToken(
     throw createError(503, 'Security verification is temporarily unavailable');
   }
 
-  const allowedHostnames = (process.env.TURNSTILE_EXPECTED_HOSTNAMES || '')
-    .split(',')
-    .map((hostname) => hostname.trim().toLowerCase())
-    .filter(Boolean);
+  const audit = {
+    // A short one-way fingerprint lets operations correlate retries without
+    // logging a credential that could be copied and replayed.
+    tokenFingerprint: createHash('sha256').update(responseToken).digest('hex').slice(0, 12),
+    formId,
+    success: result.success,
+    errorCodes: result['error-codes'] ?? [],
+    action: result.action ?? null,
+    hostname: result.hostname ?? null,
+    challengeTimestamp: result.challenge_ts ?? null,
+    cdataMatchesForm: result.cdata === formId,
+  };
 
   if (
     !result.success ||
@@ -106,16 +122,9 @@ export async function verifyTurnstileToken(
     result.cdata !== formId ||
     (allowedHostnames.length > 0 && !allowedHostnames.includes((result.hostname || '').toLowerCase()))
   ) {
-    // Log only provider metadata—never the response token or secret. This makes
-    // stale deployments, test-key usage, and replay responses diagnosable.
-    logger.warn('Turnstile Siteverify rejected submission', {
-      formId,
-      success: result.success,
-      errorCodes: result['error-codes'] ?? [],
-      action: result.action ?? null,
-      hostname: result.hostname ?? null,
-      cdataMatchesForm: result.cdata === formId,
-    });
+    logger.warn('Turnstile Siteverify rejected submission', audit);
+  } else {
+    logger.info('Turnstile Siteverify accepted submission', audit);
   }
 
   assertTurnstileVerification(result, formId, allowedHostnames);

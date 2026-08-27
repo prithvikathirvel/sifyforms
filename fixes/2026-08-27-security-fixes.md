@@ -61,7 +61,7 @@ The flow is now:
 5. The backend creates the submission only when Cloudflare confirms the token.
 6. Missing, invalid, expired, mismatched, and replayed tokens are rejected.
 
-The token is also bound to the `form_submission` action and the form ID when Cloudflare returns those values. Production deployments can additionally restrict accepted hostnames.
+The token is also bound to the `form_submission` action and the form ID. Production deployments additionally validate the frontend hostname where the widget rendered; this is the form website hostname, not the backend API hostname.
 
 ### Why a normal Postman request now fails
 
@@ -82,7 +82,7 @@ We kept the solution simple and provider-standard:
 - `timeout-or-duplicate` now returns a clear `409` response and the frontend refreshes the widget.
 - The backend strictly checks the expected `form_submission` action and matching form ID.
 - Cloudflare test secrets are rejected unless the environment explicitly enables test-key use.
-- Rejected Siteverify responses log only safe metadata (`error-codes`, action, hostname, and whether the form ID matched), never the token or secret.
+- Accepted and rejected Siteverify responses log only safe metadata (`error-codes`, action, hostname, challenge time, form match, and a short one-way token fingerprint), never the token or secret. Matching fingerprints prove whether the exact same token reached Siteverify twice.
 - Express now trusts only the local reverse proxy by default, fixing client-IP resolution for submission rate limiting without trusting arbitrary internet-supplied forwarding headers.
 - No extra database model, token table, cleanup job, or migration is required.
 
@@ -111,7 +111,7 @@ TURNSTILE_SECRET_KEY=<Cloudflare secret key>
 TURNSTILE_EXPECTED_HOSTNAMES=forms.example.com,www.forms.example.com
 ```
 
-The hostname list is optional for local testing but recommended in production. The secret key must never use a `VITE_` prefix or be sent to the browser.
+The hostname list is optional for local testing but recommended in production. It must contain the frontend hostname where the Turnstile widget renders—for example `dev.sifymodernization.digital`—not the API hostname `apidev.sifymodernization.digital`. The secret key must never use a `VITE_` prefix or be sent to the browser.
 
 Cloudflare's official test keys are documented in `.env.example` for local and automated testing. Production must use keys created for the real production hostnames.
 
