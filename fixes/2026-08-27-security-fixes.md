@@ -81,6 +81,9 @@ We kept the solution simple and provider-standard:
 - The backend rejects every response where `success` is not `true`.
 - `timeout-or-duplicate` now returns a clear `409` response and the frontend refreshes the widget.
 - The backend strictly checks the expected `form_submission` action and matching form ID.
+- Cloudflare test secrets are rejected unless the environment explicitly enables test-key use.
+- Rejected Siteverify responses log only safe metadata (`error-codes`, action, hostname, and whether the form ID matched), never the token or secret.
+- Express now trusts only the local reverse proxy by default, fixing client-IP resolution for submission rate limiting without trusting arbitrary internet-supplied forwarding headers.
 - No extra database model, token table, cleanup job, or migration is required.
 
 Reference: <https://developers.cloudflare.com/turnstile/get-started/server-side-validation/>

@@ -1,8 +1,14 @@
 import axios from 'axios';
 import { createError } from '../utils/errors';
+import logger from '../utils/logger';
 
 const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const EXPECTED_ACTION = 'form_submission';
+const CLOUDFLARE_TEST_SECRETS = new Set([
+  '1x0000000000000000000000000000000AA',
+  '2x0000000000000000000000000000000AA',
+  '3x0000000000000000000000000000000AA',
+]);
 
 export interface TurnstileVerificationResponse {
   success: boolean;
@@ -59,6 +65,12 @@ export async function verifyTurnstileToken(
   if (!secret) {
     throw createError(503, 'Security verification is not configured');
   }
+  if (
+    CLOUDFLARE_TEST_SECRETS.has(secret) &&
+    process.env.TURNSTILE_ALLOW_TEST_KEYS !== 'true'
+  ) {
+    throw createError(503, 'Cloudflare Turnstile test credentials are not allowed in this environment');
+  }
 
   const responseToken = token?.trim();
   if (!responseToken || responseToken.length > 2048) {
@@ -87,6 +99,24 @@ export async function verifyTurnstileToken(
     .split(',')
     .map((hostname) => hostname.trim().toLowerCase())
     .filter(Boolean);
+
+  if (
+    !result.success ||
+    result.action !== EXPECTED_ACTION ||
+    result.cdata !== formId ||
+    (allowedHostnames.length > 0 && !allowedHostnames.includes((result.hostname || '').toLowerCase()))
+  ) {
+    // Log only provider metadata—never the response token or secret. This makes
+    // stale deployments, test-key usage, and replay responses diagnosable.
+    logger.warn('Turnstile Siteverify rejected submission', {
+      formId,
+      success: result.success,
+      errorCodes: result['error-codes'] ?? [],
+      action: result.action ?? null,
+      hostname: result.hostname ?? null,
+      cdataMatchesForm: result.cdata === formId,
+    });
+  }
 
   assertTurnstileVerification(result, formId, allowedHostnames);
 }

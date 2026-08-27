@@ -13,7 +13,9 @@ function getParamString(param: string | string[] | undefined): string {
 export async function createSubmission(req: Request, res: Response): Promise<void> {
   try {
     logger.info('Express --> createSubmission --> Request', { formId: req.body.formId });
-    const ip = (req.headers['x-forwarded-for'] as string) || req.ip || null;
+    // Express resolves this through the explicitly configured trusted proxy.
+    // Do not trust a raw X-Forwarded-For value supplied by an internet client.
+    const ip = req.ip || null;
     const userAgent = req.headers['user-agent'] || null;
     const result = await submissionService.createSubmission(req.body, ip, userAgent);
     res.status(StatusCodes.CREATED).json(result);

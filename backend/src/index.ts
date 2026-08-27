@@ -21,6 +21,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 12001;
 
+// The production Nginx proxy runs on the same host. Trust loopback by default
+// (not arbitrary internet clients) so req.ip and express-rate-limit resolve the
+// real client from X-Forwarded-For. Override for a known load-balancer CIDR.
+app.set('trust proxy', process.env.TRUST_PROXY?.trim() || 'loopback');
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
