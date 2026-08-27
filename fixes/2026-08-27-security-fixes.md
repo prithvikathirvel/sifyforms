@@ -75,16 +75,18 @@ Cloudflare's production tokens are already single-use and expire after five minu
 
 The repeated success was consistent with using Cloudflare's **always-pass test secret**, which is intentionally designed to return successful test validations. It should not be used to judge production replay behavior. Cloudflare also provides a dedicated test secret that returns the token-already-spent response.
 
-We kept the solution simple and provider-standard:
+We kept the solution provider-led and database-free:
 
 - Every submission calls Siteverify exactly once.
+- Each application submission sends a fresh server-generated Siteverify `idempotency_key`.
 - The backend rejects every response where `success` is not `true`.
-- `timeout-or-duplicate` now returns a clear `409` response and the frontend refreshes the widget.
-- The backend strictly checks the expected `form_submission` action and matching form ID.
+- `timeout-or-duplicate` returns a clear `409` response and the frontend refreshes the widget.
+- The backend strictly checks the expected `form_submission` action, frontend hostname, and matching form ID.
 - Cloudflare test secrets are rejected unless the environment explicitly enables test-key use.
-- Accepted and rejected Siteverify responses log only safe metadata (`error-codes`, action, hostname, challenge time, form match, and a short one-way token fingerprint), never the token or secret. Matching fingerprints prove whether the exact same token reached Siteverify twice.
-- Express now trusts only the local reverse proxy by default, fixing client-IP resolution for submission rate limiting without trusting arbitrary internet-supplied forwarding headers.
-- No extra database model, token table, cleanup job, or migration is required.
+- Accepted and rejected Siteverify responses log only safe metadata (`error-codes`, action, hostname, challenge time, form match, and a short one-way token fingerprint), never the token or secret.
+- After logs showed Cloudflare return `success: true` twice for the same fingerprint in one PM2 process, we added a bounded five-minute in-memory guard. It rejects an in-flight or already accepted token before a second write. Cloudflare remains the cross-instance authority; this guard is only local defense in depth.
+- Express trusts only the local reverse proxy by default, fixing client-IP resolution for submission rate limiting without trusting arbitrary internet-supplied forwarding headers.
+- No database model, token table, cleanup job, or migration is required.
 
 Reference: <https://developers.cloudflare.com/turnstile/get-started/server-side-validation/>
 
