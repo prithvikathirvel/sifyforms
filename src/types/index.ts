@@ -856,6 +856,8 @@ export interface Team {
   /** Materialized ancestry of team ids, e.g. "/root/child/self". */
   path: string;
   depth: number;
+  /** The General team is structural and cannot be deleted. */
+  isDefault?: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

@@ -1,34 +1,24 @@
-import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
-import { fetchForms, deleteForm } from '../store/formsSlice';
-import { getSession } from '../store/authSlice';
+import { fetchForms } from '../store/formsSlice';
 import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import { fetchTeams } from '../store/teamsSlice';
 import type { TeamNode } from '../types';
 import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
 import CreateFormModal from '../components/forms/CreateFormModal';
+import FormCard from '../components/forms/FormCard';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
+import { Card, CardContent } from '../components/ui/card';
 import {
-  FileText,
-  BarChart3,
-  Clock,
-  Edit,
-  Eye,
-  Trash2,
-  Inbox,
-  Loader2,
-  Copy,
-  Share2,
-  Search,
-  X,
   ChevronLeft,
   ChevronRight,
-  SlidersHorizontal,
+  FileText,
+  Filter,
+  Loader2,
+  Search,
   Users,
+  X,
 } from 'lucide-react';
 
 type StatusFilter = 'all' | 'published' | 'draft';
@@ -36,11 +26,24 @@ type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'submissions'
 
 const PAGE_SIZE = 12;
 
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('en-US').format(value || 0);
+}
+
+function flattenTeams(nodes: TeamNode[], map = new Map<string, string>(), prefix = '') {
+  nodes.forEach((team) => {
+    map.set(team.id, prefix ? `${prefix} / ${team.name}` : team.name);
+    flattenTeams(team.children, map, prefix ? `${prefix} / ${team.name}` : team.name);
+  });
+  return map;
+}
+
 export default function FormsListPage() {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { currentOrg } = useAppSelector((state) => state.org);
   const { forms, isLoading } = useAppSelector((state) => state.forms);
+  const teamTree = useAppSelector((state) => state.teams.tree);
+  const { can } = usePermissions();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,11 +52,7 @@ export default function FormsListPage() {
   const [sortOption, setSortOption] = useState<SortOption>('newest');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const teamTree = useAppSelector((state) => state.teams.tree);
-  const { can } = usePermissions();
-
   useEffect(() => {
-    dispatch(getSession());
     dispatch(fetchForms());
   }, [dispatch]);
 
@@ -61,35 +60,23 @@ export default function FormsListPage() {
     if (currentOrg?.id) dispatch(fetchTeams(currentOrg.id));
   }, [dispatch, currentOrg?.id]);
 
-  // Flat list of every team, so a form can name its owner and the filter can
-  // offer the whole tree.
-  const teamsById = useMemo(() => {
-    const map = new Map<string, string>();
-    (function walk(nodes: TeamNode[]) {
-      nodes.forEach((t) => {
-        map.set(t.id, t.name);
-        walk(t.children);
-      });
-    })(teamTree);
-    return map;
-  }, [teamTree]);
+  const teamsById = useMemo(() => flattenTeams(teamTree), [teamTree]);
 
   const filteredForms = useMemo(() => {
     let result = [...forms];
+    const query = searchQuery.trim().toLowerCase();
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (query) {
       result = result.filter(
-        (f) =>
-          f.name.toLowerCase().includes(q) ||
-          (f.description || '').toLowerCase().includes(q)
+        (form) =>
+          form.name.toLowerCase().includes(query) ||
+          (form.description || '').toLowerCase().includes(query)
       );
     }
 
-    if (statusFilter === 'published') result = result.filter((f) => f.isPublished);
-    else if (statusFilter === 'draft') result = result.filter((f) => !f.isPublished);
-
-    if (teamFilter !== 'all') result = result.filter((f) => f.teamId === teamFilter);
+    if (statusFilter === 'published') result = result.filter((form) => form.isPublished);
+    if (statusFilter === 'draft') result = result.filter((form) => !form.isPublished);
+    if (teamFilter !== 'all') result = result.filter((form) => form.teamId === teamFilter);
 
     result.sort((a, b) => {
       switch (sortOption) {
@@ -114,51 +101,44 @@ export default function FormsListPage() {
   const totalPages = Math.max(1, Math.ceil(filteredForms.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
   const paginatedForms = filteredForms.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    setCurrentPage(1);
-  };
+  const publishedCount = forms.filter((form) => form.isPublished).length;
+  const draftCount = forms.length - publishedCount;
+  const totalResponses = forms.reduce((total, form) => total + (form.submissionCount || 0), 0);
+  const hasFilters = Boolean(searchQuery || statusFilter !== 'all' || teamFilter !== 'all');
 
   const handleStatusChange = (value: StatusFilter) => {
     setStatusFilter(value);
     setCurrentPage(1);
   };
 
-  const handleSortChange = (value: SortOption) => {
-    setSortOption(value);
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setTeamFilter('all');
     setCurrentPage(1);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
   };
 
   if (!currentOrg) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading...</p>
+          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm font-medium text-muted-foreground">Loading your workspace…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-muted/30">
+    <div className="flex min-h-screen bg-muted/30">
       <Sidebar onCreateForm={() => setShowCreateModal(true)} />
 
-      <main className="min-w-0 flex-1 overflow-auto bg-muted/20">
+      <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
         <PageHeader
           title="Forms"
           description={isLoading
             ? 'Loading your forms…'
-            : `${filteredForms.length} of ${forms.length} form${forms.length !== 1 ? 's' : ''} in ${currentOrg.name}`}
+            : `${formatNumber(filteredForms.length)} of ${formatNumber(forms.length)} form${forms.length !== 1 ? 's' : ''} in ${currentOrg.name}`}
           actions={can(ACTIONS.CREATE_FORM) ? (
             <Button onClick={() => setShowCreateModal(true)} className="h-9 rounded-lg px-3.5">
               <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
@@ -167,326 +147,225 @@ export default function FormsListPage() {
             </Button>
           ) : undefined}
         />
-        <div className="p-4 sm:p-6 lg:p-8">
-          {/* Search / Filter / Sort bar */}
-          {!isLoading && forms.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search forms…"
-                  value={searchQuery}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => handleSearchChange('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
+
+        <div className="mx-auto w-full max-w-[1500px] p-4 sm:p-6 lg:p-8">
+          <section className="mb-6">
+            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">Form library</p>
+                <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">Build, share, and learn</h2>
+                <p className="mt-1 max-w-xl text-sm font-medium text-muted-foreground">
+                  Keep every collection point organized and easy to pick up again.
+                </p>
               </div>
-
-              {/* Status filter */}
-              <div className="relative">
-                <SlidersHorizontal className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => handleStatusChange(e.target.value as StatusFilter)}
-                  className="appearance-none pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 cursor-pointer transition-all"
-                >
-                  <option value="all">All Status</option>
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
-                </select>
-              </div>
-
-              {/* Team filter */}
-              {teamsById.size > 1 && (
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <select
-                    value={teamFilter}
-                    onChange={(e) => {
-                      setTeamFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="appearance-none pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 cursor-pointer transition-all"
-                  >
-                    <option value="all">All Teams</option>
-                    {[...teamsById.entries()].map(([id, name]) => (
-                      <option key={id} value={id}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Sort */}
-              <div className="relative">
-                <select
-                  value={sortOption}
-                  onChange={(e) => handleSortChange(e.target.value as SortOption)}
-                  className="appearance-none pl-4 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 cursor-pointer transition-all"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="name_asc">Name A–Z</option>
-                  <option value="name_desc">Name Z–A</option>
-                  <option value="submissions">Most Submissions</option>
-                </select>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <span className="rounded-full border border-border bg-card px-3 py-1.5">
+                  {formatNumber(totalResponses)} responses
+                </span>
+                <span className="rounded-full border border-border bg-card px-3 py-1.5">
+                  {formatNumber(teamsById.size)} {teamsById.size === 1 ? 'team' : 'teams'}
+                </span>
               </div>
             </div>
-          )}
 
-          {/* Content */}
+            <Card className="rounded-2xl border-border/80 bg-card shadow-[0_8px_28px_hsl(var(--foreground)/0.03)]">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+                  <div className="relative min-w-0 flex-1">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.8} />
+                    <input
+                      type="search"
+                      placeholder="Search by form name or description"
+                      value={searchQuery}
+                      onChange={(event) => {
+                        setSearchQuery(event.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="h-11 w-full rounded-xl border border-border bg-muted/20 pl-10 pr-10 text-sm font-medium text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/35 focus:bg-background focus:ring-2 focus:ring-ring/20"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        aria-label="Clear search"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setCurrentPage(1);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2 overflow-x-auto rounded-xl border border-border bg-muted/25 p-1" role="tablist" aria-label="Filter forms by status">
+                    {([
+                      ['all', 'All', forms.length],
+                      ['published', 'Published', publishedCount],
+                      ['draft', 'Drafts', draftCount],
+                    ] as const).map(([value, label, count]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="tab"
+                        aria-selected={statusFilter === value}
+                        onClick={() => handleStatusChange(value)}
+                        className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition-colors ${statusFilter === value ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      >
+                        {label}
+                        <span className="ml-1.5 tabular-nums opacity-70">{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    {teamsById.size > 0 && (
+                      <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                        <Users className="h-3.5 w-3.5 text-ink-400" strokeWidth={1.8} />
+                        <span className="sr-only">Filter by team</span>
+                        <select
+                          value={teamFilter}
+                          onChange={(event) => {
+                            setTeamFilter(event.target.value);
+                            setCurrentPage(1);
+                          }}
+                          className="h-9 max-w-[16rem] rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground outline-none transition-colors focus:border-primary/35 focus:ring-2 focus:ring-ring/20"
+                        >
+                          <option value="all">All teams</option>
+                          {[...teamsById.entries()].map(([id, name]) => (
+                            <option key={id} value={id}>{name}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                      <Filter className="h-3.5 w-3.5 text-ink-400" strokeWidth={1.8} />
+                      <span className="sr-only">Sort forms</span>
+                      <select
+                        value={sortOption}
+                        onChange={(event) => {
+                          setSortOption(event.target.value as SortOption);
+                          setCurrentPage(1);
+                        }}
+                        className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground outline-none transition-colors focus:border-primary/35 focus:ring-2 focus:ring-ring/20"
+                      >
+                        <option value="newest">Recently updated</option>
+                        <option value="oldest">Oldest updated</option>
+                        <option value="name_asc">Name A–Z</option>
+                        <option value="name_desc">Name Z–A</option>
+                        <option value="submissions">Most responses</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {hasFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 self-start px-2 text-xs font-semibold text-primary hover:bg-primary/[0.06] hover:text-primary sm:self-auto">
+                      Clear filters
+                      <X className="ml-1.5 h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+
           {isLoading ? (
-            <div className="flex items-center justify-center py-32">
+            <div className="flex items-center justify-center py-28">
               <div className="text-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-                <p className="text-muted-foreground">Loading your forms...</p>
+                <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-primary" />
+                <p className="text-sm font-medium text-muted-foreground">Loading your forms…</p>
               </div>
             </div>
           ) : forms.length === 0 ? (
-            <Card className="rounded-xl border-dashed border-border bg-card shadow-none">
+            <Card className="rounded-2xl border-dashed border-border bg-card shadow-none">
               <CardContent className="py-16 text-center">
-                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/[0.06]">
-                  <FileText className="h-6 w-6 text-primary" strokeWidth={1.8} />
+                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/[0.07] text-primary">
+                  <FileText className="h-6 w-6" strokeWidth={1.8} />
                 </div>
-                <h3 className="text-2xl font-bold text-foreground mb-3">No forms yet</h3>
-                <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                  Create your first form to start collecting responses and analyzing data
+                <h3 className="font-display text-xl font-bold text-foreground">Start with your first form</h3>
+                <p className="mx-auto mb-7 mt-2 max-w-md text-sm font-medium text-muted-foreground">
+                  Turn a question, workflow, or application into a polished collection experience.
                 </p>
-                <Button
-                  onClick={() => setShowCreateModal(true)}
-                  className="h-10 rounded-lg px-5"
-                  size="lg"
-                >
-                  <FileText className="h-5 w-5 mr-2" />
-                  Create Your First Form
-                </Button>
+                {can(ACTIONS.CREATE_FORM) && (
+                  <Button onClick={() => setShowCreateModal(true)} className="h-10 rounded-lg px-5">
+                    <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                    Create your first form
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : filteredForms.length === 0 ? (
-            <Card className="rounded-xl border-border bg-card shadow-none">
-              <CardContent className="py-12 text-center">
-                <Search className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-muted-foreground mb-2">No forms match your search</h3>
-                <p className="text-muted-foreground text-sm mb-4">Try a different keyword or clear the filters</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-lg"
-                  onClick={() => { handleSearchChange(''); handleStatusChange('all'); }}
-                >
-                  Clear filters
+            <Card className="rounded-2xl border-border bg-card shadow-none">
+              <CardContent className="py-14 text-center">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <Search className="h-5 w-5" strokeWidth={1.8} />
+                </div>
+                <h3 className="font-display text-lg font-bold text-foreground">No forms match these filters</h3>
+                <p className="mb-5 mt-1 text-sm font-medium text-muted-foreground">Try another search or reset the filters.</p>
+                <Button variant="outline" size="sm" className="rounded-lg" onClick={clearFilters}>
+                  Reset filters
                 </Button>
               </CardContent>
             </Card>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
                 {paginatedForms.map((form) => (
-                  <Card key={form.id} className="group flex flex-col overflow-hidden rounded-xl border-border/80 bg-card shadow-none transition-colors hover:border-primary/25">
-                    <CardHeader className="shrink-0 px-5 pb-3 pt-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="line-clamp-2 font-display text-[15px] font-bold leading-5 text-foreground transition-colors group-hover:text-primary sm:text-base">
-                            {form.name}
-                          </CardTitle>
-                          <CardDescription className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                            <Users className="h-3 w-3 shrink-0" />
-                            {form.teamId ? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
-                          </CardDescription>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={form.isPublished
-                            ? 'shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : 'shrink-0 border-border bg-muted/50 text-muted-foreground'}
-                        >
-                          {form.isPublished ? 'Published' : 'Draft'}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="flex flex-1 flex-col space-y-4 px-5 pb-5 pt-2">
-                      {/* Stats Row */}
-                      <div className="grid shrink-0 grid-cols-2 gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
-                        <div className="flex items-center space-x-2">
-                          <div className="p-1.5 sm:p-2 bg-primary/[0.055] rounded-lg flex-shrink-0">
-                            <Inbox className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-base sm:text-lg font-bold text-foreground truncate">
-                              {form.submissionCount || 0}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">Submissions</div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <div className="p-1.5 sm:p-2 bg-primary/[0.055] rounded-lg flex-shrink-0">
-                            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs sm:text-sm font-bold text-foreground truncate">
-                              {formatDate(form.updatedAt)}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">Updated</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="space-y-2 sm:space-y-3 flex-1 flex flex-col justify-end mt-auto">
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          {form.access?.canEdit !== false && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigate(`/forms/${form.id}/edit`)}
-                              className="flex-1 border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 text-xs sm:text-sm rounded-lg"
-                            >
-                              <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
-                              Edit
-                            </Button>
-                          )}
-                          {form.isPublished && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const orgSlug = currentOrg?.slug || 'default-org';
-                                const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-                                window.open(`${BASE_URL}/${orgSlug}/${form.slug}`, '_blank');
-                              }}
-                              className="flex-1 border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 text-xs sm:text-sm rounded-lg"
-                            >
-                              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
-                              Preview
-                            </Button>
-                          )}
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          {(form.access?.canViewResponses !== false || form.access?.canViewResults) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigate(`/forms/${form.id}/submissions`)}
-                              className="flex-1 border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 text-xs sm:text-sm rounded-lg"
-                            >
-                              <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
-                              {form.access && !form.access.canViewResponses ? 'Results' : 'Submissions'}
-                            </Button>
-                          )}
-
-                          <div className="flex gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const orgSlug = currentOrg?.slug || 'default-org';
-                                const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-                                navigator.clipboard.writeText(`${BASE_URL}/${orgSlug}/${form.slug}`);
-                              }}
-                              className="border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 w-9 p-0 text-xs sm:text-sm rounded-lg"
-                              title="Copy link"
-                            >
-                              <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </Button>
-
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const orgSlug = currentOrg?.slug || 'default-org';
-                                const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-                                window.open(`${BASE_URL}/${orgSlug}/${form.slug}`, '_blank');
-                              }}
-                              className="border-border hover:border-primary/20 hover:bg-primary/[0.04] transition-colors h-9 w-9 p-0 text-xs sm:text-sm rounded-lg"
-                              title="Share form"
-                            >
-                              <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </Button>
-
-                            {form.access?.canDelete !== false && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  if (window.confirm(`Are you sure you want to delete "${form.name}"?`)) {
-                                    dispatch(deleteForm(form.id));
-                                  }
-                                }}
-                                className="border-red-200 hover:border-red-300 hover:bg-red-50 transition-colors h-9 w-9 p-0 text-xs sm:text-sm rounded-lg"
-                                title="Delete form"
-                              >
-                                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <FormCard
+                    key={form.id}
+                    form={form}
+                    orgSlug={currentOrg.slug || 'default-org'}
+                    teamName={form.teamId ? teamsById.get(form.teamId) : null}
+                  />
                 ))}
               </div>
 
-              {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-                  <p className="text-sm text-muted-foreground">
-                    Page {safePage} of {totalPages} &middot; {filteredForms.length} forms
+                <div className="mt-7 flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Page {safePage} of {totalPages} · {formatNumber(filteredForms.length)} forms
                   </p>
                   <div className="flex items-center gap-1">
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon"
                       disabled={safePage === 1}
                       onClick={() => setCurrentPage(safePage - 1)}
-                      className="rounded-lg h-8 w-8 p-0 border-border"
+                      className="h-8 w-8 rounded-lg"
+                      aria-label="Previous page"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
-                      .reduce<(number | '...')[]>((acc, p, idx, arr) => {
-                        if (idx > 0 && (arr[idx - 1] as number) + 1 < p) acc.push('...');
-                        acc.push(p);
-                        return acc;
+                    {Array.from({ length: totalPages }, (_, index) => index + 1)
+                      .filter((page) => page === 1 || page === totalPages || Math.abs(page - safePage) <= 1)
+                      .reduce<(number | '...')[]>((pages, page, index, visiblePages) => {
+                        if (index > 0 && (visiblePages[index - 1] as number) + 1 < page) pages.push('...');
+                        pages.push(page);
+                        return pages;
                       }, [])
-                      .map((p, idx) =>
-                        p === '...' ? (
-                          <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground text-sm">…</span>
-                        ) : (
-                          <Button
-                            key={p}
-                            variant={p === safePage ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setCurrentPage(p as number)}
-                            className={`rounded-lg h-8 w-8 p-0 text-xs ${
-                              p === safePage
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'border-border'
-                            }`}
-                          >
-                            {p}
-                          </Button>
-                        )
-                      )}
+                      .map((page, index) => page === '...' ? (
+                        <span key={`ellipsis-${index}`} className="px-1 text-xs text-muted-foreground">…</span>
+                      ) : (
+                        <Button
+                          key={page}
+                          variant={page === safePage ? 'default' : 'outline'}
+                          size="icon"
+                          onClick={() => setCurrentPage(page as number)}
+                          className="h-8 w-8 rounded-lg text-xs"
+                          aria-label={`Go to page ${page}`}
+                        >
+                          {page}
+                        </Button>
+                      ))}
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="icon"
                       disabled={safePage === totalPages}
                       onClick={() => setCurrentPage(safePage + 1)}
-                      className="rounded-lg h-8 w-8 p-0 border-border"
+                      className="h-8 w-8 rounded-lg"
+                      aria-label="Next page"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
