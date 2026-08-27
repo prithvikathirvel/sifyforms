@@ -8,16 +8,31 @@ import { viewSubmission, aggregateSubmissions } from './responseView.service';
 import { validateSubmission } from '../lib/validation';
 import { processAssessment } from '../services/assessment.processor';
 import { checkVotingDuplicate, processVote } from '../services/voting.processor';
-import { CreateSubmissionInput, UpdateSubmissionInput } from '../schemas/submission.schema';
+import { CreateSubmissionSchema, UpdateSubmissionInput } from '../schemas/submission.schema';
 import { SubmissionListFilter } from '../dao/interfaces/SubmissionDao';
+import { verifyTurnstileToken } from './turnstile.service';
 import axios from 'axios';
 
 export async function createSubmission(
-  input: CreateSubmissionInput,
+  input: unknown,
   ip: string | null,
   userAgent: string | null,
 ) {
-  const { formId, data, captchaProblem, captchaAnswer } = input;
+  const parsed = CreateSubmissionSchema.safeParse(input);
+  if (!parsed.success) {
+    throw Object.assign(createError(400, 'Invalid submission request'), {
+      details: parsed.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
+      })),
+    });
+  }
+
+  const { formId, data, turnstileToken } = parsed.data;
+
+  // Verify bot protection before database reads, schema processing, external
+  // validation, or any write. Missing, forged, expired, and replayed tokens fail.
+  await verifyTurnstileToken(turnstileToken, ip, formId);
 
   const form = await formDao.findFormById(formId);
   if (!form || !form.isPublished) throw createError(404, 'Form not found or not published');
@@ -30,24 +45,9 @@ export async function createSubmission(
     throw createError(403, 'This form has expired.');
   }
 
-  // CAPTCHA verification
-  let captchaActual = null;
-  if (settings.reCaptcha) {
-    if (!captchaProblem || !captchaAnswer) throw createError(400, 'Security verification is required');
-    try {
-      const parts = captchaProblem.split(' ');
-      const num1 = parseInt(parts[0]);
-      const op = parts[1];
-      const num2 = parseInt(parts[2]);
-      const answer = op === '+' ? num1 + num2 : num1 - num2;
-      captchaActual = { text: captchaProblem, answer };
-    } catch {
-      throw createError(400, 'Invalid security challenge');
-    }
-  }
-
-  // Field validation
-  const validation = await validateSubmission(schema, data, captchaActual, captchaAnswer);
+  // Field validation. The previous math challenge was client-generated and
+  // therefore not a security boundary; Turnstile is now verified above.
+  const validation = await validateSubmission(schema, data, null, undefined);
   if (!validation.valid) {
     throw Object.assign(createError(400, 'Validation failed'), { details: validation.errors });
   }

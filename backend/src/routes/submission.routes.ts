@@ -15,7 +15,8 @@ import { authMiddleware, orgMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Public route for form submissions
+// Public route for form submissions. Authentication is intentionally not
+// required; the shared service requires server-verified Turnstile proof.
 router.post('/', createSubmission);
 router.post('/check-unique', checkFieldUniqueness);
 router.post('/check-external', checkExternalValidation);

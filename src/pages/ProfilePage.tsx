@@ -28,7 +28,6 @@ export default function ProfilePage() {
 
       <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
         <PageHeader
-          icon={User}
           title="Profile"
           description={user?.email || 'Your personal account information'}
           actions={(

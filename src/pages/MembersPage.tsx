@@ -33,7 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
-import { Loader2, UserPlus, Trash2, Mail, ShieldCheck, Users } from 'lucide-react';
+import { Loader2, UserPlus, Trash2, Mail, ShieldCheck } from 'lucide-react';
 
 /**
  * Organization members and invitations.
@@ -100,7 +100,6 @@ export default function MembersPage() {
       <Sidebar onCreateForm={() => {}} />
       <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
         <PageHeader
-          icon={Users}
           title="Members"
           description={`People and invitations in ${currentOrg?.name ?? 'this organization'}`}
           actions={canInvite ? (

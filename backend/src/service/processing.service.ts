@@ -81,9 +81,31 @@ export async function getSubmissionResultPublic(submissionId: string) {
 
   if (!submission) throw createError(404, 'Submission not found');
 
+  const form = await formDao.findFormById(submission.formId);
+  if (!form || !form.isPublished) throw createError(404, 'Form not found');
+
+  const settings = JSON.parse(form.settings);
+  if (
+    settings.formType !== 'assessment' ||
+    settings.assessment?.showScoreAfterSubmit !== true
+  ) {
+    throw createError(403, 'Public score results are disabled for this form');
+  }
+
+  let publicResult: Record<string, unknown> | null = result
+    ? JSON.parse(result.result) as Record<string, unknown>
+    : null;
+
+  // A per-question correctness oracle can reveal the answer key even without
+  // the literal correctAnswer value, so hide the whole review unless enabled.
+  if (publicResult && settings.assessment?.showCorrectAnswers !== true) {
+    publicResult = { ...publicResult };
+    delete publicResult.fieldResults;
+  }
+
   return {
     processingStatus: submission.processingStatus,
-    result: result ? JSON.parse(result.result) : null,
+    result: publicResult,
   };
 }
 

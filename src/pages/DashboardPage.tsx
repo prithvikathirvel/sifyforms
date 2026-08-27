@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Badge } from '../components/ui/badge';
 import {
   FileText,
-  LayoutDashboard,
   BarChart3,
   Clock,
   Edit,
@@ -143,7 +142,6 @@ export default function DashboardPage() {
 
       <main className="min-w-0 flex-1 overflow-auto bg-gradient-to-br from-ink-50 to-ink-100">
         <PageHeader
-          icon={LayoutDashboard}
           title="Overview"
           description={`${currentOrg?.name || 'Your workspace'} · Forms, submissions, and recent activity`}
           actions={canCreateForm ? (

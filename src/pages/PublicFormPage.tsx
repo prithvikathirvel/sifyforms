@@ -19,8 +19,11 @@ import DmsFileUpload from '../components/ui/DmsFileUpload';
 import SignaturePad from '../components/ui/SignaturePad';
 import { MultiSelectField } from '../components/builder/MultiSelectField';
 import TableField from '../components/ui/TableField';
+import TurnstileWidget from '../components/security/TurnstileWidget';
 import { getPublicDownloadUrl, resolveFilesForSubmission, resolveSignatureForSubmission, triggerBrowserDownload } from '../lib/dms';
 import type { Form, FormField, FormLayout, DateConstraint, AssessmentResult, VotingResult, FormBrandingSection, DmsFileReference, FormFileValue } from '../types';
+
+const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
 
 const BRANDING_JUSTIFY: Record<string, string> = {
   left: 'justify-start',
@@ -429,11 +432,11 @@ export default function PublicFormPage() {
   const [externalValidationSuccess, setExternalValidationSuccess] = useState<Record<string, string>>({});
   const [externalValidationLoading, setExternalValidationLoading] = useState<Record<string, boolean>>({});
 
-  // Security Captcha State
-  // ... (lines 186+)
-  const [captchaProblem, setCaptchaProblem] = useState({ text: '', answer: 0 });
-  const [captchaValue, setCaptchaValue] = useState('');
-  const [captchaError, setCaptchaError] = useState<string | null>(null);
+  // Cloudflare Turnstile is mandatory for every public submission. The token is
+  // short-lived, single-use, and verified by the backend before any write.
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [turnstileError, setTurnstileError] = useState<string | null>(null);
   const [activeAlert, setActiveAlert] = useState<{ id: string; fieldId: string; message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
 
@@ -558,24 +561,6 @@ export default function PublicFormPage() {
       .then(res => setPollResults(res.data))
       .catch(() => {});
   }, [submitted, form?.id, form?.settings?.formType, form?.settings?.voting?.showResultsAfterVoting]);
-
-  const generateCaptcha = useCallback(() => {
-    const num1 = Math.floor(Math.random() * 10) + 1;
-    const num2 = Math.floor(Math.random() * 10) + 1;
-    const ops = ['+', '-'];
-    const op = ops[Math.floor(Math.random() * ops.length)];
-    const text = `${num1} ${op} ${num2}`;
-    const answer = op === '+' ? num1 + num2 : num1 - num2;
-    setCaptchaProblem({ text, answer });
-    setCaptchaValue('');
-    setCaptchaError(null);
-  }, []);
-
-  useEffect(() => {
-    if (form?.settings.reCaptcha) {
-      generateCaptcha();
-    }
-  }, [form, generateCaptcha]);
 
   const POS_BASE = 'https://apidev.sifymodernization.digital/payment-service';
 
@@ -1314,21 +1299,23 @@ export default function PublicFormPage() {
     const isValid = await trigger();
     if (!isValid) return;
 
-    // Check captcha if enabled
-    if (form.settings.reCaptcha) {
-      if (parseInt(captchaValue) !== captchaProblem.answer) {
-        setCaptchaError('Incorrect answer. Please try again.');
-        generateCaptcha();
-        return;
-      }
-      setCaptchaError(null);
+    if (!turnstileToken) {
+      setTurnstileError('Complete the security verification before continuing.');
+      return;
     }
 
+    setTurnstileError(null);
     setShowPreview(true);
   };
 
   const onSubmit = async (data: Record<string, unknown>) => {
     if (!form) return;
+
+    if (!turnstileToken) {
+      setTurnstileError('Security verification is required before submitting.');
+      return;
+    }
+    setTurnstileError(null);
 
     // Check for uniqueness errors
     if (Object.keys(uniquenessErrors).length > 0) {
@@ -1509,12 +1496,15 @@ export default function PublicFormPage() {
         submissionResponse = await api.post('/submissions', {
           formId: form.id,
           data: submissionData,
-          captchaProblem: captchaProblem.text,
-          captchaAnswer: captchaValue,
+          turnstileToken,
         });
       } catch (submissionError: any) {
         const msg = submissionError?.response?.data?.error || 'Failed to submit form. Please try again.';
         setError(msg);
+        // Siteverify tokens are single-use. Always request a fresh token before
+        // retrying, including when a later form validation rejects the request.
+        setTurnstileToken(null);
+        setTurnstileResetKey((key) => key + 1);
         setIsSubmitting(false);
         return;
       }
@@ -2370,15 +2360,6 @@ export default function PublicFormPage() {
   const handleNextStep = async (e?: React.FormEvent) => {
     e?.preventDefault?.();
 
-    // 1. If captcha enabled, verify it first
-    if (form?.settings.reCaptcha) {
-      if (!captchaValue || parseInt(captchaValue) !== captchaProblem.answer) {
-        setCaptchaError("Incorrect security answer. Please try again.");
-        generateCaptcha();
-        return;
-      }
-    }
-
     const fields = visibleFields.map((f) => f.id);
 
     if (fields.length === 0) {
@@ -2674,7 +2655,22 @@ export default function PublicFormPage() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4">
+              <div className="space-y-2 border-t pt-4">
+                <TurnstileWidget
+                  siteKey={TURNSTILE_SITE_KEY}
+                  formId={form.id}
+                  resetKey={turnstileResetKey}
+                  onTokenChange={(token) => {
+                    setTurnstileToken(token);
+                    if (token) setTurnstileError(null);
+                  }}
+                />
+                {turnstileError && (
+                  <p role="alert" className="text-xs font-medium text-destructive">{turnstileError}</p>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
                 {previewConfig.allowEdit !== false && (
                   <Button
                     type="button"
@@ -2689,7 +2685,7 @@ export default function PublicFormPage() {
                 <Button
                   type="button"
                   onClick={handleSubmit(onSubmit)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !turnstileToken}
                   className="flex-1"
                 >
                   {isSubmitting ? (
@@ -2747,13 +2743,9 @@ export default function PublicFormPage() {
       return;
     }
 
-    // Final captcha check for single page or last step
-    if (form?.settings.reCaptcha) {
-      if (!captchaValue || parseInt(captchaValue) !== captchaProblem.answer) {
-        setCaptchaError("Incorrect security answer. Please try again.");
-        generateCaptcha();
-        return;
-      }
+    if (!turnstileToken) {
+      setTurnstileError('Security verification is required before submitting.');
+      return;
     }
 
     handleSubmit(onSubmit)(e);
@@ -2950,40 +2942,19 @@ export default function PublicFormPage() {
                 />
               </fieldset>
 
-              {/* Security Captcha Section - Inside Form at bottom */}
-              {form?.settings.reCaptcha && (
-                <div className="bg-muted/30 p-4 rounded-lg border space-y-3 mb-6">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Security Verification</Label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => generateCaptcha()}
-                      className="h-7 px-2 text-xs"
-                    >
-                      Refresh
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="bg-background border rounded px-4 py-2 font-mono text-xl tracking-widest select-none shadow-sm flex items-center justify-center min-w-[100px]">
-                      {captchaProblem.text} = ?
-                    </div>
-                    <div className="flex-1">
-                      <Input
-                        type="number"
-                        placeholder="Answer"
-                        value={captchaValue}
-                        onChange={(e) => {
-                          setCaptchaValue(e.target.value);
-                          setCaptchaError(null);
-                        }}
-                        className={captchaError ? "border-destructive focus-visible:ring-destructive" : ""}
-                      />
-                    </div>
-                  </div>
-                  {captchaError && (
-                    <p className="text-xs font-medium text-destructive">{captchaError}</p>
+              {(!isMultiStep || isLastStep) && (
+                <div className="space-y-2 border-t border-border/70 pt-4">
+                  <TurnstileWidget
+                    siteKey={TURNSTILE_SITE_KEY}
+                    formId={form.id}
+                    resetKey={turnstileResetKey}
+                    onTokenChange={(token) => {
+                      setTurnstileToken(token);
+                      if (token) setTurnstileError(null);
+                    }}
+                  />
+                  {turnstileError && (
+                    <p role="alert" className="text-xs font-medium text-destructive">{turnstileError}</p>
                   )}
                 </div>
               )}
@@ -3001,7 +2972,7 @@ export default function PublicFormPage() {
                   </Button>
                 )}
                 {(() => {
-                  const isCaptchaSolved = !form?.settings.reCaptcha || (captchaValue !== '' && parseInt(captchaValue) === captchaProblem.answer);
+                  const securityReady = Boolean(turnstileToken);
                   const isPreviewEnabled = !isMultiStep && previewConfig?.enabled && !showPreview;
 
                   return isMultiStep && !isLastStep ? (
@@ -3023,7 +2994,6 @@ export default function PublicFormPage() {
                         type="button"
                         onClick={() => handleNextStep()}
                         className="flex-1"
-                        disabled={!isCaptchaSolved}
                       >
                         Next
                         <ChevronRight className="h-4 w-4 ml-2" />
@@ -3034,13 +3004,13 @@ export default function PublicFormPage() {
                       type="button"
                       onClick={handleNextToPreview}
                       className="flex-1"
-                      disabled={!isCaptchaSolved}
+                      disabled={!securityReady}
                     >
                       Next
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   ) : (
-                    <Button type="submit" className="flex-1" disabled={isSubmitting || !isCaptchaSolved}>
+                    <Button type="submit" className="flex-1" disabled={isSubmitting || !securityReady}>
                       {isSubmitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

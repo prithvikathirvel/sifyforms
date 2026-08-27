@@ -1,11 +1,14 @@
 import { z } from 'zod';
 
 export const CreateSubmissionSchema = z.object({
-  formId: z.string(),
+  formId: z.string().min(1),
   data: z.record(z.string(), z.any()),
+  turnstileToken: z.string().min(1, 'Security verification is required').max(2048),
+  // Accepted temporarily so older clients fail on Turnstile rather than on an
+  // unknown key. The client-generated math CAPTCHA is no longer trusted.
   captchaProblem: z.string().optional(),
   captchaAnswer: z.string().optional(),
-});
+}).strict();
 
 export const UpdateSubmissionSchema = z.object({
   data: z.record(z.string(), z.any()).optional(),

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { AuthRequest } from '../../middleware/auth.middleware';
-import { CreateSubmissionInput, UpdateSubmissionInput } from '../../schemas/submission.schema';
+import { UpdateSubmissionInput } from '../../schemas/submission.schema';
 import * as submissionService from '../../service/submission.service';
 import logger from '../../utils/logger';
 
@@ -15,7 +15,7 @@ export async function createSubmission(req: Request, res: Response): Promise<voi
     logger.info('Express --> createSubmission --> Request', { formId: req.body.formId });
     const ip = (req.headers['x-forwarded-for'] as string) || req.ip || null;
     const userAgent = req.headers['user-agent'] || null;
-    const result = await submissionService.createSubmission(req.body as CreateSubmissionInput, ip, userAgent);
+    const result = await submissionService.createSubmission(req.body, ip, userAgent);
     res.status(StatusCodes.CREATED).json(result);
   } catch (error: any) {
     logger.error('Express --> createSubmission --> Error', error);

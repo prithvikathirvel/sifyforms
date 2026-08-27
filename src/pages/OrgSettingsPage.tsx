@@ -10,7 +10,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select } from '../components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Building2, Loader2, Link2, TriangleAlert, Check, Settings } from 'lucide-react';
+import { Building2, Loader2, Link2, TriangleAlert, Check } from 'lucide-react';
 
 /**
  * Organization settings.
@@ -98,7 +98,6 @@ export default function OrgSettingsPage() {
 
       <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
         <PageHeader
-          icon={Settings}
           title="Organization settings"
           description={`Identity, public address, and controls for ${currentOrg.name}`}
         />

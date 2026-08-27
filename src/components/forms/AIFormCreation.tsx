@@ -191,9 +191,9 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFo
                     <span className="text-foreground">{generatedForm.settings.thankYouMessage}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">reCAPTCHA</span>
-                    <span className={`px-2 py-0.5 rounded text-xs ${generatedForm.settings.reCaptcha ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
-                      {generatedForm.settings.reCaptcha ? 'Enabled' : 'Disabled'}
+                    <span className="text-muted-foreground">Bot protection</span>
+                    <span className="rounded bg-primary/[0.06] px-2 py-0.5 text-xs text-primary">
+                      Turnstile always on
                     </span>
                   </div>
                   {generatedForm.settings.previewConfig && (

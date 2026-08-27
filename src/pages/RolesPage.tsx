@@ -173,7 +173,6 @@ export default function RolesPage() {
       <Sidebar onCreateForm={() => {}} />
       <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
         <PageHeader
-          icon={ShieldCheck}
           title="Roles"
           description="Permission sets for organization and team responsibilities"
           actions={canManage ? (

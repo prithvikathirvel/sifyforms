@@ -21,6 +21,38 @@ function parseForm<T extends { schema: string; settings: string }>(form: T) {
   };
 }
 
+/** Remove assessment secrets before a published schema leaves the server. */
+function sanitizePublicSchema(schema: Record<string, unknown>): Record<string, unknown> {
+  const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  return {
+    ...schema,
+    fields: fields.map((field) => {
+      if (!field || typeof field !== 'object' || Array.isArray(field)) return field;
+      const safeField = { ...(field as Record<string, unknown>) };
+      delete safeField.correctAnswer;
+      delete safeField.points;
+      delete safeField.section;
+      return safeField;
+    }),
+  };
+}
+
+/** Expose only the assessment flags the respondent UI needs. */
+function sanitizePublicSettings(settings: Record<string, unknown>): Record<string, unknown> {
+  if (!settings.assessment || typeof settings.assessment !== 'object' || Array.isArray(settings.assessment)) {
+    return settings;
+  }
+  const assessment = settings.assessment as Record<string, unknown>;
+  return {
+    ...settings,
+    assessment: {
+      showScoreAfterSubmit: assessment.showScoreAfterSubmit === true,
+      showCorrectAnswers:
+        assessment.showScoreAfterSubmit === true && assessment.showCorrectAnswers === true,
+    },
+  };
+}
+
 async function generateUniqueSlug(orgId: string): Promise<string> {
   let slug = generateFormSlug();
   for (let attempts = 0; attempts < 5; attempts++) {
@@ -214,9 +246,12 @@ export async function getPublicForm(orgSlug: string, formSlug: string) {
   const form = await formDao.findPublicForm(org.id, formSlug);
   if (!form) throw createError(404, 'Form not found or not published');
 
-  const settings = JSON.parse(form.settings);
+  const settings = JSON.parse(form.settings) as Record<string, unknown>;
   if (settings.isFormActive === false) throw createError(403, 'This form is no longer accepting submissions.');
-  if (settings.expirationDateTime && new Date() > new Date(settings.expirationDateTime)) {
+  if (
+    typeof settings.expirationDateTime === 'string' &&
+    new Date() > new Date(settings.expirationDateTime)
+  ) {
     throw createError(403, 'This form has expired.');
   }
 
@@ -224,8 +259,8 @@ export async function getPublicForm(orgSlug: string, formSlug: string) {
     id: form.id,
     name: form.name,
     description: form.description,
-    schema: JSON.parse(form.schema),
-    settings,
+    schema: sanitizePublicSchema(JSON.parse(form.schema) as Record<string, unknown>),
+    settings: sanitizePublicSettings(settings),
     org: form.org,
   };
 }

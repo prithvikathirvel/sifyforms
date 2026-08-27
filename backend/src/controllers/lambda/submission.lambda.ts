@@ -6,7 +6,7 @@ import logger from '../../utils/logger';
 
 // POST /createSubmission
 // No auth — public form submission
-// Body: { formId, data, captchaProblem?, captchaAnswer? }
+// Body: { formId, data, turnstileToken }
 export const createSubmission = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     logger.info('Lambda --> createSubmission --> Request', { body: event.body });

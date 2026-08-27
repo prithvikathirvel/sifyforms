@@ -156,7 +156,6 @@ export default function FormsListPage() {
 
       <main className="min-w-0 flex-1 overflow-auto bg-gradient-to-br from-ink-50 to-ink-100">
         <PageHeader
-          icon={FileText}
           title="Forms"
           description={isLoading
             ? 'Loading your forms…'

@@ -394,16 +394,14 @@ export default function SettingsModal({ open, onClose, formId }: SettingsModalPr
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-card">
+                <div className="flex items-center justify-between gap-4 rounded-lg border bg-card p-3">
                   <div>
-                    <Label htmlFor="captcha-toggle" className="text-sm font-medium cursor-pointer">Enable Security Captcha</Label>
-                    <p className="text-xs text-muted-foreground">Require a visual captcha challenge before form submission.</p>
+                    <Label className="text-sm font-medium">Bot protection</Label>
+                    <p className="text-xs text-muted-foreground">Cloudflare Turnstile protects every public submission automatically.</p>
                   </div>
-                  <UICheckbox
-                    id="captcha-toggle"
-                    checked={builder.settings.reCaptcha || false}
-                    onCheckedChange={(checked: boolean) => dispatch(updateSettings({ reCaptcha: checked }))}
-                  />
+                  <span className="shrink-0 rounded-full border border-primary/15 bg-primary/[0.06] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                    Always on
+                  </span>
                 </div>
 
                 {/* DMS File Storage */}

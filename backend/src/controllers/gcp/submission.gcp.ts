@@ -8,7 +8,7 @@ const functions = require('@google-cloud/functions-framework');
 
 // POST https://<region>-<project>.cloudfunctions.net/createSubmission
 // No auth — public form submission
-// Body: { formId, data, captchaProblem?, captchaAnswer? }
+// Body: { formId, data, turnstileToken }
 export const createSubmission = functions.http('createSubmission', async (req: any, res: any) => {
   try {
     logger.info('GCF --> createSubmission --> Request', { formId: req.body.formId });

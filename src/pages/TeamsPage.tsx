@@ -192,7 +192,6 @@ export default function TeamsPage() {
       <Sidebar onCreateForm={() => {}} />
       <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
         <PageHeader
-          icon={Users}
           title="Teams"
           description={`Team structure and inherited roles in ${currentOrg?.name ?? 'this organization'}`}
           actions={can(ACTIONS.CREATE_TEAM) ? (

@@ -115,7 +115,6 @@ export default function UpdateProfilePage() {
 
       <main className="min-w-0 flex-1 overflow-y-auto bg-muted/20">
         <PageHeader
-          icon={UserCog}
           title="Edit profile"
           description="Update your personal and account information"
           actions={(
