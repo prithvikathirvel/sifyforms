@@ -355,3 +355,127 @@ These were corrected in the same change set because they directly broke the DMS 
 - Authenticated initiate now uses the caller’s org and verifies the form belongs to that org.
 
 Remaining items in this document are **not** all fixed. Treat Critical and High as a follow-up security sprint.
+
+---
+
+# Consolidated addendum — 2026-08-28
+
+The original review above remains applicable. The following findings were confirmed during the focused review of the Form Builder, published respondent page, routes, controllers, services, DAOs, Prisma schema, and processing paths. They are consolidated here so this file is the security issue register; the detailed evidence and production plan are in [`FORM_BUILDER_PUBLIC_FORM_SECURITY_REVIEW.md`](./FORM_BUILDER_PUBLIC_FORM_SECURITY_REVIEW.md) and [`PRODUCTION_READINESS_AND_SCALE.md`](./PRODUCTION_READINESS_AND_SCALE.md).
+
+## Critical / release blockers
+
+### 26. Form-management actions are not consistently authorized
+
+**Where:** `backend/src/routes/form.routes.ts`, `backend/src/controllers/express/form.controller.ts`, `backend/src/service/form.service.ts`, `backend/src/service/formAccess.service.ts`
+
+**Confirmed issue:** Authentication and organization membership protect many routes, but form reads and mutations such as get, update, delete, publish, duplicate, move, response-policy changes, shares, AI edit/generate, CSV parsing, and related DMS operations do not consistently require the corresponding action. `getFormAccess()` calculates useful permissions, but advisory access data returned to the UI is not an enforcement boundary. Some services receive an `orgId` but not the acting user ID.
+
+**Attack example:** A low-privilege member of the same organization changes a known sibling-team form ID in `GET /api/forms/:id`, then replays the ID against `PUT`, `/publish`, `/team`, `/response-policy`, `/shares`, or `DELETE`. Cross-organization IDs may be rejected by org checks, but same-organization/team isolation is not sufficient.
+
+**Fix:** Make every service operation accept the actor and call a centralized `assertFormAction()` after loading the form. Map each route to a required action and target team. Bind every DAO mutation to tenant/form scope, audit the actor, and test owner, sibling-team, expired-share, revoked-share, and no-permission cases. See F-01 in the detailed review.
+
+### 27. Validation parses Zod output and then discards it
+
+**Where:** `backend/src/middleware/validate.middleware.ts`
+
+**Confirmed issue:** Middleware calls `schema.parse(req.body)` to test the input but does not assign the parsed/transformed result back to `req.body`. Controllers and services subsequently use the original object. Unknown-key stripping, coercion, defaults, and transformations therefore do not protect persistence or downstream logic.
+
+**Attack example:** Add arbitrary `settings.payment`, `settings.externalValidation`, oversized unknown properties, or a builder-only field to a form update. The route can report valid input while the unparsed object is serialized and stored.
+
+**Fix:** Assign the parsed value to a typed request property (`req.body = parsed`) or reject unknown keys with strict schemas and use a canonical DTO. Add tests proving that unknown keys cannot survive create/update and that transforms are the values consumed by the service.
+
+### 28. Public form configuration is a complete control-plane exposure
+
+**Where:** `GET /api/forms/public/:orgSlug/:formSlug`, `form.service.ts:getPublicForm`
+
+**Confirmed issue:** The endpoint returns parsed complete schema/settings and organization information. Depending on persisted data, this exposes `correctAnswer`, `points`, formulas/function bodies, payment tenant/gateway configuration, external-validation URL/headers/auth, DMS/branding metadata, authentication settings, redirect/notification settings, and builder-only flags.
+
+**Fix:** Build an explicit respondent-safe published projection from an immutable revision. Keep answer keys and all secrets server-side. Add public response contract tests and a deny-list for secret-like keys. See F-03.
+
+### 29. Server and browser dynamic execution remains unsafe
+
+**Where:** `backend/src/lib/calculationEngine.ts`; `src/lib/calculationEngine.ts`; table/configuration/variable components; `SubmissionViewer.tsx`
+
+**Confirmed issue:** Author-controlled formula/function text is passed to `new Function`. A malicious stored form can run code in Node during validation/scoring or in every respondent/reviewer browser. Identifier replacement is not a sandbox.
+
+**Fix:** Remove `new Function` and function-body mode. Use a bounded AST expression language; if code is unavoidable, use an isolated no-network worker with no application credentials and hard CPU/memory/time limits. See F-02.
+
+### 30. Client OTP, CAPTCHA, and authentication state can be bypassed
+
+**Where:** `src/pages/PublicFormPage.tsx`, `backend/src/service/submission.service.ts`
+
+**Confirmed issue:** OTP accepts hardcoded `1234` in the browser; the session is in mutable `sessionStorage`; CAPTCHA challenge/answer are client-created and server-recomputed from attacker input; public submission does not verify a server-issued respondent session or the configured authentication requirement.
+
+**Fix:** Add server challenge/verification with hashed, expiring, single-use OTPs and signed form-bound respondent sessions. Verify a server-issued CAPTCHA token and make draft/submit/result operations consume that session. See F-04.
+
+### 31. External validation is an unauthenticated SSRF and secret-forwarding primitive
+
+**Where:** `backend/src/lib/validation.ts`, `backend/src/service/submission.service.ts`, public external-validation endpoint
+
+**Confirmed issue:** A stored URL, method, headers, and bearer/basic/custom credentials are sent by Axios from the backend. Private IP, metadata, DNS-rebinding, redirect, response-size, and egress policies are not complete. Validation logging prints headers and payload/response data.
+
+**Fix:** Use an administrator-approved connector registry and dedicated egress proxy. Block private/link-local/metadata IPv4/IPv6 ranges after every DNS resolution, restrict HTTPS/redirects, strip arbitrary headers, inject secrets server-side, bound time/bytes/concurrency, and redact logs. See F-05.
+
+## High / consequential workflow blockers
+
+### 32. Payment is not a server-authoritative state machine
+
+**Where:** `src/pages/PublicFormPage.tsx`, `src/pages/PaymentStatusPage.tsx`, `backend/src/routes/payment.routes.ts`, payment controller
+
+**Confirmed issue:** The browser computes amount/order information and calls the external POS directly. The form submission is created before payment. Payment routes in this backend are 410 stubs, and the status page treats a user-controlled query string without a failure/cancel marker as success.
+
+**Fix:** Create a server-side order bound to form revision/submission/amount/currency, use a hosted checkout or publishable token, verify signed webhooks/server-to-server status, make retries idempotent, and show success only after verification. See F-06.
+
+### 33. Public result and poll access is not proof-bound
+
+**Where:** `backend/src/routes/processing.routes.ts`, processing controllers/services/DAOs
+
+**Confirmed issue:** Public result lookup accepts a submission ID without a signed submit token, respondent session, form binding, or reliable result policy check. Form-scoped admin result lookup is not consistently constrained by both form and submission. Public poll results do not consistently enforce `showResultsPublic`/`showResultsAfterVoting`; protected processing routes lack uniform action-level RBAC.
+
+**Fix:** Use short-lived audience/form/revision-bound result tokens; query by both form and submission; enforce visibility server-side; add explicit processing/aggregate permissions; return minimum fields only. See F-07.
+
+### 34. Client file metadata, references, and resource URLs are not authoritative
+
+**Where:** `src/pages/PublicFormPage.tsx`, `src/lib/dms.ts`, `backend/src/controllers/express/dms.controller.ts`, `backend/src/service/dms.service.ts`, submission validation, `SubmissionViewer.tsx`
+
+**Confirmed issue:** Browser MIME/name/size and URL/data-URI resources are trusted too far. Public upload confirmation is not bound to an initiation session. A final submission can replace file metadata/document references unless the server resolves ownership, form/field binding, scan state, and actual bytes.
+
+**Fix:** Use one-time form/field/respondent-bound upload sessions, direct object storage, magic-byte and malware scanning, strict byte/count quotas, server DMS ownership checks, short-lived download URLs, safe filenames, and no arbitrary `data:`/remote URL rendering. See F-08 and F-12.
+
+### 35. Response privacy depends on mutable author metadata and broad result paths
+
+**Where:** `backend/src/service/responseView.service.ts`, response/export/processing routes
+
+**Confirmed issue:** `isIdentifying: false` can override type-based masking; FULL/result/export paths can return complete data and metadata. Public score results can include submitted answers/correct answers even where the frontend does not display them. Aggregate counts need stronger visibility and differencing controls.
+
+**Fix:** Make privacy classification/policy an immutable revision-level ceiling, authorize every response tier/export/result path, omit unnecessary IP/user-agent, use aggregate query budgets/suppression, and audit access. See F-09.
+
+### 36. Duplicate prevention and processing are race-prone
+
+**Where:** submission uniqueness, voting/audit, assessment processor, processing DAOs, `backend/src/index.ts`
+
+**Confirmed issue:** Uniqueness is implemented partly as a load/scan/compare operation; concurrent submissions can both pass. Vote duplicate checks are check-then-insert without a unique `(formId, identifier)` claim. IP identity trusts caller-controlled `X-Forwarded-For`. `setImmediate` jobs can disappear on restart. Scoring uses mutable current schema and ranking scans prior results. Save/publish is last-write-wins with no immutable revision or idempotency key.
+
+**Fix:** Add database unique claim tables, normalized identity/value hashes, trusted proxy configuration, durable outbox/queues, revision-bound scoring, deterministic ranking, ETags/conflict detection, and submission/payment idempotency. See F-10.
+
+## Scale and reliability blockers
+
+### 37. Synchronous/unbounded public paths are incompatible with target concurrency
+
+**Where:** `backend/src/index.ts`, submission/processing/CSV/export services, `PublicFormPage.tsx`
+
+**Confirmed issue:** Global JSON limit is 50 MB; base64 files amplify memory and bandwidth; CSV parsing and several processing operations are in-memory; regexes/formulas can be expensive; public result polling every 1.5 seconds from 300,000 browsers would be about 200,000 requests/second before retries. There is no durable queue/cache/read-model architecture for this workload.
+
+**Fix:** Use small endpoint-specific JSON limits, direct object upload, bounded streaming CSV/formula/regex work, Redis-backed rate limits/idempotency/cache, CDN manifests, durable queues/workers, indexed/read-model processing, and backoff/push for results. See `docs/PRODUCTION_READINESS_AND_SCALE.md`.
+
+### 38. Tracked production configuration must be treated as compromised
+
+**Where:** `backend/pm2.config.js`, `backend/.env.bak`, `.env.example`
+
+**Confirmed issue:** Tracked configuration contains credential/default-secret material and conflicting environment values. Removing a value from a future commit does not revoke it.
+
+**Fix:** Rotate/revoke every affected secret, purge history if required, use a production secret manager, add secret scanning, fail startup on missing/weak values, and render/test deployment configuration in CI. See F-14.
+
+## Verification status
+
+This is a static source review. No live exploit, production request, or load test was performed. The frontend build passes but emits a large chunk warning. Root lint is not a clean gate (1,039 reported problems in the existing run). Backend dependency installation/Prisma generation and build verification are blocked in this environment by native dependency/TLS/query-engine download issues; there is no discovered application test suite. These limitations do not lower the release severity. They are release work: make negative authorization, DTO, fuzz, queue-failure, payment, DMS, and load tests runnable in CI and an isolated production-like environment.
