@@ -9,23 +9,40 @@ import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
 import CreateFormModal from '../components/forms/CreateFormModal';
 import FormWorkspaceCard from '../components/forms/FormWorkspaceCard';
+import FormWorkspaceTable from '../components/forms/FormWorkspaceTable';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
+import { DropdownSelect, type DropdownSelectOption } from '../components/ui/dropdown-select';
+import { Pagination } from '../components/ui/pagination';
+import { Tooltip } from '../components/ui/tooltip';
 import {
   FileText,
   Loader2,
+  Grid2X2,
+  List,
   Search,
-  X,
-  ChevronLeft,
-  ChevronRight,
   SlidersHorizontal,
   Users,
+  X,
 } from 'lucide-react';
 
 type StatusFilter = 'all' | 'published' | 'draft';
 type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'submissions';
+type ViewMode = 'grid' | 'table';
 
 const PAGE_SIZE = 12;
+const STATUS_OPTIONS: DropdownSelectOption<StatusFilter>[] = [
+  { value: 'all', label: 'All status' },
+  { value: 'published', label: 'Published' },
+  { value: 'draft', label: 'Draft' },
+];
+const SORT_OPTIONS: DropdownSelectOption<SortOption>[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'name_asc', label: 'Name A–Z' },
+  { value: 'name_desc', label: 'Name Z–A' },
+  { value: 'submissions', label: 'Most submissions' },
+];
 
 export default function FormsListPage() {
   const dispatch = useAppDispatch();
@@ -37,6 +54,7 @@ export default function FormsListPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [teamFilter, setTeamFilter] = useState<string>('all');
   const [sortOption, setSortOption] = useState<SortOption>('newest');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [currentPage, setCurrentPage] = useState(1);
 
   const teamTree = useAppSelector((state) => state.teams.tree);
@@ -63,6 +81,14 @@ export default function FormsListPage() {
     })(teamTree);
     return map;
   }, [teamTree]);
+
+  const teamOptions = useMemo<DropdownSelectOption<string>[]>(
+    () => [
+      { value: 'all', label: 'All teams' },
+      ...[...teamsById.entries()].map(([value, label]) => ({ value, label })),
+    ],
+    [teamsById]
+  );
 
   const filteredForms = useMemo(() => {
     let result = [...forms];
@@ -150,78 +176,91 @@ export default function FormsListPage() {
           ) : undefined}
         />
         <div className="p-4 sm:p-5 lg:p-6">
-          {/* Search / Filter / Sort bar */}
+          {/* Search, filters, sort, and view controls */}
           {!isLoading && forms.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <div className="mb-5 flex flex-col gap-2.5 lg:flex-row lg:items-start">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
-                  type="text"
+                  type="search"
+                  aria-label="Search forms"
                   placeholder="Search forms…"
                   value={searchQuery}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 transition-all"
+                  onChange={(event) => handleSearchChange(event.target.value)}
+                  className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-8 text-[12px] shadow-none outline-none transition-colors placeholder:text-muted-foreground focus:border-ink-400 focus:ring-4 focus:ring-primary/[0.06]"
                 />
                 {searchQuery && (
                   <button
+                    type="button"
                     onClick={() => handleSearchChange('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
+                    aria-label="Clear form search"
+                    className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
 
-              {/* Status filter */}
-              <div className="relative">
-                <SlidersHorizontal className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <select
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                <DropdownSelect
                   value={statusFilter}
-                  onChange={(e) => handleStatusChange(e.target.value as StatusFilter)}
-                  className="appearance-none pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 cursor-pointer transition-all"
-                >
-                  <option value="all">All Status</option>
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
-                </select>
-              </div>
+                  options={STATUS_OPTIONS}
+                  onValueChange={handleStatusChange}
+                  ariaLabel="Filter forms by status"
+                  icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+                  className="w-full sm:w-36"
+                />
 
-              {/* Team filter */}
-              {teamsById.size > 1 && (
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <select
+                {teamsById.size > 1 && (
+                  <DropdownSelect
                     value={teamFilter}
-                    onChange={(e) => {
-                      setTeamFilter(e.target.value);
+                    options={teamOptions}
+                    onValueChange={(value) => {
+                      setTeamFilter(value);
                       setCurrentPage(1);
                     }}
-                    className="appearance-none pl-9 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 cursor-pointer transition-all"
-                  >
-                    <option value="all">All Teams</option>
-                    {[...teamsById.entries()].map(([id, name]) => (
-                      <option key={id} value={id}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                    ariaLabel="Filter forms by team"
+                    icon={<Users className="h-3.5 w-3.5" />}
+                    className="w-full sm:w-40"
+                    menuClassName="sm:min-w-52"
+                  />
+                )}
 
-              {/* Sort */}
-              <div className="relative">
-                <select
+                <DropdownSelect
                   value={sortOption}
-                  onChange={(e) => handleSortChange(e.target.value as SortOption)}
-                  className="appearance-none pl-4 pr-8 py-2 text-sm border border-border rounded-lg bg-card shadow-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/40 cursor-pointer transition-all"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="name_asc">Name A–Z</option>
-                  <option value="name_desc">Name Z–A</option>
-                  <option value="submissions">Most Submissions</option>
-                </select>
+                  options={SORT_OPTIONS}
+                  onValueChange={handleSortChange}
+                  ariaLabel="Sort forms"
+                  className="w-full sm:w-40"
+                  align="right"
+                />
+
+                <div className="col-span-2 flex h-9 items-center justify-self-end rounded-lg border border-border bg-card p-1 sm:col-auto" role="group" aria-label="Forms view">
+                  <Tooltip content="Grid view" side="top" tone="dark" delay="short">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      aria-label="Show forms in grid view"
+                      aria-pressed={viewMode === 'grid'}
+                      className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-semibold transition-colors ${viewMode === 'grid' ? 'bg-primary/[0.07] text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                    >
+                      <Grid2X2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+                      Grid
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="List view" side="top" tone="light" delay="short">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('table')}
+                      aria-label="Show forms in list view"
+                      aria-pressed={viewMode === 'table'}
+                      className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-semibold transition-colors ${viewMode === 'table' ? 'bg-primary/[0.07] text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                    >
+                      <List className="h-3.5 w-3.5" strokeWidth={1.8} />
+                      List
+                    </button>
+                  </Tooltip>
+                </div>
               </div>
             </div>
           )}
@@ -272,71 +311,33 @@ export default function FormsListPage() {
             </Card>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {paginatedForms.map((form) => (
-                  <FormWorkspaceCard
-                    key={form.id}
-                    form={form}
-                    orgSlug={currentOrg.slug || 'default-org'}
-                    teamName={form.teamId ? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
-                  />
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-                  <p className="text-sm text-muted-foreground">
-                    Page {safePage} of {totalPages} &middot; {filteredForms.length} forms
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={safePage === 1}
-                      onClick={() => setCurrentPage(safePage - 1)}
-                      className="rounded-lg h-8 w-8 p-0 border-border"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
-                      .reduce<(number | '...')[]>((acc, p, idx, arr) => {
-                        if (idx > 0 && (arr[idx - 1] as number) + 1 < p) acc.push('...');
-                        acc.push(p);
-                        return acc;
-                      }, [])
-                      .map((p, idx) =>
-                        p === '...' ? (
-                          <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground text-sm">…</span>
-                        ) : (
-                          <Button
-                            key={p}
-                            variant={p === safePage ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setCurrentPage(p as number)}
-                            className={`rounded-lg h-8 w-8 p-0 text-xs ${
-                              p === safePage
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'border-border'
-                            }`}
-                          >
-                            {p}
-                          </Button>
-                        )
-                      )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={safePage === totalPages}
-                      onClick={() => setCurrentPage(safePage + 1)}
-                      className="rounded-lg h-8 w-8 p-0 border-border"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {paginatedForms.map((form) => (
+                    <FormWorkspaceCard
+                      key={form.id}
+                      form={form}
+                      orgSlug={currentOrg.slug || 'default-org'}
+                      teamName={form.teamId ? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
+                    />
+                  ))}
                 </div>
+              ) : (
+                <FormWorkspaceTable
+                  forms={paginatedForms}
+                  orgSlug={currentOrg.slug || 'default-org'}
+                  getTeamName={(form) => form.teamId ? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
+                />
               )}
+
+              <Pagination
+                page={safePage}
+                totalPages={totalPages}
+                totalItems={filteredForms.length}
+                itemLabel="forms"
+                onPageChange={setCurrentPage}
+                className="mt-6"
+              />
             </>
           )}
         </div>

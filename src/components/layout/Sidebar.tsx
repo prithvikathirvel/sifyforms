@@ -22,6 +22,7 @@ import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { logout } from '../../store/authSlice';
 import { resetOrg } from '../../store/orgSlice';
 import { Button } from '../ui/button';
+import { Tooltip } from '../ui/tooltip';
 
 interface SidebarProps {
   onCreateForm: () => void;
@@ -136,23 +137,24 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
 
           {can(ACTIONS.CREATE_FORM) && (
             <div className={cn('flex shrink-0 justify-center', collapsed ? 'px-2 py-2.5' : 'p-3')}>
-              <Button
-                onClick={() => {
-                  onCreateForm();
-                  collapseAfterCompactNavigation();
-                }}
-                variant="ghost"
-                size={collapsed ? 'icon' : 'default'}
-                title={collapsed ? 'Create form' : undefined}
-                aria-label={collapsed ? 'Create form' : undefined}
-                className={cn(
-                  'rounded-lg border border-primary/10 bg-primary/[0.055] text-primary shadow-none hover:bg-primary/[0.09] hover:text-primary',
-                  collapsed ? 'h-10 w-10 p-0' : 'w-full'
-                )}
-              >
-                <Plus className={cn('h-4 w-4 shrink-0', !collapsed && 'mr-2')} strokeWidth={1.8} />
-                {!collapsed && <span>Create form</span>}
-              </Button>
+              <Tooltip content="Create form" side="right" delay="short" disabled={!collapsed}>
+                <Button
+                  onClick={() => {
+                    onCreateForm();
+                    collapseAfterCompactNavigation();
+                  }}
+                  variant="ghost"
+                  size={collapsed ? 'icon' : 'default'}
+                  aria-label={collapsed ? 'Create form' : undefined}
+                  className={cn(
+                    'rounded-lg border border-primary/10 bg-primary/[0.055] text-primary shadow-none hover:bg-primary/[0.09] hover:text-primary',
+                    collapsed ? 'h-10 w-10 p-0' : 'w-full'
+                  )}
+                >
+                  <Plus className={cn('h-4 w-4 shrink-0', !collapsed && 'mr-2')} strokeWidth={1.8} />
+                  {!collapsed && <span>Create form</span>}
+                </Button>
+              </Tooltip>
             </div>
           )}
 
@@ -166,24 +168,24 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
               {navItems.map((item) => {
                 const isActive = isItemActive(item.href);
                 return (
-                  <Link
-                    key={item.label}
-                    to={item.href}
-                    title={collapsed ? item.label : undefined}
-                    aria-label={collapsed ? item.label : undefined}
-                    aria-current={isActive ? 'page' : undefined}
-                    onClick={collapseAfterCompactNavigation}
-                    className={cn(
-                      'group relative flex h-9 items-center rounded-lg text-[13px] font-medium transition-colors duration-200',
-                      collapsed ? 'justify-center px-0' : 'gap-3 px-2.5',
-                      isActive
-                        ? 'bg-primary/[0.055] text-primary'
-                        : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
-                    )}
-                  >
-                    <item.icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
-                  </Link>
+                  <Tooltip key={item.label} content={item.label} side="right" delay="short" disabled={!collapsed} className="w-full">
+                    <Link
+                      to={item.href}
+                      aria-label={collapsed ? item.label : undefined}
+                      aria-current={isActive ? 'page' : undefined}
+                      onClick={collapseAfterCompactNavigation}
+                      className={cn(
+                        'group relative flex h-9 w-full items-center rounded-lg text-[13px] font-medium transition-colors duration-200',
+                        collapsed ? 'justify-center px-0' : 'gap-3 px-2.5',
+                        isActive
+                          ? 'bg-primary/[0.055] text-primary'
+                          : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                      )}
+                    >
+                      <item.icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                    </Link>
+                  </Tooltip>
                 );
               })}
             </div>
@@ -216,18 +218,19 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={() => updateCollapsed(!collapsed)}
-                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                className={cn(
-                  'flex shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-                  collapsed ? 'h-8 w-10' : 'h-9 w-9'
-                )}
-              >
-                {collapsed ? <PanelLeftOpen className="h-4 w-4" strokeWidth={1.8} /> : <PanelLeftClose className="h-4 w-4" strokeWidth={1.8} />}
-              </button>
+              <Tooltip content="Expand sidebar" side="right" delay="short" disabled={!collapsed}>
+                <button
+                  type="button"
+                  onClick={() => updateCollapsed(!collapsed)}
+                  aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  className={cn(
+                    'flex shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+                    collapsed ? 'h-8 w-10' : 'h-9 w-9'
+                  )}
+                >
+                  {collapsed ? <PanelLeftOpen className="h-4 w-4" strokeWidth={1.8} /> : <PanelLeftClose className="h-4 w-4" strokeWidth={1.8} />}
+                </button>
+              </Tooltip>
             </div>
 
             {menuOpen && (

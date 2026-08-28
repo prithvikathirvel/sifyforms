@@ -19,6 +19,7 @@ import { deleteForm } from '../../store/formsSlice';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Tooltip } from '../ui/tooltip';
 
 interface FormWorkspaceCardProps {
   form: Form;
@@ -99,16 +100,18 @@ export function FormWorkspaceCard({ form, orgSlug, teamName }: FormWorkspaceCard
             </Badge>
 
             <div ref={menuRef} className="relative">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMenuOpen((open) => !open)}
-                aria-label="More form actions"
-                aria-expanded={menuOpen}
-                className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
+              <Tooltip content="More actions" side="top" tone="light" delay="short">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  aria-label="More form actions"
+                  aria-expanded={menuOpen}
+                  className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </Tooltip>
               {menuOpen && (
                 <div className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-lg shadow-ink-950/[0.07]">
                   {form.isPublished && (
