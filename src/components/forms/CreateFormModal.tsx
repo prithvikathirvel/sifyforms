@@ -37,11 +37,13 @@ type JsonObject = Record<string, unknown>;
 
 const STEP_DESCRIPTION: Record<Step, string> = {
   choose: 'Choose the best starting point for your form.',
-  scratch: 'Name your form and continue with a clean builder canvas.',
+  scratch: 'Start with a blank form and build from scratch.',
   template: 'Start quickly with a reusable, preconfigured form.',
-  json: 'Create a form from an existing SifyForms JSON schema.',
-  ai: 'Describe what you need and review the generated structure.',
+  json: 'Import a form from an existing SifyForms JSON schema.',
+  ai: 'Create a form using AI — just describe what you need.',
 };
+
+const slateCancelClass = 'border-ink-200 bg-ink-100 text-ink-700 hover:bg-ink-200 hover:text-ink-800';
 
 function flattenTeams(roots: TeamNode[]): TeamNode[] {
   const result: TeamNode[] = [];
@@ -186,7 +188,6 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
     try {
       const result = await dispatch(createForm({
         name: formName.trim() || 'Imported Form',
-        description: formDescription.trim(),
         teamId: effectiveTeamId,
         schema: {
           fields: parsed.fields as FormField[],
@@ -345,41 +346,47 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
 
   const renderScratchStep = () => (
     <form
-      className="mx-auto max-w-2xl space-y-4"
+      className="flex h-full min-h-0 flex-col"
       onSubmit={(event) => {
         event.preventDefault();
         void handleCreateFromScratch();
       }}
     >
-      <Button type="button" variant="ghost" size="sm" onClick={() => goTo('choose')} className="-ml-2">
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back
-      </Button>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="formName">Form name</Label>
-          <Input
-            id="formName"
-            autoFocus
-            placeholder="My registration form"
-            value={formName}
-            onChange={(event) => setFormNameLocal(event.target.value)}
-          />
+      <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+        <div className="mx-auto max-w-4xl space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="formName">Form name</Label>
+            <Input
+              id="formName"
+              autoFocus
+              placeholder="My registration form"
+              value={formName}
+              onChange={(event) => setFormNameLocal(event.target.value)}
+            />
+            <p className="text-[11px] font-medium text-muted-foreground">Choose a clear and descriptive name for your form.</p>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <Label htmlFor="formDescription">Description (optional)</Label>
+              <p className="mt-1 text-[11px] font-medium text-muted-foreground">Add a short description to help others understand this form.</p>
+            </div>
+            <Textarea
+              id="formDescription"
+              placeholder="A brief description of your form"
+              value={formDescription}
+              onChange={(event) => setFormDescriptionLocal(event.target.value)}
+              className="min-h-[10rem] resize-y sm:min-h-[14rem]"
+            />
+          </div>
+          <InlineError message={actionError} />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="formDescription">Description (optional)</Label>
-          <Textarea
-            id="formDescription"
-            placeholder="A brief description of your form"
-            value={formDescription}
-            onChange={(event) => setFormDescriptionLocal(event.target.value)}
-          />
-        </div>
-        <InlineError message={actionError} />
-        <Button type="submit" disabled={!formName.trim() || isLoading} className="w-full">
+      </div>
+      <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-border/70 bg-ink-50/55 px-4 py-3 sm:flex-row sm:justify-end sm:px-6">
+        <Button type="button" variant="outline" onClick={() => goTo('choose')} className={`w-full sm:w-auto ${slateCancelClass}`}>Cancel</Button>
+        <Button type="submit" disabled={!formName.trim() || isLoading} className="w-full min-w-32 sm:w-auto">
           {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</> : 'Create form'}
         </Button>
-      </div>
+      </footer>
     </form>
   );
 
@@ -403,65 +410,84 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
 
   const renderJsonStep = () => (
     <form
-      className="mx-auto max-w-2xl space-y-4"
+      className="flex h-full min-h-0 flex-col"
       onSubmit={(event) => {
         event.preventDefault();
         void handleImportJson();
       }}
     >
-      <Button type="button" variant="ghost" size="sm" onClick={() => goTo('choose')} className="-ml-2">
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back
-      </Button>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="jsonFormName">Form name</Label>
-          <Input
-            id="jsonFormName"
-            placeholder="Imported form"
-            value={formName}
-            onChange={(event) => setFormNameLocal(event.target.value)}
-          />
+      <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+        <div className="mx-auto max-w-4xl space-y-4">
+          <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+            <div className="mb-4">
+              <h3 className="font-display text-sm font-bold text-foreground">Import details</h3>
+              <p className="mt-1 text-[11px] font-medium text-muted-foreground">Give the imported form a clear workspace name.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="jsonFormName">Form name</Label>
+              <Input
+                id="jsonFormName"
+                placeholder="Imported form"
+                value={formName}
+                onChange={(event) => setFormNameLocal(event.target.value)}
+              />
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-display text-sm font-bold text-foreground">JSON schema</h3>
+                <p className="mt-1 text-[11px] font-medium text-muted-foreground">Requires a top-level fields array.</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={downloadTemplate} className="text-xs">
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Download example
+              </Button>
+            </div>
+            <Textarea
+              id="jsonInput"
+              autoFocus
+              spellCheck={false}
+              placeholder={'{\n  "fields": [\n    { "id": "name", "type": "text", "label": "Full name" }\n  ]\n}'}
+              value={jsonInput}
+              onChange={(event) => {
+                setJsonInput(event.target.value);
+                setJsonError('');
+              }}
+              className="scrollbar-compact min-h-[14rem] resize-y bg-ink-50/80 font-mono text-[12px] leading-5 text-ink-800 placeholder:text-ink-400 sm:min-h-[16rem]"
+            />
+            {jsonError && <p className="mt-2 text-xs font-medium text-destructive">{jsonError}</p>}
+          </section>
         </div>
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Label htmlFor="jsonInput">JSON schema</Label>
-            <Button type="button" variant="outline" size="sm" onClick={downloadTemplate} className="text-xs">
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-              Download template
-            </Button>
-          </div>
-          <Textarea
-            id="jsonInput"
-            autoFocus
-            spellCheck={false}
-            placeholder='{"fields": [...]}'
-            value={jsonInput}
-            onChange={(event) => {
-              setJsonInput(event.target.value);
-              setJsonError('');
-            }}
-            className="scrollbar-compact min-h-[200px] resize-y font-mono text-sm"
-          />
-          {jsonError && <p className="text-xs font-medium text-destructive">{jsonError}</p>}
-        </div>
-        <Button type="submit" disabled={!jsonInput.trim() || isLoading} className="w-full">
-          {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importing…</> : 'Import & create form'}
-        </Button>
       </div>
+      <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-border/70 bg-ink-50/55 px-4 py-3 sm:flex-row sm:justify-end sm:px-6">
+        <Button type="button" variant="outline" onClick={() => goTo('choose')} className={`w-full sm:w-auto ${slateCancelClass}`}>Cancel</Button>
+        <Button type="submit" disabled={!jsonInput.trim() || isLoading} className="w-full min-w-40 sm:w-auto">
+          {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importing…</> : 'Import and create'}
+        </Button>
+      </footer>
     </form>
   );
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && resetAndClose()}>
       <DialogContent
-        className={`flex max-w-5xl flex-col overflow-visible rounded-2xl border-border bg-card p-0 shadow-[0_24px_70px_rgba(15,23,42,0.2)] ${step === 'template' ? 'h-[min(46rem,92dvh)]' : 'max-h-[92dvh]'}`}
+        className={`flex max-w-5xl flex-col overflow-visible rounded-2xl border-border bg-card p-0 shadow-[0_24px_70px_rgba(15,23,42,0.2)] ${step === 'template' ? 'h-[min(46rem,92dvh)]' : step === 'choose' ? 'max-h-[92dvh]' : 'h-[min(40rem,92dvh)]'}`}
         onClose={resetAndClose}
       >
         <DialogHeader className="shrink-0 border-b border-border/70 px-5 py-4 pr-14 sm:px-6 sm:py-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/10 bg-primary/[0.06] text-primary">
-              {step === 'template' ? <LayoutTemplate className="h-[18px] w-[18px]" /> : step === 'json' ? <Braces className="h-[18px] w-[18px]" /> : <FilePlus2 className="h-[18px] w-[18px]" />}
+              {step === 'template' ? (
+                <LayoutTemplate className="h-[18px] w-[18px]" />
+              ) : step === 'json' ? (
+                <Braces className="h-[18px] w-[18px]" />
+              ) : step === 'ai' ? (
+                <Wand2 className="h-[18px] w-[18px]" />
+              ) : (
+                <FilePlus2 className="h-[18px] w-[18px]" />
+              )}
             </span>
             <div>
               <DialogTitle className="font-display text-lg font-bold">Create new form</DialogTitle>
@@ -470,7 +496,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
           </div>
         </DialogHeader>
 
-        <div className={`min-h-0 flex-1 overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5 ${step === 'template' ? 'overflow-hidden' : 'scrollbar-subtle overflow-y-auto'}`}>
+        <div className={`min-h-0 flex-1 overflow-x-hidden ${step === 'template' ? 'overflow-hidden px-4 py-4 sm:px-6 sm:py-5' : step === 'choose' ? 'scrollbar-subtle overflow-y-auto px-4 py-4 sm:px-6 sm:py-5' : 'overflow-hidden'}`}>
           {step === 'choose' && renderChooseStep()}
           {step === 'scratch' && renderScratchStep()}
           {step === 'template' && renderTemplateStep()}
@@ -533,9 +559,9 @@ function MethodCard({
 
 function StepBack({ onClick }: { onClick: () => void }) {
   return (
-    <Button type="button" variant="ghost" size="sm" onClick={onClick} className="h-8 -ml-2 px-2 text-xs text-muted-foreground hover:text-foreground">
+    <Button type="button" variant="outline" size="sm" onClick={onClick} className={`h-8 px-2.5 text-xs ${slateCancelClass}`}>
       <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-      Back to creation methods
+      Back
     </Button>
   );
 }
