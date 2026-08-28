@@ -54,7 +54,7 @@ export const getSubmissionResult = functions.http('getSubmissionResult', async (
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId, submissionId and orgId are required' });
       return;
     }
-    const result = await processingService.getSubmissionResult(submissionId, formId, orgId);
+    const result = await processingService.getSubmissionResult(submissionId, formId, orgId, (req as AuthRequest).user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     logger.error('GCF --> getSubmissionResult --> Error', error);
@@ -73,7 +73,7 @@ export const getLeaderboard = functions.http('getLeaderboard', async (req: any, 
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId and orgId are required' });
       return;
     }
-    const result = await processingService.getLeaderboard(formId, orgId);
+    const result = await processingService.getLeaderboard(formId, orgId, (req as AuthRequest).user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     logger.error('GCF --> getLeaderboard --> Error', error);
@@ -92,7 +92,7 @@ export const getAssessmentAnalytics = functions.http('getAssessmentAnalytics', a
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId and orgId are required' });
       return;
     }
-    const result = await processingService.getAssessmentAnalytics(formId, orgId);
+    const result = await processingService.getAssessmentAnalytics(formId, orgId, (req as AuthRequest).user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     logger.error('GCF --> getAssessmentAnalytics --> Error', error);

@@ -37,6 +37,7 @@ interface SchemaField {
   name?: string;
   type?: string;
   label?: string;
+  options?: Array<{ label: string; value: string }>;
   /** Explicit override; when set it wins over the type heuristic. */
   isIdentifying?: boolean;
 }
@@ -171,10 +172,12 @@ export interface FieldSummary {
   label: string;
   type: string;
   answered: number;
+  skipped: number;
+  responseRate: number;
   /** Present for choice-like fields; absent for free text, which cannot be summarised safely. */
   counts?: Record<string, number>;
   /** Present for numeric fields. */
-  stats?: { min: number; max: number; mean: number };
+  stats?: { min: number; max: number; mean: number; median: number };
 }
 
 export interface AggregateResult {
@@ -183,6 +186,17 @@ export interface AggregateResult {
   firstResponseAt: Date | null;
   lastResponseAt: Date | null;
   fields: FieldSummary[];
+  insights: {
+    responsesLast7Days: number;
+    responsesPrevious7Days: number;
+    changePercent: number | null;
+    averageAnswerRate: number;
+    activeDays: number;
+  };
+  trend: {
+    rangeDays: number;
+    series: Array<{ date: string; count: number }>;
+  };
   /** Suppressed when too few responses exist to keep individuals unidentifiable. */
   suppressed: boolean;
   minimumForBreakdown: number;
@@ -210,6 +224,47 @@ const SUMMARISABLE = new Set([
 ]);
 
 const NUMERIC = new Set(['number', 'rating', 'scale', 'currency']);
+const NON_RESPONSE_FIELDS = new Set(['html', 'display']);
+const TREND_DAYS = 14;
+
+function utcDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function responseTrend(submissions: RawSubmission[]) {
+  const end = new Date();
+  end.setUTCHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - (TREND_DAYS - 1));
+
+  const counts = new Map<string, number>();
+  for (const submission of submissions) {
+    const time = submission.createdAt.getTime();
+    if (time < start.getTime() || time >= end.getTime() + 86_400_000) continue;
+    const key = utcDateKey(submission.createdAt);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const series = Array.from({ length: TREND_DAYS }, (_, index) => {
+    const date = new Date(start);
+    date.setUTCDate(start.getUTCDate() + index);
+    const key = utcDateKey(date);
+    return { date: key, count: counts.get(key) ?? 0 };
+  });
+  const responsesPrevious7Days = series.slice(0, 7).reduce((sum, point) => sum + point.count, 0);
+  const responsesLast7Days = series.slice(7).reduce((sum, point) => sum + point.count, 0);
+  const changePercent = responsesPrevious7Days > 0
+    ? Math.round(((responsesLast7Days - responsesPrevious7Days) / responsesPrevious7Days) * 100)
+    : responsesLast7Days === 0 ? 0 : null;
+
+  return {
+    series,
+    responsesLast7Days,
+    responsesPrevious7Days,
+    changePercent,
+    activeDays: series.filter(point => point.count > 0).length,
+  };
+}
 
 /**
  * Counts and distributions computed server-side, so an aggregate-only viewer
@@ -229,11 +284,28 @@ export function aggregateSubmissions(
     firstResponseAt: total ? new Date(Math.min(...times)) : null,
     lastResponseAt: total ? new Date(Math.max(...times)) : null,
     fields: [],
+    insights: {
+      responsesLast7Days: 0,
+      responsesPrevious7Days: 0,
+      changePercent: 0,
+      averageAnswerRate: 0,
+      activeDays: 0,
+    },
+    trend: { rangeDays: TREND_DAYS, series: [] },
     suppressed: total > 0 && total < MIN_RESPONSES_FOR_BREAKDOWN,
     minimumForBreakdown: MIN_RESPONSES_FOR_BREAKDOWN,
   };
 
+  // Date buckets can reveal activity patterns in a very small anonymous group,
+  // so detailed insight follows the same minimum as per-question breakdowns.
   if (result.suppressed || total === 0) return result;
+
+  const trend = responseTrend(submissions);
+  result.trend.series = trend.series;
+  result.insights.responsesLast7Days = trend.responsesLast7Days;
+  result.insights.responsesPrevious7Days = trend.responsesPrevious7Days;
+  result.insights.changePercent = trend.changePercent;
+  result.insights.activeDays = trend.activeDays;
 
   const fields: SchemaField[] = (schema as any)?.fields ?? [];
   const identifying = identifyingKeys(schema);
@@ -247,6 +319,8 @@ export function aggregateSubmissions(
     if (identifying.has(key)) continue;
 
     const type = (field.type ?? '').toLowerCase().replace(/[^a-z]/g, '');
+    if (NON_RESPONSE_FIELDS.has(type)) continue;
+
     const values = parsed
       .map(row => row[key])
       .filter(v => v !== undefined && v !== null && v !== '');
@@ -256,13 +330,17 @@ export function aggregateSubmissions(
       label: field.label ?? key,
       type: field.type ?? 'unknown',
       answered: values.length,
+      skipped: Math.max(total - values.length, 0),
+      responseRate: total > 0 ? Math.round((values.length / total) * 100) : 0,
     };
 
     if (SUMMARISABLE.has(type)) {
       const counts: Record<string, number> = {};
+      const optionLabels = new Map((field.options ?? []).map(option => [option.value, option.label]));
       for (const value of values) {
         for (const one of Array.isArray(value) ? value : [value]) {
-          const label = String(one);
+          const raw = String(one);
+          const label = optionLabels.get(raw) ?? raw;
           counts[label] = (counts[label] ?? 0) + 1;
         }
       }
@@ -270,18 +348,27 @@ export function aggregateSubmissions(
     }
 
     if (NUMERIC.has(type)) {
-      const numbers = values.map(Number).filter(n => Number.isFinite(n));
+      const numbers = values.map(Number).filter(n => Number.isFinite(n)).sort((a, b) => a - b);
       if (numbers.length) {
+        const middle = Math.floor(numbers.length / 2);
+        const median = numbers.length % 2
+          ? numbers[middle]
+          : ((numbers[middle - 1] ?? 0) + (numbers[middle] ?? 0)) / 2;
         summary.stats = {
           min: Math.min(...numbers),
           max: Math.max(...numbers),
           mean: Number((numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(2)),
+          median: Number(median.toFixed(2)),
         };
       }
     }
 
     result.fields.push(summary);
   }
+
+  result.insights.averageAnswerRate = result.fields.length > 0
+    ? Math.round(result.fields.reduce((sum, field) => sum + field.responseRate, 0) / result.fields.length)
+    : 0;
 
   return result;
 }

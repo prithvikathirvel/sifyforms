@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
+import { DataTable, type DataTableColumn } from '../components/ui/data-table';
 import { Pagination } from '../components/ui/pagination';
 import { Tooltip } from '../components/ui/tooltip';
 import SubmissionViewer from '../components/ui/SubmissionViewer';
@@ -38,6 +39,10 @@ import {
   Globe2,
   Hash,
   Monitor,
+  Award,
+  Percent,
+  Target,
+  UsersRound,
 } from 'lucide-react';
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
@@ -170,56 +175,195 @@ interface LeaderboardEntry {
   result: AssessmentResult;
 }
 
+interface LeaderboardSummary {
+  topScore: number;
+  topPercentage: number;
+  averagePercentage: number;
+  passRate: number;
+}
+
+const LEADERBOARD_PAGE_SIZE = 10;
+
 function LeaderboardTab({ formId }: { formId: string }) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [summary, setSummary] = useState<LeaderboardSummary | null>(null);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
-      const res = await api.get(`/processing/forms/${formId}/leaderboard`);
-      setEntries(res.data.leaderboard ?? []);
+      const response = await api.get(`/processing/forms/${formId}/leaderboard`);
+      const leaderboard = (response.data.leaderboard ?? []) as LeaderboardEntry[];
+      setEntries(leaderboard);
+      setSummary(response.data.summary ?? null);
+      setPage(1);
     } catch {
-      /* noop */
+      setLoadError('The leaderboard could not be loaded. Please try again.');
     } finally {
       setLoading(false);
     }
   }, [formId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-  if (entries.length === 0) return <div className="text-center py-16 text-muted-foreground"><Trophy className="h-12 w-12 mx-auto mb-3" /><p>No results yet.</p></div>;
+  if (loading && entries.length === 0) {
+    return <div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
+  }
+
+  if (loadError && entries.length === 0) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-16 text-center">
+        <p className="text-xs font-semibold text-destructive">{loadError}</p>
+        <Button type="button" variant="outline" size="sm" onClick={() => void load()} className="mt-4">Try again</Button>
+      </div>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="flex min-h-64 items-center justify-center px-4 text-center">
+        <div>
+          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-ink-50 text-ink-400">
+            <Trophy className="h-5 w-5" strokeWidth={1.7} />
+          </span>
+          <h2 className="mt-3 font-display text-sm font-bold text-foreground">No ranked results yet</h2>
+          <p className="mt-1 text-xs font-medium text-muted-foreground">Completed assessment submissions will appear here.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalPages = Math.max(1, Math.ceil(entries.length / LEADERBOARD_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visibleEntries = entries.slice((safePage - 1) * LEADERBOARD_PAGE_SIZE, safePage * LEADERBOARD_PAGE_SIZE);
+  const derivedSummary: LeaderboardSummary = summary ?? {
+    topScore: entries[0]?.result.totalScore ?? 0,
+    topPercentage: entries[0]?.result.percentage ?? 0,
+    averagePercentage: Math.round(entries.reduce((sum, entry) => sum + entry.result.percentage, 0) / entries.length),
+    passRate: Math.round((entries.filter((entry) => entry.result.passed).length / entries.length) * 100),
+  };
+
+  const columns: DataTableColumn<LeaderboardEntry>[] = [
+    {
+      id: 'rank',
+      header: 'Rank',
+      headerClassName: 'w-20',
+      cellClassName: 'w-20',
+      cell: (entry) => (
+        <span className={`flex h-8 w-8 items-center justify-center rounded-lg border text-[11px] font-bold tabular-nums ${
+          entry.rank === 1
+            ? 'border-amber-200 bg-amber-50 text-amber-800'
+            : entry.rank === 2
+              ? 'border-ink-200 bg-ink-50 text-ink-600'
+              : entry.rank === 3
+                ? 'border-orange-200 bg-orange-50/70 text-orange-800'
+                : 'border-border bg-card text-muted-foreground'
+        }`}>
+          {entry.rank}
+        </span>
+      ),
+    },
+    {
+      id: 'submission',
+      header: 'Submission',
+      headerClassName: 'min-w-44',
+      cellClassName: 'min-w-44',
+      cell: (entry) => (
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate font-mono text-[10px] font-semibold text-ink-700">{entry.submissionId}</span>
+          <Tooltip content="Copy submission ID" side="top" tone="light">
+            <button type="button" onClick={() => void navigator.clipboard.writeText(entry.submissionId)} aria-label="Copy submission ID" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+              <Copy className="h-3 w-3" />
+            </button>
+          </Tooltip>
+        </div>
+      ),
+    },
+    {
+      id: 'score',
+      header: 'Score',
+      headerClassName: 'text-right',
+      cellClassName: 'text-right',
+      cell: (entry) => (
+        <div>
+          <p className="font-display text-[13px] font-bold tabular-nums text-foreground">{entry.result.percentage}%</p>
+          <p className="mt-0.5 text-[9px] font-medium tabular-nums text-muted-foreground sm:hidden">{entry.result.totalScore}/{entry.result.maxScore} pts</p>
+        </div>
+      ),
+    },
+    {
+      id: 'points',
+      header: 'Points',
+      headerClassName: 'hidden text-right sm:table-cell',
+      cellClassName: 'hidden whitespace-nowrap text-right sm:table-cell',
+      cell: (entry) => <span className="text-[11px] font-semibold tabular-nums text-ink-700">{entry.result.totalScore} / {entry.result.maxScore}</span>,
+    },
+    {
+      id: 'result',
+      header: 'Result',
+      cell: (entry) => (
+        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider ${entry.result.passed ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+          {entry.result.passed ? 'Pass' : 'Fail'}
+        </span>
+      ),
+    },
+    {
+      id: 'submitted',
+      header: 'Submitted',
+      headerClassName: 'hidden lg:table-cell',
+      cellClassName: 'hidden whitespace-nowrap lg:table-cell',
+      cell: (entry) => <span className="text-[10px] font-medium text-muted-foreground">{formatDate(entry.submittedAt)}</span>,
+    },
+  ];
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Leaderboard</h2>
-        <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-4 w-4 mr-1" />Refresh</Button>
+    <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-5 lg:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-display text-base font-bold text-foreground">Assessment leaderboard</h2>
+          <p className="mt-1 text-[11px] font-medium text-muted-foreground">Ranked by total score, with equal scores sharing the same rank.</p>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading} className="h-8 self-start rounded-lg text-[11px]">
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
       </div>
-      <div className="space-y-2">
-        {entries.map(entry => (
-          <div
-            key={entry.submissionId}
-            className={`flex items-center gap-4 p-3 rounded-lg border text-sm ${entry.rank <= 3 ? 'bg-amber-50 border-amber-200' : 'bg-card'}`}
-          >
-            <span className={`w-8 h-8 flex items-center justify-center rounded-full font-bold text-xs shrink-0 ${entry.rank === 1 ? 'bg-yellow-400 text-yellow-900' : entry.rank === 2 ? 'bg-secondary text-muted-foreground' : entry.rank === 3 ? 'bg-orange-300 text-orange-900' : 'bg-muted text-muted-foreground'}`}>
-              {entry.rank}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground">{entry.submissionId.slice(0, 12)}… · {formatDate(entry.submittedAt)}</p>
-            </div>
-            <div className="text-right shrink-0">
-              <p className={`font-semibold ${entry.result.passed ? 'text-green-600' : 'text-red-500'}`}>{entry.result.percentage}%</p>
-              <p className="text-xs text-muted-foreground">{entry.result.totalScore}/{entry.result.maxScore} pts</p>
-            </div>
-            <Badge variant={entry.result.passed ? 'default' : 'destructive'} className="shrink-0">
-              {entry.result.passed ? 'Pass' : 'Fail'}
-            </Badge>
-          </div>
-        ))}
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <LeaderboardStat icon={<UsersRound className="h-4 w-4" />} label="Participants" value={entries.length.toLocaleString()} detail="Ranked attempts" />
+        <LeaderboardStat icon={<Award className="h-4 w-4" />} label="Highest score" value={`${derivedSummary.topPercentage}%`} detail={`${derivedSummary.topScore} points`} />
+        <LeaderboardStat icon={<Target className="h-4 w-4" />} label="Average score" value={`${derivedSummary.averagePercentage}%`} detail="Across all attempts" />
+        <LeaderboardStat icon={<Percent className="h-4 w-4" />} label="Pass rate" value={`${derivedSummary.passRate}%`} detail={`${entries.filter((entry) => entry.result.passed).length} passed`} />
       </div>
+
+      <section className="space-y-3" aria-labelledby="rankings-title">
+        <div>
+          <h3 id="rankings-title" className="font-display text-sm font-bold text-foreground">Rankings</h3>
+          <p className="mt-1 text-[10px] font-medium text-muted-foreground">Submission identifiers are shown instead of respondent identity.</p>
+        </div>
+        <DataTable data={visibleEntries} columns={columns} getRowId={(entry) => entry.submissionId} ariaLabel="Assessment rankings" />
+        <Pagination page={safePage} totalPages={totalPages} totalItems={entries.length} itemLabel="participants" onPageChange={setPage} />
+      </section>
     </div>
+  );
+}
+
+function LeaderboardStat({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
+  return (
+    <Card className="rounded-xl border-border/90 bg-card shadow-none">
+      <CardContent className="p-3.5 sm:p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground">{label}</p>
+            <p className="mt-1.5 font-display text-xl font-bold tabular-nums text-foreground sm:text-2xl">{value}</p>
+          </div>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-ink-50 text-ink-600">{icon}</span>
+        </div>
+        <p className="mt-2.5 truncate text-[9px] font-medium text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -419,6 +563,7 @@ export default function SubmissionsPage() {
     );
   }
 
+  const canSeeAggregate = !!access && access.level !== 'NONE';
   const canSeeRows = !!access && access.level !== 'NONE' && access.level !== 'AGGREGATE';
   const canDeleteRows = access?.canDeleteResponses === true;
   const aggregateOnly = !!access && access.level === 'AGGREGATE';
@@ -438,8 +583,10 @@ export default function SubmissionsPage() {
       ? [{ id: 'submissions', label: 'Submissions', icon: <Eye className="h-3.5 w-3.5" /> }]
       : []),
     { id: 'results', label: 'Results', icon: <BarChart2 className="h-3.5 w-3.5" /> },
-    ...(formType === 'assessment' ? [
-      { id: 'leaderboard', label: 'Leaderboard', icon: <Trophy className="h-3.5 w-3.5" /> },
+    ...(formType === 'assessment' && canSeeAggregate ? [
+      ...(canSeeRows
+        ? [{ id: 'leaderboard', label: 'Leaderboard', icon: <Trophy className="h-3.5 w-3.5" /> }]
+        : []),
       { id: 'analytics', label: 'Analytics', icon: <ClipboardCheck className="h-3.5 w-3.5" /> },
     ] : []),
     ...(formType === 'voting' ? [

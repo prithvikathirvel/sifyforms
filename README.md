@@ -5,6 +5,7 @@ This template provides a minimal setup to get React working in Vite with HMR and
 ## Project documentation
 
 - [Teams, roles, inheritance, and permissions](./docs/TEAMS_AND_ROLES_GUIDE.md)
+- [Results analytics database change](./docs/RESULTS_ANALYTICS_DATABASE_CHANGE.md)
 - [Public submission API security analysis](./docs/PUBLIC_SUBMISSION_API_SECURITY_ANALYSIS.md)
 
 Currently, two official plugins are available:

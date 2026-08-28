@@ -2,6 +2,7 @@ import { processingResultDao } from '../dao/factory/processingResultDao.factory'
 import { submissionDao } from '../dao/factory/submissionDao.factory';
 import { formDao } from '../dao/factory/formDao.factory';
 import { createError } from '../utils/errors';
+import { assertResponseLevel } from './formAccess.service';
 import type { AssessmentResult } from '../services/assessment.processor';
 import type { VoteTally, VotingResult } from '../services/voting.processor';
 
@@ -63,9 +64,10 @@ function computePollResultsFromData(schema: string, submissions: { data: string 
 
 // ─── Service functions ───────────────────────────────────────────────────────
 
-export async function getSubmissionResult(submissionId: string, formId: string, orgId: string) {
+export async function getSubmissionResult(submissionId: string, formId: string, orgId: string, userId: string) {
   const form = await formDao.findFormByIdAndOrg(formId, orgId);
   if (!form) throw createError(404, 'Form not found');
+  await assertResponseLevel(userId, orgId, formId, 'REDACTED');
 
   const result = await processingResultDao.findResultBySubmissionId(submissionId);
   if (!result) throw createError(404, 'Result not yet available');
@@ -109,28 +111,55 @@ export async function getSubmissionResultPublic(submissionId: string) {
   };
 }
 
-export async function getLeaderboard(formId: string, orgId: string) {
+export async function getLeaderboard(formId: string, orgId: string, userId: string) {
   const form = await formDao.findFormByIdAndOrg(formId, orgId);
   if (!form) throw createError(404, 'Form not found');
+  await assertResponseLevel(userId, orgId, formId, 'REDACTED');
 
   const results = await processingResultDao.findAssessmentResultsWithSubmission(formId);
 
-  const leaderboard = results
+  const sorted = results
     .map(r => {
       let parsed: AssessmentResult | null = null;
       try { parsed = JSON.parse(r.result); } catch { /* skip */ }
       return { submissionId: r.submissionId, submittedAt: r.submission.createdAt, result: parsed };
     })
     .filter((r): r is typeof r & { result: AssessmentResult } => r.result !== null)
-    .sort((a, b) => (b.result.totalScore ?? 0) - (a.result.totalScore ?? 0))
-    .map((r, idx) => ({ rank: idx + 1, ...r }));
+    .sort((a, b) => {
+      const scoreDifference = (b.result.totalScore ?? 0) - (a.result.totalScore ?? 0);
+      return scoreDifference || a.submittedAt.getTime() - b.submittedAt.getTime();
+    });
 
-  return { leaderboard, total: leaderboard.length };
+  let previousScore: number | null = null;
+  let previousRank = 0;
+  const leaderboard = sorted.map((entry, index) => {
+    const score = entry.result.totalScore ?? 0;
+    const rank = previousScore === score ? previousRank : index + 1;
+    previousScore = score;
+    previousRank = rank;
+    return { rank, ...entry };
+  });
+
+  const total = leaderboard.length;
+  const passed = leaderboard.filter(entry => entry.result.passed).length;
+  return {
+    leaderboard,
+    total,
+    summary: {
+      topScore: total > 0 ? leaderboard[0].result.totalScore : 0,
+      topPercentage: total > 0 ? leaderboard[0].result.percentage : 0,
+      averagePercentage: total > 0
+        ? Math.round(leaderboard.reduce((sum, entry) => sum + entry.result.percentage, 0) / total)
+        : 0,
+      passRate: total > 0 ? Math.round((passed / total) * 100) : 0,
+    },
+  };
 }
 
-export async function getAssessmentAnalytics(formId: string, orgId: string) {
+export async function getAssessmentAnalytics(formId: string, orgId: string, userId: string) {
   const form = await formDao.findFormByIdAndOrg(formId, orgId);
   if (!form) throw createError(404, 'Form not found');
+  await assertResponseLevel(userId, orgId, formId, 'AGGREGATE');
 
   const results = await processingResultDao.findAssessmentResults(formId);
 

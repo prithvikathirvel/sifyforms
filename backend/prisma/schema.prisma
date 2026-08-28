@@ -259,6 +259,8 @@ model Submission {
 
   @@index([formId])
   @@index([createdAt])
+  // Optional analytics/read-path index; additive and safe for existing rows.
+  @@index([formId, createdAt])
 }
 
 // Stores computed output after post-submission processing (assessment scores, vote tallies)

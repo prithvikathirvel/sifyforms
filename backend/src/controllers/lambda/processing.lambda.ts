@@ -43,7 +43,7 @@ export const getSubmissionResult = async (event: APIGatewayProxyEvent): Promise<
     if (isLambdaError(auth)) return auth;
     const { formId, submissionId, orgId } = event.queryStringParameters || {};
     if (!formId || !submissionId || !orgId) return lambdaResponse(StatusCodes.BAD_REQUEST, { error: 'formId, submissionId and orgId are required' });
-    const result = await processingService.getSubmissionResult(submissionId, formId, orgId);
+    const result = await processingService.getSubmissionResult(submissionId, formId, orgId, auth.user.id);
     return lambdaResponse(StatusCodes.OK, result);
   } catch (error: any) {
     logger.error('Lambda --> getSubmissionResult --> Error', error);
@@ -60,7 +60,7 @@ export const getLeaderboard = async (event: APIGatewayProxyEvent): Promise<APIGa
     if (isLambdaError(auth)) return auth;
     const { formId, orgId } = event.queryStringParameters || {};
     if (!formId || !orgId) return lambdaResponse(StatusCodes.BAD_REQUEST, { error: 'formId and orgId are required' });
-    const result = await processingService.getLeaderboard(formId, orgId);
+    const result = await processingService.getLeaderboard(formId, orgId, auth.user.id);
     return lambdaResponse(StatusCodes.OK, result);
   } catch (error: any) {
     logger.error('Lambda --> getLeaderboard --> Error', error);
@@ -77,7 +77,7 @@ export const getAssessmentAnalytics = async (event: APIGatewayProxyEvent): Promi
     if (isLambdaError(auth)) return auth;
     const { formId, orgId } = event.queryStringParameters || {};
     if (!formId || !orgId) return lambdaResponse(StatusCodes.BAD_REQUEST, { error: 'formId and orgId are required' });
-    const result = await processingService.getAssessmentAnalytics(formId, orgId);
+    const result = await processingService.getAssessmentAnalytics(formId, orgId, auth.user.id);
     return lambdaResponse(StatusCodes.OK, result);
   } catch (error: any) {
     logger.error('Lambda --> getAssessmentAnalytics --> Error', error);

@@ -15,7 +15,7 @@ export async function getSubmissionResult(req: AuthRequest, res: Response): Prom
     const submissionId = getParam(req, 'submissionId');
     const orgId = req.orgId as string;
     logger.info('Express --> getSubmissionResult --> Request', { formId, submissionId });
-    const result = await processingService.getSubmissionResult(submissionId, formId, orgId);
+    const result = await processingService.getSubmissionResult(submissionId, formId, orgId, req.user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     logger.error('Express --> getSubmissionResult --> Error', error);
@@ -40,7 +40,7 @@ export async function getLeaderboard(req: AuthRequest, res: Response): Promise<v
     const formId = getParam(req, 'formId');
     const orgId = req.orgId as string;
     logger.info('Express --> getLeaderboard --> Request', { formId });
-    const result = await processingService.getLeaderboard(formId, orgId);
+    const result = await processingService.getLeaderboard(formId, orgId, req.user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     logger.error('Express --> getLeaderboard --> Error', error);
@@ -53,7 +53,7 @@ export async function getAssessmentAnalytics(req: AuthRequest, res: Response): P
     const formId = getParam(req, 'formId');
     const orgId = req.orgId as string;
     logger.info('Express --> getAssessmentAnalytics --> Request', { formId });
-    const result = await processingService.getAssessmentAnalytics(formId, orgId);
+    const result = await processingService.getAssessmentAnalytics(formId, orgId, req.user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     logger.error('Express --> getAssessmentAnalytics --> Error', error);

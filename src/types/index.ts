@@ -777,8 +777,10 @@ export interface FieldSummary {
   label: string;
   type: string;
   answered: number;
+  skipped?: number;
+  responseRate?: number;
   counts?: Record<string, number>;
-  stats?: { min: number; max: number; mean: number };
+  stats?: { min: number; max: number; mean: number; median?: number };
 }
 
 /** Counts and distributions, computed server-side so no row ever leaves it. */
@@ -789,6 +791,18 @@ export interface AggregateResult {
   firstResponseAt: string | null;
   lastResponseAt: string | null;
   fields: FieldSummary[];
+  /** Optional for compatibility with servers deployed before analytics enrichment. */
+  insights?: {
+    responsesLast7Days: number;
+    responsesPrevious7Days: number;
+    changePercent: number | null;
+    averageAnswerRate: number;
+    activeDays: number;
+  };
+  trend?: {
+    rangeDays: number;
+    series: Array<{ date: string; count: number }>;
+  };
   /** True when too few responses exist for a breakdown to stay anonymous. */
   suppressed: boolean;
   minimumForBreakdown: number;
