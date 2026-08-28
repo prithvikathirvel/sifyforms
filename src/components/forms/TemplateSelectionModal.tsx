@@ -121,7 +121,7 @@ export function TemplateSelectionContent({ onSelectTemplate, isSelecting = false
   };
 
   return (
-    <div className="space-y-3.5">
+    <div className="flex h-full min-h-0 flex-col gap-3.5">
       <div className="grid gap-2.5 md:grid-cols-[minmax(0,1fr)_auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -199,8 +199,8 @@ export function TemplateSelectionContent({ onSelectTemplate, isSelecting = false
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-ink-50/60 px-3.5 py-2.5">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-ink-50/60 px-3.5 py-2.5">
           <div>
             <h3 className="font-display text-xs font-bold text-foreground">Available templates</h3>
             <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">
@@ -211,7 +211,7 @@ export function TemplateSelectionContent({ onSelectTemplate, isSelecting = false
         </div>
 
         {loading ? (
-          <div className="divide-y divide-border/60">
+          <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto divide-y divide-border/60">
             {[0, 1, 2].map((item) => (
               <div key={item} className="flex animate-pulse items-center gap-3 p-3.5">
                 <div className="h-10 w-10 rounded-lg bg-muted" />
@@ -223,13 +223,13 @@ export function TemplateSelectionContent({ onSelectTemplate, isSelecting = false
             ))}
           </div>
         ) : loadError ? (
-          <div className="px-5 py-10 text-center">
+          <div className="flex min-h-0 flex-1 flex-col justify-center px-5 py-10 text-center">
             <p className="text-xs font-semibold text-foreground">Unable to load templates</p>
             <p className="mt-1 text-[11px] text-muted-foreground">{loadError}</p>
             <Button type="button" variant="outline" size="sm" onClick={retry} className="mt-4">Try again</Button>
           </div>
         ) : filteredTemplates.length === 0 ? (
-          <div className="px-5 py-10 text-center">
+          <div className="flex min-h-0 flex-1 flex-col justify-center px-5 py-10 text-center">
             <Search className="mx-auto h-5 w-5 text-ink-300" />
             <p className="mt-2 text-xs font-semibold text-foreground">No templates match these filters</p>
             <button
@@ -245,7 +245,7 @@ export function TemplateSelectionContent({ onSelectTemplate, isSelecting = false
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-border/60">
+          <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto divide-y divide-border/60">
             {filteredTemplates.map((template) => {
               const fieldCount = template.schema?.fields?.length;
               return (
@@ -322,7 +322,7 @@ export function TemplateSelectionContent({ onSelectTemplate, isSelecting = false
 export function TemplateSelectionModal({ isOpen, onClose, onSelectTemplate }: TemplateSelectionModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[90dvh] max-w-5xl flex-col overflow-hidden rounded-2xl border-border bg-card p-0" onClose={onClose}>
+      <DialogContent className="flex h-[min(46rem,90dvh)] max-w-5xl flex-col overflow-hidden rounded-2xl border-border bg-card p-0" onClose={onClose}>
         <DialogHeader className="shrink-0 border-b border-border/70 px-5 py-4 pr-14 sm:px-6">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-primary/[0.06] text-primary">
@@ -334,7 +334,7 @@ export function TemplateSelectionModal({ isOpen, onClose, onSelectTemplate }: Te
             </div>
           </div>
         </DialogHeader>
-        <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="min-h-0 flex-1 overflow-hidden p-4 sm:p-6">
           <TemplateSelectionContent onSelectTemplate={(template) => {
             onSelectTemplate(template);
             onClose();

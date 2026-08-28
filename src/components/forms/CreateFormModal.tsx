@@ -351,57 +351,52 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
         void handleCreateFromScratch();
       }}
     >
-      <StepBack onClick={() => goTo('choose')} />
-      <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
-        <div className="mb-4">
-          <h3 className="font-display text-sm font-bold text-foreground">Form details</h3>
-          <p className="mt-1 text-[11px] font-medium text-muted-foreground">Start with the essentials. Everything remains editable in the builder.</p>
-        </div>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="formName">Form name</Label>
-            <Input
-              id="formName"
-              autoFocus
-              required
-              placeholder="e.g. Event registration"
-              value={formName}
-              onChange={(event) => setFormNameLocal(event.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="formDescription">Description <span className="font-medium text-muted-foreground">(optional)</span></Label>
-            <Textarea
-              id="formDescription"
-              rows={4}
-              placeholder="A brief description of your form"
-              value={formDescription}
-              onChange={(event) => setFormDescriptionLocal(event.target.value)}
-              className="resize-none"
-            />
-          </div>
-        </div>
-      </section>
-      <InlineError message={actionError} />
-      <Button type="submit" disabled={!formName.trim() || isLoading} className="w-full">
-        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-        {isLoading ? 'Creating…' : 'Create form'}
+      <Button type="button" variant="ghost" size="sm" onClick={() => goTo('choose')} className="-ml-2">
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back
       </Button>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="formName">Form name</Label>
+          <Input
+            id="formName"
+            autoFocus
+            placeholder="My registration form"
+            value={formName}
+            onChange={(event) => setFormNameLocal(event.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="formDescription">Description (optional)</Label>
+          <Textarea
+            id="formDescription"
+            placeholder="A brief description of your form"
+            value={formDescription}
+            onChange={(event) => setFormDescriptionLocal(event.target.value)}
+          />
+        </div>
+        <InlineError message={actionError} />
+        <Button type="submit" disabled={!formName.trim() || isLoading} className="w-full">
+          {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</> : 'Create form'}
+        </Button>
+      </div>
     </form>
   );
 
   const renderTemplateStep = () => (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <StepBack onClick={() => goTo('choose')} />
         <p className="rounded-md border border-border bg-ink-50 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground">
           New form owner: <span className="font-semibold text-foreground">{selectedTeam?.name || 'Default team'}</span>
         </p>
       </div>
-      <TemplateSelectionContent
-        onSelectTemplate={(template) => void handleSelectTemplate(template)}
-        isSelecting={isLoading}
-      />
+      <div className="min-h-0 flex-1">
+        <TemplateSelectionContent
+          onSelectTemplate={(template) => void handleSelectTemplate(template)}
+          isSelecting={isLoading}
+        />
+      </div>
       <InlineError message={actionError} />
     </div>
   );
@@ -414,9 +409,12 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
         void handleImportJson();
       }}
     >
-      <StepBack onClick={() => goTo('choose')} />
+      <Button type="button" variant="ghost" size="sm" onClick={() => goTo('choose')} className="-ml-2">
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back
+      </Button>
       <div className="space-y-4">
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <Label htmlFor="jsonFormName">Form name</Label>
           <Input
             id="jsonFormName"
@@ -425,10 +423,10 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
             onChange={(event) => setFormNameLocal(event.target.value)}
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Label htmlFor="jsonInput">JSON schema</Label>
-            <Button type="button" variant="outline" size="sm" onClick={downloadTemplate} className="h-8 text-[11px]">
+            <Button type="button" variant="outline" size="sm" onClick={downloadTemplate} className="text-xs">
               <Download className="mr-1.5 h-3.5 w-3.5" />
               Download template
             </Button>
@@ -437,19 +435,18 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
             id="jsonInput"
             autoFocus
             spellCheck={false}
-            placeholder={'{\n  "fields": [\n    { "id": "name", "type": "text", "label": "Full name" }\n  ]\n}'}
+            placeholder='{"fields": [...]}'
             value={jsonInput}
             onChange={(event) => {
               setJsonInput(event.target.value);
               setJsonError('');
             }}
-            className="scrollbar-compact min-h-[13rem] resize-y font-mono text-[12px] leading-5"
+            className="scrollbar-compact min-h-[200px] resize-y font-mono text-sm"
           />
-          {jsonError && <InlineError message={jsonError} />}
+          {jsonError && <p className="text-xs font-medium text-destructive">{jsonError}</p>}
         </div>
         <Button type="submit" disabled={!jsonInput.trim() || isLoading} className="w-full">
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Braces className="mr-2 h-4 w-4" />}
-          {isLoading ? 'Importing…' : 'Import and create form'}
+          {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importing…</> : 'Import & create form'}
         </Button>
       </div>
     </form>
@@ -458,7 +455,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && resetAndClose()}>
       <DialogContent
-        className="flex max-h-[92dvh] max-w-5xl flex-col overflow-visible rounded-2xl border-border bg-card p-0 shadow-[0_24px_70px_rgba(15,23,42,0.2)]"
+        className={`flex max-w-5xl flex-col overflow-visible rounded-2xl border-border bg-card p-0 shadow-[0_24px_70px_rgba(15,23,42,0.2)] ${step === 'template' ? 'h-[min(46rem,92dvh)]' : 'max-h-[92dvh]'}`}
         onClose={resetAndClose}
       >
         <DialogHeader className="shrink-0 border-b border-border/70 px-5 py-4 pr-14 sm:px-6 sm:py-5">
@@ -473,7 +470,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
           </div>
         </DialogHeader>
 
-        <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5">
+        <div className={`min-h-0 flex-1 overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5 ${step === 'template' ? 'overflow-hidden' : 'scrollbar-subtle overflow-y-auto'}`}>
           {step === 'choose' && renderChooseStep()}
           {step === 'scratch' && renderScratchStep()}
           {step === 'template' && renderTemplateStep()}
@@ -481,7 +478,6 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
           {step === 'ai' && (
             <AIFormCreation
               teamId={effectiveTeamId}
-              teamName={selectedTeam?.name}
               onBack={() => goTo('choose')}
               onFormGenerated={(formData) => {
                 resetAndClose();
