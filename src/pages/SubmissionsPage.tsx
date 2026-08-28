@@ -10,6 +10,8 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
+import { Pagination } from '../components/ui/pagination';
+import { Tooltip } from '../components/ui/tooltip';
 import SubmissionViewer from '../components/ui/SubmissionViewer';
 import api from '../lib/api';
 import type { AssessmentResult, VotingResult } from '../types';
@@ -22,8 +24,6 @@ import {
   Loader2,
   Inbox,
   X,
-  ChevronLeft,
-  ChevronRight,
   BarChart2,
   Trophy,
   ClipboardCheck,
@@ -31,6 +31,13 @@ import {
   RefreshCw,
   EyeOff,
   Lock,
+  CalendarDays,
+  CheckCircle2,
+  Copy,
+  FileText,
+  Globe2,
+  Hash,
+  Monitor,
 } from 'lucide-react';
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
@@ -47,17 +54,25 @@ function formatValue(value: unknown): string {
     if (value.length === 0) return '-';
     if (typeof value[0] === 'object' && value[0] !== null) {
       const names = value
-        .map((v: any) => v?.filename || v?.name)
-        .filter(Boolean);
+        .map((item) => {
+          if (!item || typeof item !== 'object') return undefined;
+          const record = item as Record<string, unknown>;
+          return typeof record.filename === 'string'
+            ? record.filename
+            : typeof record.name === 'string'
+              ? record.name
+              : undefined;
+        })
+        .filter((name): name is string => Boolean(name));
       if (names.length > 0) return `📎 ${names.join(', ')}`;
       return `${value.length} file${value.length > 1 ? 's' : ''}`;
     }
     return value.join(', ');
   }
   if (typeof value === 'object') {
-    const obj = value as any;
-    if (obj.filename) return `📎 ${obj.filename}`;
-    if (obj.name) return `📎 ${obj.name}`;
+    const record = value as Record<string, unknown>;
+    if (typeof record.filename === 'string') return `📎 ${record.filename}`;
+    if (typeof record.name === 'string') return `📎 ${record.name}`;
     return JSON.stringify(value);
   }
   return String(value);
@@ -329,14 +344,13 @@ export default function SubmissionsPage() {
   const { formId } = useParams<{ formId: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { submissions, pagination, isLoading } = useAppSelector((state) => state.submissions);
+  const { submissions, pagination, isLoading, error } = useAppSelector((state) => state.submissions);
   const { currentForm } = useAppSelector((state) => state.forms);
   const access = useAppSelector((state) => (formId ? state.formSharing.access[formId] : undefined));
   const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('submissions');
-  const [tabInitialised, setTabInitialised] = useState(false);
 
   const formType = currentForm?.settings?.formType;
 
@@ -344,20 +358,10 @@ export default function SubmissionsPage() {
     if (formId) {
       dispatch(fetchForm(formId));
       dispatch(fetchFormAccess(formId));
-      // A 403 here is expected and meaningful: it means this person may see
-      // results but not responses, and the aggregate tab takes over below.
+      // A 403 here means this person may see aggregate results but not rows.
       dispatch(fetchSubmissions({ formId }));
     }
   }, [formId, dispatch]);
-
-  // Land on Results rather than an empty Submissions tab when rows are not on
-  // offer. Runs once, so it never fights a tab the user picked themselves.
-  useEffect(() => {
-    if (access && !tabInitialised) {
-      if (access.level === 'NONE' || access.level === 'AGGREGATE') setActiveTab('results');
-      setTabInitialised(true);
-    }
-  }, [access, tabInitialised]);
 
   const handleExport = async (format: 'csv' | 'json') => {
     if (!formId) return;
@@ -367,14 +371,16 @@ export default function SubmissionsPage() {
         ? new Blob([result.data], { type: 'text/csv' })
         : new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${currentForm?.name || 'submissions'}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${currentForm?.name || 'submissions'}.${format}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-    } catch { /* noop */ }
+    } catch {
+      // Existing export errors remain handled by the submissions store.
+    }
   };
 
   const handleDelete = async (submissionId: string) => {
@@ -385,25 +391,38 @@ export default function SubmissionsPage() {
   };
 
   const handlePageChange = (page: number) => {
-    if (formId) dispatch(fetchSubmissions({ formId, page }));
+    if (formId) {
+      setSelectedSubmission(null);
+      dispatch(fetchSubmissions({ formId, page }));
+    }
   };
 
-  const filteredSubmissions = submissions.filter((sub) => {
-    if (!searchQuery) return true;
-    const searchLower = searchQuery.toLowerCase();
-    return Object.values(sub.data).some((value) => formatValue(value).toLowerCase().includes(searchLower));
+  const filteredSubmissions = submissions.filter((submission) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return Object.entries(submission.data).some(([fieldId, value]) => {
+      const label = currentForm?.schema.fields.find((field) => field.id === fieldId)?.label || fieldId;
+      return label.toLowerCase().includes(query) || formatValue(value).toLowerCase().includes(query);
+    });
   });
 
-  const selectedSub = submissions.find((s) => s.id === selectedSubmission);
+  const selectedSub = submissions.find((submission) => submission.id === selectedSubmission);
 
   if (isLoading && submissions.length === 0) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-workspace">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+          <p className="mt-3 text-xs font-medium text-muted-foreground">Loading submissions…</p>
+        </div>
+      </div>
+    );
   }
 
-  // Someone at AGGREGATE or below cannot open a response at all; results become
-  // the whole of what this page shows them.
   const canSeeRows = !!access && access.level !== 'NONE' && access.level !== 'AGGREGATE';
+  const canDeleteRows = access?.canDeleteResponses === true;
   const aggregateOnly = !!access && access.level === 'AGGREGATE';
+  const currentTab = !canSeeRows && activeTab === 'submissions' ? 'results' : activeTab;
 
   const policyNotice =
     access?.policy === 'ANONYMOUS'
@@ -414,244 +433,384 @@ export default function SubmissionsPage() {
           ? 'Your role gives you aggregate results for this form, not individual responses.'
           : undefined;
 
-  // Build tab list based on form type
   const tabs = [
     ...(canSeeRows
-      ? [{ id: 'submissions', label: 'Submissions', icon: <Eye className="h-4 w-4" /> }]
+      ? [{ id: 'submissions', label: 'Submissions', icon: <Eye className="h-3.5 w-3.5" /> }]
       : []),
-    { id: 'results', label: 'Results', icon: <BarChart2 className="h-4 w-4" /> },
+    { id: 'results', label: 'Results', icon: <BarChart2 className="h-3.5 w-3.5" /> },
     ...(formType === 'assessment' ? [
-      { id: 'leaderboard', label: 'Leaderboard', icon: <Trophy className="h-4 w-4" /> },
-      { id: 'analytics', label: 'Analytics', icon: <ClipboardCheck className="h-4 w-4" /> },
+      { id: 'leaderboard', label: 'Leaderboard', icon: <Trophy className="h-3.5 w-3.5" /> },
+      { id: 'analytics', label: 'Analytics', icon: <ClipboardCheck className="h-3.5 w-3.5" /> },
     ] : []),
     ...(formType === 'voting' ? [
-      { id: 'poll-results', label: 'Poll Results', icon: <BarChart2 className="h-4 w-4" /> },
-      { id: 'audit-log', label: 'Audit Log', icon: <ShieldCheck className="h-4 w-4" /> },
+      { id: 'poll-results', label: 'Poll results', icon: <BarChart2 className="h-3.5 w-3.5" /> },
+      { id: 'audit-log', label: 'Audit log', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
     ] : []),
   ];
 
+  const responseNumber = (submissionId: string) => {
+    const index = submissions.findIndex((submission) => submission.id === submissionId);
+    const offset = (pagination.page - 1) * pagination.limit + Math.max(index, 0);
+    return Math.max(pagination.total - offset, 1);
+  };
+
+  const previewField = (fieldId: string) =>
+    currentForm?.schema.fields.find((field) => field.id === fieldId);
+
+  const previewLabel = (fieldId: string) => previewField(fieldId)?.label || 'Answer';
+
+  const previewValue = (fieldId: string, value: unknown) => {
+    const field = previewField(fieldId);
+    if (field?.options) {
+      const labelFor = (item: unknown) => field.options?.find((option) => option.value === String(item))?.label ?? String(item);
+      return Array.isArray(value) ? value.map(labelFor).join(', ') : labelFor(value);
+    }
+    return formatValue(value);
+  };
+
   return (
-    <div className="app-shell min-h-screen bg-workspace">
-      {/* Header */}
-      <header className="bg-background border-b sticky top-0 z-10">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-semibold">{currentForm?.name} — Submissions</h1>
+    <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
+      <header className="z-20 shrink-0 border-b border-border/80 bg-card">
+        <div className="flex min-w-0 items-center justify-between gap-3 px-3 py-3 sm:px-5 lg:px-6">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <Tooltip content="Back to forms" side="bottom" tone="dark" delay="short">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/forms')}
+                aria-label="Back to forms"
+                className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.055] text-primary">
+              <FileText className="h-4 w-4" strokeWidth={1.8} />
+            </span>
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <h1 className="truncate font-display text-sm font-bold text-foreground sm:text-[15px]">
+                  {currentForm?.name || 'Form submissions'}
+                </h1>
                 {formType && (
-                  <Badge variant="outline" className="text-xs capitalize">{formType}</Badge>
+                  <Badge variant="outline" className="hidden shrink-0 border-border bg-ink-50 text-muted-foreground capitalize sm:inline-flex">
+                    {formType}
+                  </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">{pagination.total} total submissions</p>
+              <p className="mt-0.5 truncate text-[10px] font-medium text-muted-foreground sm:text-[11px]">
+                {pagination.total} submission{pagination.total === 1 ? '' : 's'} · Responses and insights
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {access && (
-              <span
-                className="hidden items-center gap-1.5 rounded border px-2 py-1 text-xs text-muted-foreground sm:inline-flex"
-                title="Your access to this form's responses"
-              >
-                {access.level === 'FULL' || access.level === 'EXPORT' ? (
-                  <Eye className="h-3 w-3" />
-                ) : (
-                  <EyeOff className="h-3 w-3" />
-                )}
-                {RESPONSE_LEVEL_LABEL[access.level]}
-                {access.policy !== 'STANDARD' && (
-                  <>
-                    <Lock className="ml-1 h-3 w-3" />
-                    {access.policy === 'ANONYMOUS' ? 'Anonymous' : access.policy === 'BLIND_REVIEW' ? 'Blind review' : 'Restricted'}
-                  </>
-                )}
-              </span>
+              <Tooltip content={`Response access: ${RESPONSE_LEVEL_LABEL[access.level]}`} side="bottom" tone="light">
+                <span className="hidden h-8 items-center gap-1.5 rounded-lg border border-border bg-ink-50 px-2.5 text-[10px] font-semibold text-ink-600 lg:inline-flex">
+                  {access.level === 'FULL' || access.level === 'EXPORT'
+                    ? <Eye className="h-3.5 w-3.5" />
+                    : <EyeOff className="h-3.5 w-3.5" />}
+                  {RESPONSE_LEVEL_LABEL[access.level]}
+                  {access.policy !== 'STANDARD' && <Lock className="h-3 w-3" />}
+                </span>
+              </Tooltip>
             )}
             {access?.level === 'EXPORT' && (
               <>
-                <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
-                  <Download className="h-4 w-4 mr-2" />Export CSV
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleExport('json')}>
-                  <Download className="h-4 w-4 mr-2" />Export JSON
-                </Button>
+                <Tooltip content="Export responses as CSV" side="bottom" tone="dark">
+                  <Button type="button" variant="outline" size="sm" onClick={() => void handleExport('csv')} className="h-8 rounded-lg px-2 sm:px-2.5">
+                    <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+                    <span className="hidden sm:inline">CSV</span>
+                  </Button>
+                </Tooltip>
+                <Tooltip content="Export responses as JSON" side="bottom" tone="dark">
+                  <Button type="button" variant="outline" size="sm" onClick={() => void handleExport('json')} className="h-8 rounded-lg px-2 sm:px-2.5">
+                    <Download className="h-3.5 w-3.5 sm:mr-1.5" />
+                    <span className="hidden sm:inline">JSON</span>
+                  </Button>
+                </Tooltip>
               </>
             )}
           </div>
         </div>
 
-        {/* Tabs — only shown when there are extra tabs */}
         {tabs.length > 1 && (
-          <div className="flex border-t px-4">
-            {tabs.map(tab => (
+          <nav className="scrollbar-compact flex gap-1 overflow-x-auto border-t border-border/60 px-3 py-2 sm:px-5 lg:px-6" aria-label="Submission views">
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                aria-current={currentTab === tab.id ? 'page' : undefined}
+                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-semibold transition-colors ${
+                  currentTab === tab.id
+                    ? 'border-primary/15 bg-primary/[0.065] text-primary'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:bg-ink-50 hover:text-foreground'
                 }`}
               >
                 {tab.icon}
                 {tab.label}
               </button>
             ))}
-          </div>
+          </nav>
         )}
       </header>
 
-      {/* Tab panels */}
-      {activeTab === 'results' && formId && (
-        <div className="p-4">
-          <AggregateResults formId={formId} notice={policyNotice} />
-        </div>
-      )}
-      {activeTab === 'leaderboard' && formId && <LeaderboardTab formId={formId} />}
-      {activeTab === 'analytics' && formId && <AssessmentAnalyticsTab formId={formId} />}
-      {activeTab === 'poll-results' && formId && <PollResultsTab formId={formId} />}
-      {activeTab === 'audit-log' && formId && <AuditLogTab formId={formId} />}
-
-      {/* Submissions list + detail (default tab) */}
-      {activeTab === 'submissions' && (
-        <div className="flex h-[calc(100vh-57px)]" style={{ height: tabs.length > 1 ? 'calc(100vh-97px)' : 'calc(100vh-57px)' }}>
-          {/* List */}
-          <div className="w-1/2 border-r overflow-y-auto">
-            <div className="p-4 border-b bg-background sticky top-0">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search submissions..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-
-            {filteredSubmissions.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <Inbox className="h-12 w-12 mx-auto mb-4" />
-                <p>No submissions yet</p>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {filteredSubmissions.map((submission) => {
-                  const firstField = Object.entries(submission.data)[0];
-                  const secondField = Object.entries(submission.data)[1];
-                  return (
-                    <div
-                      key={submission.id}
-                      className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors ${selectedSubmission === submission.id ? 'bg-muted' : ''}`}
-                      onClick={() => setSelectedSubmission(submission.id)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            {!submission.isRead && <Badge variant="default" className="text-xs">New</Badge>}
-                            <span className="font-medium truncate">
-                              {firstField ? formatValue(firstField[1]) : 'Submission'}
-                            </span>
-                          </div>
-                          {secondField && (
-                            <p className="text-sm text-muted-foreground truncate mt-1">{formatValue(secondField[1])}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">{formatDate(submission.createdAt)}</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm(submission.id); }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {pagination.totalPages > 1 && (
-              <div className="p-4 border-t bg-background sticky bottom-0 flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Page {pagination.page} of {pagination.totalPages}</p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handlePageChange(pagination.page - 1)} disabled={pagination.page <= 1}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => handlePageChange(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
+      <main className="min-h-0 flex-1 overflow-hidden">
+        {currentTab === 'results' && formId && (
+          <div className="scrollbar-subtle h-full overflow-y-auto p-4 sm:p-5 lg:p-6">
+            <AggregateResults formId={formId} notice={policyNotice} />
           </div>
+        )}
+        {currentTab === 'leaderboard' && formId && <div className="scrollbar-subtle h-full overflow-y-auto"><LeaderboardTab formId={formId} /></div>}
+        {currentTab === 'analytics' && formId && <div className="scrollbar-subtle h-full overflow-y-auto"><AssessmentAnalyticsTab formId={formId} /></div>}
+        {currentTab === 'poll-results' && formId && <div className="scrollbar-subtle h-full overflow-y-auto"><PollResultsTab formId={formId} /></div>}
+        {currentTab === 'audit-log' && formId && <div className="scrollbar-subtle h-full overflow-y-auto"><AuditLogTab formId={formId} /></div>}
 
-          {/* Detail */}
-          <div className="w-1/2 overflow-y-auto">
-            {selectedSub ? (
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
+        {currentTab === 'submissions' && canSeeRows && (
+          <div className="grid h-full min-h-0 gap-3 p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(19rem,0.78fr)_minmax(0,1.22fr)] lg:p-5 xl:grid-cols-[minmax(22rem,0.7fr)_minmax(0,1.3fr)]">
+            <section className={`${selectedSub ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col overflow-hidden rounded-xl border border-border/90 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.025)]`} aria-label="Submission list">
+              <div className="shrink-0 border-b border-border/70 px-3.5 py-3">
+                <div className="mb-2.5 flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-semibold">Submission Details</h2>
-                    <p className="text-sm text-muted-foreground">{formatDate(selectedSub.createdAt)}</p>
+                    <h2 className="font-display text-xs font-bold text-foreground">Submissions</h2>
+                    <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">
+                      {searchQuery ? `${filteredSubmissions.length} matches on this page` : `${pagination.total} total responses`}
+                    </p>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedSubmission(null)}>
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <span className="rounded-full border border-border bg-ink-50 px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
+                    Page {pagination.page}
+                  </span>
                 </div>
-
-                <div className="space-y-4">
-                  <SubmissionViewer
-                    fields={currentForm?.schema.fields || []}
-                    data={selectedSub.data}
-                    redactedFields={selectedSub.redactedFields}
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    aria-label="Search submissions on this page"
+                    placeholder="Search responses…"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    className="h-9 rounded-lg border-ink-200 bg-ink-50/60 pl-9 pr-9 text-[11px] focus-visible:border-ink-400 focus-visible:ring-4 focus-visible:ring-primary/[0.06] focus-visible:ring-offset-0"
                   />
+                  {searchQuery && (
+                    <button type="button" onClick={() => setSearchQuery('')} aria-label="Clear submission search" className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-card hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
 
-                  <div className="pt-4 border-t">
-                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Metadata</h3>
-                    <div className="space-y-2 text-sm">
-                      <p><span className="text-muted-foreground">ID:</span> {selectedSub.id}</p>
-                      {selectedSub.ip && <p><span className="text-muted-foreground">IP:</span> {selectedSub.ip}</p>}
-                      {selectedSub.userAgent && (
-                        <p className="truncate"><span className="text-muted-foreground">Browser:</span> {selectedSub.userAgent}</p>
-                      )}
+              <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto p-2">
+                {error ? (
+                  <div className="m-2 rounded-lg border border-destructive/20 bg-destructive/[0.05] px-3 py-4 text-center text-xs font-medium text-destructive">{error}</div>
+                ) : filteredSubmissions.length === 0 ? (
+                  <div className="flex h-full min-h-48 items-center justify-center px-5 text-center">
+                    <div>
+                      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-ink-50 text-ink-400">
+                        <Inbox className="h-4 w-4" strokeWidth={1.7} />
+                      </span>
+                      <p className="mt-3 text-xs font-semibold text-foreground">{searchQuery ? 'No matching responses' : 'No submissions yet'}</p>
+                      <p className="mt-1 text-[10px] font-medium text-muted-foreground">{searchQuery ? 'Try another search term.' : 'New responses will appear here.'}</p>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {filteredSubmissions.map((submission) => {
+                      const previewEntries = Object.entries(submission.data).slice(0, 2);
+                      const number = responseNumber(submission.id);
+                      const isSelected = selectedSubmission === submission.id;
+                      return (
+                        <div
+                          key={submission.id}
+                          className={`group flex items-start gap-1 rounded-lg border p-1 transition-colors ${
+                            isSelected
+                              ? 'border-primary/15 bg-primary/[0.045]'
+                              : 'border-transparent hover:border-border hover:bg-ink-50/75'
+                          }`}
+                        >
+                          <button type="button" onClick={() => setSelectedSubmission(submission.id)} className="min-w-0 flex-1 rounded-md px-2 py-2 text-left">
+                            <div className="flex min-w-0 items-center justify-between gap-2">
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span className="text-[11px] font-semibold text-foreground">Response #{number}</span>
+                                {!submission.isRead && <span className="rounded-full border border-primary/10 bg-primary/[0.07] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-primary">New</span>}
+                              </span>
+                              {submission.processingStatus === 'done' && (
+                                <span className="flex shrink-0 items-center gap-1 text-[9px] font-medium text-muted-foreground">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Processed
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2 space-y-1">
+                              {previewEntries.map(([fieldId, value]) => (
+                                <p key={fieldId} className="truncate text-[10px] font-medium text-muted-foreground">
+                                  <span className="text-ink-600">{previewLabel(fieldId)}:</span> {previewValue(fieldId, value)}
+                                </p>
+                              ))}
+                            </div>
+                            <p className="mt-2 flex items-center gap-1 text-[9px] font-medium text-muted-foreground">
+                              <CalendarDays className="h-3 w-3" /> {formatDate(submission.createdAt)}
+                            </p>
+                          </button>
+                          {canDeleteRows && (
+                            <Tooltip content="Delete submission" side="left" tone="dark">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Delete response ${number}`}
+                                onClick={() => setDeleteConfirm(submission.id)}
+                                className="h-8 w-8 shrink-0 rounded-md text-muted-foreground opacity-70 hover:bg-destructive/[0.06] hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </Tooltip>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Eye className="h-12 w-12 mx-auto mb-4" />
-                  <p>Select a submission to view details</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* Delete Confirmation */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setDeleteConfirm(null)} />
-          <Card className="relative z-50 w-full max-w-md">
-            <CardHeader><CardTitle>Delete Submission</CardTitle></CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">Are you sure you want to delete this submission? This action cannot be undone.</p>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-                <Button variant="destructive" onClick={() => handleDelete(deleteConfirm)}>Delete</Button>
+              {pagination.totalPages > 1 && (
+                <div className="shrink-0 border-t border-border/70 px-3 pb-3">
+                  <Pagination
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.total}
+                    itemLabel="submissions"
+                    onPageChange={handlePageChange}
+                    className="pt-3"
+                  />
+                </div>
+              )}
+            </section>
+
+            <section className={`${selectedSub ? 'flex' : 'hidden lg:flex'} min-h-0 flex-col overflow-hidden rounded-xl border border-border/90 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.025)]`} aria-label="Submission details">
+              {selectedSub ? (
+                <>
+                  <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-4 py-3.5 sm:px-5">
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <h2 className="font-display text-sm font-bold text-foreground">Response #{responseNumber(selectedSub.id)}</h2>
+                        {!selectedSub.isRead && <Badge variant="outline" className="border-primary/10 bg-primary/[0.06] text-primary">New</Badge>}
+                      </div>
+                      <p className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                        <CalendarDays className="h-3 w-3" /> {formatDate(selectedSub.createdAt)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {canDeleteRows && (
+                        <Tooltip content="Delete submission" side="bottom" tone="dark">
+                          <Button type="button" variant="ghost" size="icon" onClick={() => setDeleteConfirm(selectedSub.id)} aria-label="Delete submission" className="h-8 w-8 rounded-md text-muted-foreground hover:bg-destructive/[0.06] hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </Tooltip>
+                      )}
+                      <Tooltip content="Copy submission ID" side="bottom" tone="light">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => void navigator.clipboard.writeText(selectedSub.id)} aria-label="Copy submission ID" className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="Back to submission list" side="bottom" tone="dark">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => setSelectedSubmission(null)} aria-label="Close submission details" className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                          <ArrowLeft className="h-4 w-4 lg:hidden" />
+                          <X className="hidden h-4 w-4 lg:block" />
+                        </Button>
+                      </Tooltip>
+                    </div>
+                  </div>
+
+                  <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+                    <div className="mx-auto max-w-4xl space-y-5">
+                      <section>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <h3 className="font-display text-xs font-bold text-foreground">Submitted answers</h3>
+                          <span className="text-[9px] font-medium text-muted-foreground">{Object.keys(selectedSub.data).length} answered field{Object.keys(selectedSub.data).length === 1 ? '' : 's'}</span>
+                        </div>
+                        <SubmissionViewer
+                          fields={currentForm?.schema.fields || []}
+                          data={selectedSub.data}
+                          redactedFields={selectedSub.redactedFields}
+                        />
+                      </section>
+
+                      <section className="border-t border-border/70 pt-4">
+                        <h3 className="mb-3 font-display text-xs font-bold text-foreground">Submission metadata</h3>
+                        <div className="grid gap-2.5 sm:grid-cols-2">
+                          <MetadataItem icon={<Hash className="h-3.5 w-3.5" />} label="Submission ID" value={selectedSub.id} mono />
+                          <MetadataItem icon={<CalendarDays className="h-3.5 w-3.5" />} label="Submitted" value={formatDate(selectedSub.createdAt)} />
+                          <MetadataItem icon={<Globe2 className="h-3.5 w-3.5" />} label="IP address" value={selectedSub.ip || 'Not recorded'} />
+                          <MetadataItem
+                            icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                            label="Processing"
+                            value={selectedSub.processingStatus
+                              ? selectedSub.processingStatus.charAt(0).toUpperCase() + selectedSub.processingStatus.slice(1)
+                              : 'Not available'}
+                          />
+                          {selectedSub.userAgent && (
+                            <div className="rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5 sm:col-span-2">
+                              <p className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground"><Monitor className="h-3.5 w-3.5" /> Browser</p>
+                              <p className="mt-1 break-words text-[10px] font-medium leading-4 text-ink-700">{selectedSub.userAgent}</p>
+                            </div>
+                          )}
+                          {selectedSub.tags.length > 0 && (
+                            <div className="rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5 sm:col-span-2">
+                              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Tags</p>
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {selectedSub.tags.map((tag) => <span key={tag} className="rounded-full border border-border bg-card px-2 py-0.5 text-[9px] font-semibold text-ink-600">{tag}</span>)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex h-full items-center justify-center px-6 text-center">
+                  <div>
+                    <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-ink-50 text-ink-400">
+                      <Eye className="h-5 w-5" strokeWidth={1.6} />
+                    </span>
+                    <p className="mt-3 text-xs font-semibold text-foreground">Select a submission</p>
+                    <p className="mt-1 text-[10px] font-medium text-muted-foreground">Choose a response from the list to review its answers.</p>
+                  </div>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+      </main>
+
+      {deleteConfirm && canDeleteRows && (
+        <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
+          <button type="button" aria-label="Cancel deletion" className="absolute inset-0 bg-ink-950/35 backdrop-blur-[1px]" onClick={() => setDeleteConfirm(null)} />
+          <Card role="dialog" aria-modal="true" aria-labelledby="delete-submission-title" className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border-border bg-card shadow-[0_24px_70px_rgba(15,23,42,0.2)]">
+            <CardHeader className="border-b border-border/70 px-5 py-4">
+              <CardTitle id="delete-submission-title" className="font-display text-base font-bold">Delete submission?</CardTitle>
+            </CardHeader>
+            <CardContent className="px-5 py-4">
+              <p className="text-xs font-medium leading-5 text-muted-foreground">This response and its processed result will be permanently removed. This action cannot be undone.</p>
+              <div className="mt-5 flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+                <Button type="button" variant="destructive" onClick={() => void handleDelete(deleteConfirm)}>Delete submission</Button>
               </div>
             </CardContent>
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+function MetadataItem({ icon, label, value, mono = false }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5">
+      <p className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{icon}{label}</p>
+      <p className={`mt-1 truncate text-[10px] font-semibold text-ink-700 ${mono ? 'font-mono' : ''}`} title={value}>{value}</p>
     </div>
   );
 }

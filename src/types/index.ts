@@ -682,6 +682,8 @@ export interface Submission {
   userAgent?: string | null;
   isRead: boolean;
   tags: string[];
+  /** Server-side processing state for assessments, voting, and other processors. */
+  processingStatus?: 'pending' | 'processing' | 'done' | 'failed' | string;
   createdAt: string;
   /**
    * Keys the server masked for this viewer. Present only under REDACTED access

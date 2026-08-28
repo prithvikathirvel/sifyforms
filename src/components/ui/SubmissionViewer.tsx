@@ -22,19 +22,23 @@ export default function SubmissionViewer({ fields, data, redactedFields }: Submi
       return <span className="text-muted-foreground italic">Not provided</span>;
     }
 
+    const optionLabel = (optionValue: unknown) =>
+      field.options?.find((option) => option.value === String(optionValue))?.label ?? String(optionValue);
+
     switch (field.type) {
       case 'checkbox':
         if (Array.isArray(value)) {
-          return value.join(', ');
+          return value.map(optionLabel).join(', ');
         }
+        if (field.options?.length) return optionLabel(value);
         return value ? 'Yes' : 'No';
 
       case 'select':
       case 'radio':
         if (Array.isArray(value)) {
-          return value.join(', ');
+          return value.map(optionLabel).join(', ');
         }
-        return value;
+        return optionLabel(value);
 
       case 'textarea':
         return (
@@ -507,17 +511,16 @@ export default function SubmissionViewer({ fields, data, redactedFields }: Submi
   };
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-3 md:grid-cols-2">
       {fields.map((field) => {
         const value = data[field.id];
-        // The server replaces identifying values with a mask under REDACTED
-        // access; label it so a hidden answer is not mistaken for a missing one.
         const isRedacted = redactedFields?.includes(field.id) ?? false;
+        const isWide = ['textarea', 'file', 'table', 'signature', 'html'].includes(field.type);
         if (isRedacted) {
           return (
-            <div key={field.id} className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">{field.label}</p>
-              <p className="flex items-center gap-1.5 text-sm italic text-muted-foreground">
+            <div key={field.id} className={`rounded-xl border border-border/70 bg-ink-50/45 p-3.5 ${isWide ? 'md:col-span-2' : ''}`}>
+              <p className="text-[10px] font-semibold text-muted-foreground">{field.label}</p>
+              <p className="mt-2 flex items-center gap-1.5 text-xs italic text-muted-foreground">
                 <EyeOff className="h-3.5 w-3.5" />
                 Hidden — identifying field
               </p>
@@ -525,12 +528,12 @@ export default function SubmissionViewer({ fields, data, redactedFields }: Submi
           );
         }
         return (
-          <div key={field.id} className="space-y-2">
-            <Label className="text-sm font-medium">
+          <div key={field.id} className={`min-w-0 rounded-xl border border-border/70 bg-ink-50/45 p-3.5 ${isWide ? 'md:col-span-2' : ''}`}>
+            <Label className="text-[10px] font-semibold text-muted-foreground">
               {field.label}
-              {field.required && <span className="text-destructive ml-1">*</span>}
+              {field.required && <span className="ml-1 text-destructive">*</span>}
             </Label>
-            <div className="min-h-[40px]">
+            <div className="mt-2 min-h-6 text-xs text-foreground">
               {renderFieldValue(field, value)}
             </div>
           </div>
