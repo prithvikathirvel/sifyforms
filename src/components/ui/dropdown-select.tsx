@@ -138,8 +138,8 @@ export function DropdownSelect<T extends string>({
       aria-label={ariaLabel}
       style={portal ? menuPosition : undefined}
       className={cn(
-        'scrollbar-compact z-[140] min-w-full overflow-y-auto rounded-xl border border-border bg-popover p-1.5 shadow-[0_12px_30px_rgba(15,23,42,0.12)]',
-        portal ? 'fixed' : 'absolute top-full mt-1.5 max-h-64',
+        'scrollbar-compact z-[140] overflow-y-auto rounded-xl border border-border bg-popover p-1.5 shadow-[0_12px_30px_rgba(15,23,42,0.12)]',
+        portal ? 'fixed min-w-0 max-w-[calc(100vw-1rem)]' : 'absolute top-full mt-1.5 max-h-64 min-w-full',
         !portal && (align === 'right' ? 'right-0' : 'left-0'),
         menuClassName
       )}

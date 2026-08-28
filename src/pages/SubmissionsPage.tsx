@@ -43,6 +43,10 @@ import {
   Percent,
   Target,
   UsersRound,
+  Activity,
+  Minus,
+  TrendingDown,
+  TrendingUp,
 } from 'lucide-react';
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
@@ -50,6 +54,16 @@ import {
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function shortDate(dateString: string | null) {
+  if (!dateString) return '—';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateString)
+    ? new Date(`${dateString}T00:00:00`)
+    : new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
   });
 }
 
@@ -90,78 +104,324 @@ interface AssessmentAnalytics {
   passed: number;
   failed: number;
   passRate: number;
+  passThreshold?: number;
   avgScore: number;
+  averageMaxScore?: number;
   avgPercentage: number;
-  distribution: Array<{ range: string; count: number }>;
+  medianPercentage?: number;
+  highestPercentage?: number;
+  lowestPercentage?: number;
+  scoreSpread?: number;
+  distribution: Array<{ range: string; count: number; percentage?: number }>;
+  trend?: Array<{ date: string; attempts: number; averagePercentage: number; passRate: number }>;
+  recent?: {
+    attemptsLast7Days: number;
+    attemptsPrevious7Days: number;
+    attemptChangePercent: number | null;
+    averageLast7Days: number;
+    averagePrevious7Days: number;
+    scoreChange: number;
+  };
+  questionPerformance?: Array<{
+    fieldId: string;
+    label: string;
+    attempts: number;
+    correct: number;
+    incorrect: number;
+    accuracy: number;
+    averagePoints: number;
+    maxPoints: number;
+  }>;
+  sectionPerformance?: Array<{
+    key: string;
+    label: string;
+    score: number;
+    maxScore: number;
+    percentage: number;
+  }>;
+  suppressed?: boolean;
+  minimumForBreakdown?: number;
 }
 
 function AssessmentAnalyticsTab({ formId }: { formId: string }) {
   const [data, setData] = useState<AssessmentAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
-      const res = await api.get(`/processing/forms/${formId}/assessment-analytics`);
-      setData(res.data);
+      const response = await api.get(`/processing/forms/${formId}/assessment-analytics`);
+      setData(response.data as AssessmentAnalytics);
     } catch {
-      /* noop */
+      setLoadError('Assessment analytics could not be loaded. Please try again.');
     } finally {
       setLoading(false);
     }
   }, [formId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-  if (!data || data.total === 0) return <div className="text-center py-16 text-muted-foreground"><ClipboardCheck className="h-12 w-12 mx-auto mb-3" /><p>No assessed submissions yet.</p></div>;
+  if (loading && !data) {
+    return <div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
+  }
 
-  const maxBar = Math.max(...data.distribution.map(d => d.count), 1);
+  if (loadError && !data) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-16 text-center">
+        <p className="text-xs font-semibold text-destructive">{loadError}</p>
+        <Button type="button" variant="outline" size="sm" onClick={() => void load()} className="mt-4">Try again</Button>
+      </div>
+    );
+  }
+
+  if (!data || data.total === 0) {
+    return (
+      <div className="flex min-h-64 items-center justify-center px-4 text-center">
+        <div>
+          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-ink-50 text-ink-400">
+            <ClipboardCheck className="h-5 w-5" strokeWidth={1.7} />
+          </span>
+          <h2 className="mt-3 font-display text-sm font-bold text-foreground">No assessment analytics yet</h2>
+          <p className="mt-1 text-xs font-medium text-muted-foreground">Scored attempts will appear after assessment submissions are processed.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const trend = data.trend ?? [];
+  const questions = data.questionPerformance ?? [];
+  const sections = data.sectionPerformance ?? [];
+  const maxDistribution = Math.max(...data.distribution.map(item => item.count), 1);
+  const maxAttempts = Math.max(...trend.map(item => item.attempts), 1);
+  const strongestQuestion = [...questions].sort((a, b) => b.accuracy - a.accuracy)[0];
+  const toughestQuestion = [...questions].sort((a, b) => a.accuracy - b.accuracy)[0];
+  const passThreshold = data.passThreshold ?? 60;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Assessment Analytics</h2>
-        <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-4 w-4 mr-1" />Refresh</Button>
+    <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-5 lg:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-display text-base font-bold text-foreground">Assessment analytics</h2>
+          <p className="mt-1 text-[11px] font-medium text-muted-foreground">Score quality, outcomes, activity, and question-level performance.</p>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading} className="h-8 self-start rounded-lg text-[11px]">
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh analytics
+        </Button>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Attempts', value: data.total },
-          { label: 'Pass Rate', value: `${data.passRate}%` },
-          { label: 'Avg Score', value: `${data.avgPercentage}%` },
-          { label: 'Passed', value: `${data.passed} / ${data.total}` },
-        ].map(kpi => (
-          <Card key={kpi.label}>
-            <CardContent className="pt-4 pb-3 text-center">
-              <p className="text-2xl font-bold">{kpi.value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
+      {data.suppressed ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-4">
+          <div className="flex items-start gap-2.5">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+            <div>
+              <h3 className="text-xs font-semibold text-amber-900">Detailed analytics are temporarily protected</h3>
+              <p className="mt-1 text-[11px] font-medium leading-5 text-amber-800">
+                This assessment has {data.total} processed attempt{data.total === 1 ? '' : 's'}. Score and question breakdowns appear at {data.minimumForBreakdown ?? 5} attempts for aggregate-only access.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <AnalyticsStat icon={<UsersRound className="h-4 w-4" />} label="Processed attempts" value={data.total.toLocaleString()} detail={data.recent ? `${data.recent.attemptsLast7Days} in the last 7 days` : 'All scored submissions'} />
+            <AnalyticsStat icon={<Target className="h-4 w-4" />} label="Pass rate" value={`${data.passRate}%`} detail={`${data.passed} passed · ${data.failed} failed`} />
+            <AnalyticsStat icon={<Award className="h-4 w-4" />} label="Average score" value={`${data.avgPercentage}%`} detail={data.averageMaxScore !== undefined ? `${data.avgScore} / ${data.averageMaxScore} average points` : `${data.avgScore} average points`} />
+            <AnalyticsStat icon={<Percent className="h-4 w-4" />} label="Median score" value={`${data.medianPercentage ?? data.avgPercentage}%`} detail={`Pass threshold ${passThreshold}%`} />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="overflow-hidden rounded-xl border-border/90 bg-card shadow-none">
+              <CardHeader className="border-b border-border/70 px-4 py-3.5 sm:px-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="font-display text-sm font-bold">Outcome overview</CardTitle>
+                    <p className="mt-1 text-[10px] font-medium text-muted-foreground">Passed and failed attempts against the configured threshold</p>
+                  </div>
+                  <span className="rounded-full border border-border bg-ink-50 px-2 py-1 text-[9px] font-semibold text-ink-600">Threshold {passThreshold}%</span>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 py-4 sm:px-5">
+                <div className="flex h-3 overflow-hidden rounded-full bg-rose-100" role="img" aria-label={`${data.passed} passed and ${data.failed} failed`}>
+                  <div className="h-full bg-emerald-500" style={{ width: `${data.passRate}%` }} />
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-3">
+                    <p className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Passed</p>
+                    <p className="mt-1 font-display text-xl font-bold tabular-nums text-foreground">{data.passed}</p>
+                  </div>
+                  <div className="rounded-lg border border-rose-100 bg-rose-50/60 px-3 py-3">
+                    <p className="text-[10px] font-semibold text-rose-700">Failed</p>
+                    <p className="mt-1 font-display text-xl font-bold tabular-nums text-foreground">{data.failed}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden rounded-xl border-border/90 bg-card shadow-none">
+              <CardHeader className="border-b border-border/70 px-4 py-3.5 sm:px-5">
+                <CardTitle className="font-display text-sm font-bold">Score profile</CardTitle>
+                <p className="mt-1 text-[10px] font-medium text-muted-foreground">Range and consistency across processed attempts</p>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-2 px-4 py-4 sm:grid-cols-4 sm:px-5">
+                {[
+                  ['Highest', `${data.highestPercentage ?? data.avgPercentage}%`],
+                  ['Median', `${data.medianPercentage ?? data.avgPercentage}%`],
+                  ['Lowest', `${data.lowestPercentage ?? data.avgPercentage}%`],
+                  ['Score variation', `${data.scoreSpread ?? 0} pts`],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+                    <p className="mt-1 font-display text-base font-bold tabular-nums text-foreground">{value}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+            <Card className="overflow-hidden rounded-xl border-border/90 bg-card shadow-none">
+              <CardHeader className="border-b border-border/70 px-4 py-3.5 sm:px-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="font-display text-sm font-bold">Attempt activity</CardTitle>
+                    <p className="mt-1 text-[10px] font-medium text-muted-foreground">Daily attempts and average score over the last 14 days</p>
+                  </div>
+                  {data.recent && <AnalyticsChangePill change={data.recent.attemptChangePercent} />}
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 py-4 sm:px-5">
+                {trend.length > 0 ? (
+                  <div>
+                    <div className="flex h-44 items-end gap-1.5 border-b border-border/70 pb-2 sm:gap-2" role="img" aria-label="Assessment attempts for the last 14 days">
+                      {trend.map(day => {
+                        const height = day.attempts > 0 ? Math.max((day.attempts / maxAttempts) * 100, 5) : 2;
+                        return (
+                          <Tooltip key={day.date} content={`${shortDate(day.date)}: ${day.attempts} attempt${day.attempts === 1 ? '' : 's'}, ${day.averagePercentage}% average`} side="top" tone="dark" delay="short" className="h-full min-w-0 flex-1 items-end">
+                            <span className="relative flex h-full w-full items-end px-px">
+                              {day.attempts > 0 && <span className="absolute left-1/2 w-1.5 -translate-x-1/2 rounded-full border border-card bg-ink-600" style={{ bottom: `${Math.min(day.averagePercentage, 100)}%` }} />}
+                              <span className={`block w-full rounded-t-sm ${day.attempts > 0 ? 'bg-primary/60 hover:bg-primary/80' : 'bg-ink-100'}`} style={{ height: `${height}%` }} />
+                            </span>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-2 flex justify-between text-[9px] font-medium text-muted-foreground"><span>{shortDate(trend[0]?.date ?? null)}</span><span>{shortDate(trend[trend.length - 1]?.date ?? null)}</span></div>
+                  </div>
+                ) : <div className="flex h-44 items-center justify-center text-xs font-medium text-muted-foreground">Trend data is unavailable from the current server version.</div>}
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden rounded-xl border-border/90 bg-card shadow-none">
+              <CardHeader className="border-b border-border/70 px-4 py-3.5">
+                <CardTitle className="font-display text-sm font-bold">Performance signals</CardTitle>
+                <p className="mt-1 text-[10px] font-medium text-muted-foreground">Useful changes and question-level observations</p>
+              </CardHeader>
+              <CardContent className="space-y-3 px-4 py-4">
+                {data.recent && (
+                  <AnalyticsObservation icon={<Activity className="h-3.5 w-3.5" />} label="Recent average" value={`${data.recent.averageLast7Days}% · ${data.recent.scoreChange >= 0 ? '+' : ''}${data.recent.scoreChange} points`} />
+                )}
+                {strongestQuestion && <AnalyticsObservation icon={<TrendingUp className="h-3.5 w-3.5" />} label="Strongest question" value={`${strongestQuestion.label} · ${strongestQuestion.accuracy}%`} />}
+                {toughestQuestion && <AnalyticsObservation icon={<TrendingDown className="h-3.5 w-3.5" />} label="Needs review" value={`${toughestQuestion.label} · ${toughestQuestion.accuracy}%`} />}
+                {!data.recent && !strongestQuestion && <p className="py-5 text-center text-[11px] font-medium text-muted-foreground">No additional performance signals are available.</p>}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="overflow-hidden rounded-xl border-border/90 bg-card shadow-none">
+            <CardHeader className="border-b border-border/70 px-4 py-3.5 sm:px-5">
+              <CardTitle className="font-display text-sm font-bold">Score distribution</CardTitle>
+              <p className="mt-1 text-[10px] font-medium text-muted-foreground">Where participant scores are concentrated</p>
+            </CardHeader>
+            <CardContent className="px-4 py-4 sm:px-5">
+              <div className="grid grid-cols-6 items-end gap-2 sm:grid-cols-11">
+                {data.distribution.map(bucket => {
+                  const height = bucket.count > 0 ? Math.max((bucket.count / maxDistribution) * 100, 8) : 3;
+                  return (
+                    <Tooltip key={bucket.range} content={`${bucket.range}%: ${bucket.count} attempt${bucket.count === 1 ? '' : 's'}`} side="top" tone="dark" delay="short" className="min-w-0">
+                      <span className="flex min-w-0 flex-col items-center gap-1.5">
+                        <span className="flex h-24 w-full items-end rounded-md bg-ink-50 px-1.5 pt-1"><span className={`block w-full rounded-sm ${bucket.count > 0 ? 'bg-primary/65' : 'bg-ink-100'}`} style={{ height: `${height}%` }} /></span>
+                        <span className="truncate text-[8px] font-medium text-muted-foreground">{bucket.range}</span>
+                      </span>
+                    </Tooltip>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {/* Score distribution */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Score Distribution</CardTitle></CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {data.distribution.map(d => (
-              <div key={d.range} className="flex items-center gap-3 text-sm">
-                <span className="w-16 text-muted-foreground shrink-0">{d.range}%</span>
-                <div className="flex-1 h-5 bg-muted rounded overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded transition-all"
-                    style={{ width: `${(d.count / maxBar) * 100}%` }}
-                  />
-                </div>
-                <span className="w-6 text-right text-muted-foreground">{d.count}</span>
+          {questions.length > 0 && (
+            <section className="space-y-3" aria-labelledby="question-performance-title">
+              <div>
+                <h3 id="question-performance-title" className="font-display text-sm font-bold text-foreground">Question performance</h3>
+                <p className="mt-1 text-[10px] font-medium text-muted-foreground">Accuracy and average points without exposing submitted or correct answers.</p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <Card className="overflow-hidden rounded-xl border-border/90 bg-card shadow-none">
+                <CardContent className="divide-y divide-border/60 p-0">
+                  {questions.map((question, index) => (
+                    <div key={question.fieldId} className="grid gap-2 px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.7fr)_auto] sm:items-center sm:px-5">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-foreground">{index + 1}. {question.label}</p>
+                        <p className="mt-0.5 text-[9px] font-medium text-muted-foreground">{question.correct} correct · {question.incorrect} incorrect · {question.averagePoints}/{question.maxPoints} avg points</p>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-ink-100"><div className="h-full rounded-full bg-primary/65" style={{ width: `${question.accuracy}%` }} /></div>
+                      <span className="text-right font-display text-sm font-bold tabular-nums text-foreground">{question.accuracy}%</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </section>
+          )}
+
+          {sections.length > 1 && (
+            <section className="space-y-3" aria-labelledby="section-performance-title">
+              <div>
+                <h3 id="section-performance-title" className="font-display text-sm font-bold text-foreground">Section performance</h3>
+                <p className="mt-1 text-[10px] font-medium text-muted-foreground">Average achievement across configured assessment sections.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {sections.map(section => (
+                  <Card key={section.key} className="rounded-xl border-border/90 bg-card shadow-none">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-3"><p className="truncate text-xs font-semibold text-foreground">{section.label}</p><span className="font-display text-sm font-bold tabular-nums">{section.percentage}%</span></div>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink-100"><div className="h-full rounded-full bg-primary/65" style={{ width: `${section.percentage}%` }} /></div>
+                      <p className="mt-2 text-[9px] font-medium text-muted-foreground">{section.score} of {section.maxScore} total points earned</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AnalyticsStat({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
+  return (
+    <Card className="rounded-xl border-border/90 bg-card shadow-none">
+      <CardContent className="p-3.5 sm:p-4">
+        <div className="flex items-start justify-between gap-2"><div><p className="text-[10px] font-semibold text-muted-foreground">{label}</p><p className="mt-1.5 font-display text-xl font-bold tabular-nums text-foreground sm:text-2xl">{value}</p></div><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-ink-50 text-ink-600">{icon}</span></div>
+        <p className="mt-2.5 truncate text-[9px] font-medium text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AnalyticsChangePill({ change }: { change: number | null }) {
+  const Icon = change === null || (change ?? 0) > 0 ? TrendingUp : (change ?? 0) < 0 ? TrendingDown : Minus;
+  const label = change === null ? 'New activity' : change === 0 ? 'No change' : `${change > 0 ? '+' : ''}${change}%`;
+  return <span className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-ink-50 px-2 py-1 text-[9px] font-semibold text-ink-600"><Icon className="h-3 w-3" />{label}</span>;
+}
+
+function AnalyticsObservation({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2.5 border-b border-border/60 pb-3 last:border-0 last:pb-0">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ink-50 text-ink-500">{icon}</span>
+      <div className="min-w-0"><p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p><p className="mt-0.5 truncate text-[11px] font-semibold text-foreground" title={value}>{value}</p></div>
     </div>
   );
 }
