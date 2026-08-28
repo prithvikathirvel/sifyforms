@@ -674,7 +674,95 @@ Expected behavior must be asserted by status and response shape, not only by UI 
 - DMS malware/zip-bomb/polyglot tests; payment webhook signature/replay tests.
 - Queue crash/retry/idempotency tests and database transaction/race tests.
 
-## 11. Related documents
+## 11. How to investigate a suspected tampered registration
+
+### What can be found in the current database
+
+The current `Submission` record stores `id`, `formId`, raw JSON `data`, database `createdAt`, `ip`, `userAgent`, and `processingStatus`. `ProcessingResult` stores the later computed result. `AuditLog` is primarily a per-vote record and is not a general request audit log. The current `Form` stores one mutable schema/settings blob rather than the immutable revision shown to each respondent.
+
+This means an investigation can identify suspicious patterns, but it usually cannot prove that a user changed a browser request. A Burp user who changes a value to another value that is valid under the server's rules leaves an ordinary-looking submission unless the edge/API request log, revision hash, authentication event, or client operation telemetry captured the difference. IP and user-agent are supporting evidence only: both can be shared or spoofed, and the current Express controllers trust the first `X-Forwarded-For` value.
+
+### Immediate incident procedure
+
+1. **Preserve before changing:** record the exact UTC incident window, form ID/slug, deployment version, database snapshot, CDN/WAF/load-balancer logs, API logs, DMS logs, OTP-provider logs, and payment/POS logs. Export them to immutable, access-controlled storage with checksums.
+2. **Freeze the affected workflow:** temporarily disable the form, payment, external validation, result release, or upload route as appropriate. Do not delete suspicious submissions or “fix” their JSON in place.
+3. **Rotate exposed secrets:** if a formula, external-validation header, payment configuration, or log may have been exposed, revoke and rotate it. Preserve the old secret identifier for correlation, not the secret value.
+4. **Reconstruct the exact revision:** use a database backup, deployment artifact, CDN-cached manifest, or future revision history to determine which fields, options, rules, answer key, and payment amount were actually published at the time.
+5. **Correlate server-side events:** join submission IDs, request IDs, trusted edge IP, auth/OTP session, upload session, payment order/webhook, processing job, and result-token events. A successful payment must be matched to the provider's signed record, not a browser redirect.
+6. **Contain and remediate:** invalidate result/draft/upload tokens, mark affected records for manual review, notify the privacy/payment owner when required, and preserve a timeline of decisions.
+
+### Useful triage queries
+
+These are investigation templates for a read-only copy of MySQL. Replace placeholders with fixed, allow-listed field IDs and an approved UTC window. Do not construct JSON paths directly from an untrusted request parameter.
+
+```sql
+-- Burst of accepted registrations by source metadata.
+SELECT formId, ip,
+       DATE_FORMAT(createdAt, '%Y-%m-%d %H:%i') AS minute_bucket,
+       COUNT(*) AS submissions
+FROM Submission
+WHERE formId = ? AND createdAt >= ? AND createdAt < ?
+GROUP BY formId, ip, minute_bucket
+HAVING COUNT(*) >= 10
+ORDER BY submissions DESC;
+
+-- Processing failures/stuck jobs that may indicate a malformed or abusive request.
+SELECT formId, processingStatus, COUNT(*) AS total,
+       MIN(createdAt) AS first_seen, MAX(createdAt) AS last_seen
+FROM Submission
+WHERE formId = ? AND createdAt >= ? AND createdAt < ?
+GROUP BY formId, processingStatus;
+
+-- Duplicate vote identifiers in the existing audit table.
+SELECT formId, identifier, COUNT(*) AS votes,
+       MIN(createdAt) AS first_seen, MAX(createdAt) AS last_seen
+FROM AuditLog
+WHERE formId = ? AND createdAt >= ? AND createdAt < ?
+GROUP BY formId, identifier
+HAVING COUNT(*) > 1;
+```
+
+For a JSON identity field, use a known field ID and only on a read-only copy:
+
+```sql
+SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '$.email_field_id')) AS identity_value,
+       COUNT(*) AS total, MIN(createdAt) AS first_seen, MAX(createdAt) AS last_seen
+FROM Submission
+WHERE formId = ? AND JSON_VALID(data)
+  AND createdAt >= ? AND createdAt < ?
+GROUP BY identity_value
+HAVING COUNT(*) > 1;
+```
+
+The application should additionally run a schema-aware scanner that compares each stored value with the reconstructed published revision: unknown field IDs, wrong primitive types, unapproved options, changed hidden/disabled values, invalid finite numbers/dates, unexpected file references, file metadata/content mismatches, and payment amount differences. That comparison is not conclusive against the current mutable schema; it must use the revision active when the submission was accepted.
+
+Look for these correlated indicators rather than treating one as proof:
+
+- many identities/submissions from one trusted edge address or one short-lived session;
+- repeated OTP/CAPTCHA failures followed by a sudden success;
+- the same idempotency key with different request hashes, or many retries without an idempotency key;
+- extra keys, unsupported option values, hidden-field changes, very large bodies, unusual file names, duplicate file hashes, or DMS objects from another form;
+- payment order amount/currency/product mismatch, missing signed webhook, or a successful browser status with no provider transaction;
+- public result/draft/upload requests for IDs unrelated to the respondent's form/session;
+- formula/external-validation changes immediately before the suspicious submissions, or outbound connector requests to private/unexpected addresses.
+
+### Evidence required in a future implementation
+
+Create an append-only, redacted security event stream separate from the business submission JSON. At minimum record:
+
+- server timestamp, request/correlation ID, deployment/version, route, outcome, and reason code;
+- tenant, form, immutable `revisionId`/schema hash, submission/job/payment/upload IDs;
+- authenticated actor ID or a privacy-preserving respondent-session hash;
+- trusted edge source metadata, with retention and access controls;
+- events for form revision save/publish, permission denied, auth challenge sent/verified/failed, CAPTCHA result, draft read/write, upload initiate/confirm/scan, submission accepted/rejected, idempotency replay/conflict, payment order/webhook verification, result issue/view, and rate-limit decisions.
+
+Store the canonical server-received request hash and accepted value hash, not full sensitive request bodies in ordinary logs. Use a unique idempotency record, `revisionId`, `authSessionId`, `uploadSessionId`, and signed payment/webhook/result references on the business records. Send the event stream to tamper-evident, restricted storage/SIEM with retention, alerting, and a documented forensic access process.
+
+### Detection rules and response
+
+Alert the security/operations owner on bursts per form/session/IP, many invalid field/option/file attempts, OTP/CAPTCHA abuse, cross-tenant ID mismatches, payment amount mismatches, repeated idempotency conflicts, DMS ownership failures, unexpected connector destinations, result-token replay, and permission denials followed by a successful mutation. Keep alerts privacy-minimized and tune thresholds per form; shared NATs and exam centers can legitimately produce many users from one address.
+
+## 12. Related documents
 
 - [`docs/SECURITY_ISSUES.md`](./SECURITY_ISSUES.md) — earlier security review and DMS-specific findings; this document adds the route-level authorization, formula, payment, privacy, scale, and data-integrity analysis.
 - [`docs/PRODUCTION_READINESS_AND_SCALE.md`](./PRODUCTION_READINESS_AND_SCALE.md) — target architecture and capacity plan for 1,000,000 members and 300,000 concurrent users/submissions.
