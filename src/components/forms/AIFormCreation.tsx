@@ -1,35 +1,55 @@
 import { useState } from 'react';
+import {
+  ArrowLeft,
+  Check,
+  FileText,
+  Lightbulb,
+  Loader2,
+  RotateCcw,
+  Sparkles,
+  Wand2,
+} from 'lucide-react';
+import api from '../../lib/api';
+import type { FormField, FormSettings } from '../../types';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { ArrowLeft, Wand2, Loader2, Sparkles, FileText } from 'lucide-react';
-import api from '../../lib/api';
 
 interface AIFormCreationProps {
   onBack: () => void;
-  onFormGenerated: (formData: any) => void;
-  /** Team chosen before branching into a creation method. */
+  onFormGenerated: (formData: { id: string }) => void;
   teamId?: string | null;
+  teamName?: string;
 }
 
-export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFormCreationProps) {
+interface GeneratedForm {
+  title: string;
+  description?: string;
+  form: { fields: FormField[] };
+  settings?: FormSettings;
+}
+
+function errorMessage(error: unknown) {
+  const apiError = error as { response?: { data?: { error?: string } }; message?: string };
+  return apiError.response?.data?.error || apiError.message || 'Failed to generate the form with AI.';
+}
+
+export default function AIFormCreation({ onBack, onFormGenerated, teamId, teamName }: AIFormCreationProps) {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedForm, setGeneratedForm] = useState<any>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [generatedForm, setGeneratedForm] = useState<GeneratedForm | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
   const handleGenerateForm = async () => {
     if (!prompt.trim()) return;
-
     setIsGenerating(true);
     setGenerationError(null);
     try {
-      const response = await api.post('/forms/ai-generate', { prompt });
-      setGeneratedForm(response.data);
-    } catch (error: any) {
-      const msg = error?.response?.data?.error || error.message || 'Failed to generate form with AI';
-      setGenerationError(msg);
-      console.error('Failed to generate form:', error);
+      const response = await api.post('/forms/ai-generate', { prompt: prompt.trim() });
+      setGeneratedForm(response.data as GeneratedForm);
+    } catch (error) {
+      setGenerationError(errorMessage(error));
     } finally {
       setIsGenerating(false);
     }
@@ -37,7 +57,8 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFo
 
   const handleCreateForm = async () => {
     if (!generatedForm) return;
-
+    setIsCreating(true);
+    setGenerationError(null);
     try {
       const result = await api.post('/forms', {
         name: generatedForm.title,
@@ -49,180 +70,145 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFo
         },
         settings: generatedForm.settings,
       });
-
-      onFormGenerated(result.data);
+      onFormGenerated(result.data as { id: string });
     } catch (error) {
-      console.error('Failed to create form:', error);
+      setGenerationError(errorMessage(error));
+    } finally {
+      setIsCreating(false);
     }
   };
 
   const handleRegenerate = () => {
     setGeneratedForm(null);
-    handleGenerateForm();
+    void handleGenerateForm();
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div className="flex items-center gap-2">
-          <Wand2 className="h-5 w-5 text-brand-600" />
-          <h3 className="text-lg font-semibold">AI Form Creation</h3>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <Button type="button" variant="ghost" size="sm" onClick={onBack} className="h-8 -ml-2 px-2 text-xs text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+        Back to creation methods
+      </Button>
 
       {!generatedForm ? (
-        <>
-          {/* Prompt Input */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ai-prompt">Describe your form in natural language</Label>
-              <Textarea
-                id="ai-prompt"
-                placeholder="I need a registration form for a tech conference that collects attendee information including name, email, company, ticket type, dietary restrictions, and special accessibility needs..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="min-h-[120px] resize-none"
-              />
-              <p className="text-xs text-muted-foreground">
-                Be as specific as possible about the fields you need and any special requirements.
-              </p>
-            </div>
-
-            <Button 
-              onClick={handleGenerateForm}
-              disabled={!prompt.trim() || isGenerating}
-              className="w-full bg-primary hover:bg-primary/90"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  AI is creating your form...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Form with AI
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Error State */}
-          {generationError && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <p className="font-semibold mb-1">AI generation failed</p>
-              <p className="break-words">{generationError}</p>
-              <p className="mt-2 text-red-500 text-xs">Check the backend server logs for more details.</p>
-            </div>
-          )}
-
-          {/* AI Loading State */}
-          {isGenerating && (
-            <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <div className="relative">
-                <div className="w-16 h-16 bg-primary rounded-full animate-pulse"></div>
-                <div className="absolute inset-0 w-16 h-16 bg-primary rounded-full animate-ping opacity-20"></div>
-                <Wand2 className="absolute inset-0 w-16 h-16 text-white flex items-center justify-center" />
-              </div>
-              <div className="text-center space-y-2">
-                <p className="text-lg font-medium text-brand-600">AI is working its magic...</p>
-                <div className="flex items-center justify-center space-x-1">
-                  <div className="w-2 h-2 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Analyzing your requirements and generating the perfect form structure
-                </p>
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          {/* Generated Form Preview */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(16rem,0.65fr)]">
+          <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+            <div className="mb-4 flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.06] text-primary">
+                <Wand2 className="h-4 w-4" strokeWidth={1.8} />
+              </span>
               <div>
-                <h4 className="text-xl font-bold text-foreground">{generatedForm.title}</h4>
-                <p className="text-sm text-muted-foreground mt-1">{generatedForm.description}</p>
+                <h3 className="font-display text-sm font-bold text-foreground">Describe the form</h3>
+                <p className="mt-1 text-[11px] font-medium text-muted-foreground">Include the audience, fields, and any important rules.</p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleRegenerate}>
-                <Wand2 className="h-4 w-4 mr-2" />
+            </div>
+            <Label htmlFor="ai-prompt">Form requirements</Label>
+            <Textarea
+              id="ai-prompt"
+              autoFocus
+              placeholder="Create an event registration form that collects attendee name, work email, company, ticket type, dietary requirements, and accessibility needs…"
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              className="mt-1.5 min-h-[11rem] resize-y leading-5"
+            />
+            <div className="mt-4 flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[10px] font-medium text-muted-foreground">
+                Form owner: <span className="font-semibold text-foreground">{teamName || 'Default team'}</span>
+              </p>
+              <Button type="button" onClick={() => void handleGenerateForm()} disabled={!prompt.trim() || isGenerating} className="min-w-40">
+                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                {isGenerating ? 'Generating…' : 'Generate form'}
+              </Button>
+            </div>
+          </section>
+
+          <aside className="rounded-xl border border-border bg-ink-50/55 p-4">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-primary">
+              <Lightbulb className="h-4 w-4" strokeWidth={1.8} />
+            </span>
+            <h3 className="mt-3 font-display text-[13px] font-bold text-foreground">For a stronger first draft</h3>
+            <ul className="mt-3 space-y-2.5 text-[11px] font-medium leading-4 text-muted-foreground">
+              {[
+                'Say who will complete the form.',
+                'List the information you need to collect.',
+                'Mention required fields and conditional rules.',
+                'Include the intended confirmation message.',
+              ].map((tip) => (
+                <li key={tip} className="flex gap-2">
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <section className="rounded-xl border border-border bg-card">
+            <div className="flex flex-col gap-3 border-b border-border/70 px-4 py-3.5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/[0.06] text-primary">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </span>
+                  <h3 className="truncate font-display text-sm font-bold text-foreground">{generatedForm.title}</h3>
+                </div>
+                {generatedForm.description && (
+                  <p className="mt-2 max-w-2xl text-[11px] font-medium leading-4 text-muted-foreground">{generatedForm.description}</p>
+                )}
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={handleRegenerate} disabled={isGenerating} className="h-8 shrink-0 text-[11px]">
+                {isGenerating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
                 Regenerate
               </Button>
             </div>
 
-            {/* Form Fields Preview */}
-            <div className="border rounded-lg p-4 bg-muted">
-              <h5 className="font-semibold text-sm text-muted-foreground mb-3">Form Fields ({generatedForm.form?.fields?.length ?? 0})</h5>
-              <div className="space-y-3 max-h-60 overflow-y-auto">
-                {(generatedForm.form?.fields ?? []).map((field: any, index: number) => (
-                  <div key={field.id || index} className="flex items-center justify-between p-3 bg-white rounded border border-border">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{field.label}</span>
-                        {field.required && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Required</span>}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded capitalize">{field.type}</span>
-                        {field.placeholder && (
-                          <span className="text-xs text-muted-foreground truncate">{field.placeholder}</span>
-                        )}
-                      </div>
+            <div className="p-4">
+              <div className="mb-2.5 flex items-center justify-between">
+                <h4 className="text-xs font-bold text-foreground">Generated fields</h4>
+                <span className="rounded-full border border-border bg-ink-50 px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
+                  {generatedForm.form.fields.length} field{generatedForm.form.fields.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <div className="max-h-72 overflow-y-auto rounded-lg border border-border">
+                {generatedForm.form.fields.map((field, index) => (
+                  <div key={field.id || index} className="flex items-center gap-3 border-b border-border/60 px-3 py-2.5 last:border-b-0">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink-50 text-[10px] font-bold tabular-nums text-ink-500">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-foreground">{field.label}</p>
+                      <p className="mt-0.5 text-[10px] font-medium capitalize text-muted-foreground">{field.type}</p>
                     </div>
+                    {field.required && (
+                      <span className="rounded-full border border-border bg-card px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">Required</span>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
+          </section>
 
-            {/* Settings Preview */}
-            {generatedForm.settings && (
-              <div className="border rounded-lg p-4 bg-muted">
-                <h5 className="font-semibold text-sm text-muted-foreground mb-3">Form Settings</h5>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Thank You Message</span>
-                    <span className="text-foreground">{generatedForm.settings.thankYouMessage}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Bot protection</span>
-                    <span className="rounded bg-primary/[0.06] px-2 py-0.5 text-xs text-primary">
-                      Turnstile always on
-                    </span>
-                  </div>
-                  {generatedForm.settings.previewConfig && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Preview Config</span>
-                      <span className={`px-2 py-0.5 rounded text-xs ${generatedForm.settings.previewConfig.enabled ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
-                        {generatedForm.settings.previewConfig.enabled ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setGeneratedForm(null)} className="flex-1">
-                Back to Edit
-              </Button>
-              <Button 
-                onClick={handleCreateForm}
-                className="flex-1 bg-primary hover:bg-primary/90"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Create Form
+          <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-ink-50/55 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold text-foreground">Ready to continue in the builder?</p>
+              <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">You can edit every generated field before publishing.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setGeneratedForm(null)}>Edit prompt</Button>
+              <Button type="button" onClick={() => void handleCreateForm()} disabled={isCreating} className="min-w-32">
+                {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                {isCreating ? 'Creating…' : 'Create form'}
               </Button>
             </div>
           </div>
-        </>
+        </div>
+      )}
+
+      {generationError && (
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/[0.05] px-3 py-2.5 text-xs font-medium text-destructive">
+          <span>{generationError}</span>
+        </div>
       )}
     </div>
   );

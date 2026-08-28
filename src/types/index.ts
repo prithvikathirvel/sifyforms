@@ -859,6 +859,8 @@ export interface Team {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  /** The organization-created fallback team for forms without an explicit owner. */
+  isDefault?: boolean;
   _count?: { members: number; children: number };
 }
 
