@@ -1,0 +1,462 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * TheSans Office - the Sify corporate typeface.
+ *
+ * Referenced from src/assets so Vite fingerprints the files and rewrites the
+ * URLs against BASE_URL; dropping them in public/ would break under the
+ * /form-builder/ base path in production.
+ *
+ * Shipped as TTF because the package has no woff2 and this machine has no
+ * converter. woff2 would cut roughly 60% off the ~410KB - worth doing before
+ * this goes anywhere latency-sensitive.
+ *
+ * LucasFonts weight numbering: 5 = Plain (400), 7 = Bold (700).
+ */
+@font-face {
+  font-family: 'TheSans';
+  src: url('./assets/fonts/TSaOf5__.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'TheSans';
+  src: url('./assets/fonts/TSaOf5i_.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'TheSans';
+  src: url('./assets/fonts/TSaOf7__.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'TheSans';
+  src: url('./assets/fonts/TSaOf7i_.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/**
+ * SifyForms theme: Mineral Teal / Mist.
+ *
+ * A composed mineral teal on a barely tinted mist canvas. Trustworthy and operational, with enough warmth to avoid a cold or clinical dashboard.
+ * Role-based tokens preserve the existing component and interaction hierarchy.
+ *
+ * Every colour in the app resolves through these tokens or through the
+ * plum / brand / ink scales in tailwind.config.js. Nothing should hardcode a hex.
+ */
+
+@layer base {
+  :root {
+    /* Typography is centralized here so product fonts can be changed once. */
+    --font-inter: 'Inter Variable';
+    --font-geist: 'Geist Variable';
+
+    /* Logo follows the Mineral Teal / Mist primary action color. */
+    --logo-color: 179 35% 31%;
+
+    /* Brand and neutral palette. Public and product pages share these tokens. */
+    --brand-from: 179 36% 28%;
+    --brand-mid: 176 28% 37%;
+    --brand-to: 171 16% 49%;
+
+    --background: 0 0% 100%;
+    --foreground: 176 17% 17%;
+    /* Quiet product canvas: separates white cards without making pages look grey. */
+    --workspace: 160 18% 97%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 176 17% 17%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 176 17% 17%;
+
+    --primary: 179 35% 31%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 168 22% 95%;
+    --secondary-foreground: 176 17% 17%;
+
+    --muted: 165 18% 97%;
+    --muted-foreground: 173 8% 41%;
+
+    --accent: 167 31% 94%;
+    --accent-foreground: 178 30% 27%;
+
+    /* semantic status stays distinct from the accent, tuned to sit beside it */
+    --destructive: 354 41% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 150 44% 31%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 57% 38%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 162 17% 88%;
+    --input: 164 17% 83%;
+    --ring: 173 17% 52%;
+
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --brand-from: 179 30% 58%;
+    --brand-mid: 176 25% 65%;
+    --brand-to: 171 18% 72%;
+
+    --background: 176 20% 8%;
+    --foreground: 165 12% 94%;
+    --workspace: 176 18% 10%;
+
+    --card: 176 17% 13%;
+    --card-foreground: 165 12% 94%;
+    --popover: 176 17% 13%;
+    --popover-foreground: 165 12% 94%;
+
+    /* lifted so the orchid keeps its contrast on a dark plum ground */
+    --primary: 173 32% 64%;
+    --primary-foreground: 176 30% 10%;
+
+    --secondary: 176 14% 18%;
+    --secondary-foreground: 165 12% 94%;
+
+    --muted: 176 13% 17%;
+    --muted-foreground: 170 9% 68%;
+
+    --accent: 174 18% 22%;
+    --accent-foreground: 165 12% 95%;
+
+    --destructive: 354 46% 62%;
+    --destructive-foreground: 354 35% 11%;
+    --success: 151 38% 57%;
+    --success-foreground: 151 45% 10%;
+    --warning: 32 58% 62%;
+    --warning-foreground: 32 48% 11%;
+
+    --border: 174 13% 23%;
+    --input: 174 13% 23%;
+    --ring: 173 32% 64%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-inter), 'Inter Variable', 'TheSans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-geist), 'Geist Variable', var(--font-inter), 'Inter Variable', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  /* Selection picks up the accent rather than the browser default blue. */
+  ::selection {
+    background-color: hsl(var(--primary) / 0.22);
+    color: hsl(var(--foreground));
+  }
+
+  /* One visible focus treatment everywhere, in the brand hue. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* The mark's gradient. Used for the hero, the sidebar rail and brand panels. */
+  .bg-brand-gradient {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--brand-from)) 0%,
+      hsl(var(--brand-mid)) 55%,
+      hsl(var(--brand-to)) 100%
+    );
+  }
+
+  /* Text filled with the gradient, for headline words that carry the brand. */
+  .text-brand-gradient {
+    background-image: linear-gradient(
+      120deg,
+      hsl(var(--brand-from)) 0%,
+      hsl(var(--brand-to)) 60%,
+      hsl(var(--primary)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* A quiet tinted surface for callouts and empty states. */
+  .surface-brand {
+    background-color: hsl(var(--primary) / 0.06);
+    border-color: hsl(var(--primary) / 0.18);
+  }
+
+  /**
+   * Public-page theme. Landing and authentication screens intentionally use a
+   * crisp white/slate foundation with the logo gradient reserved for emphasis.
+   * Keeping these values in one scope makes the public site easy to retheme
+   * without changing the authenticated product workspace.
+   */
+  .public-shell {
+    --brand-from: 179 36% 28%;
+    --brand-mid: 176 28% 37%;
+    --brand-to: 171 16% 49%;
+
+    --background: 0 0% 100%;
+    --foreground: 176 17% 17%;
+    --card: 0 0% 100%;
+    --card-foreground: 176 17% 17%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 176 17% 17%;
+
+    --primary: 179 35% 31%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 168 22% 95%;
+    --secondary-foreground: 176 17% 17%;
+    --muted: 165 18% 97%;
+    --muted-foreground: 173 8% 41%;
+    --accent: 167 31% 94%;
+    --accent-foreground: 178 30% 27%;
+
+    --border: 162 17% 88%;
+    --input: 164 17% 83%;
+    --ring: 173 17% 52%;
+    --radius: 0.625rem;
+
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  .public-subtle-grid {
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    -webkit-mask-image: linear-gradient(to bottom, black, transparent 82%);
+    mask-image: linear-gradient(to bottom, black, transparent 82%);
+  }
+
+  /* Quiet workspace scrollbar for modal bodies and longer content regions. */
+  .scrollbar-subtle {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar-thumb {
+    min-height: 40px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.18);
+    background-clip: padding-box;
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--primary) / 0.32);
+  }
+
+  /* Narrow variant for tree menus, code editors, and horizontal filter rails. */
+  .scrollbar-compact {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.2) transparent;
+  }
+
+  .scrollbar-compact::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  .scrollbar-compact::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-compact::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.2);
+    background-clip: padding-box;
+  }
+
+  .scrollbar-compact::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--primary) / 0.34);
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar-corner,
+  .scrollbar-compact::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/*
+ * Compatibility overrides for existing direct brand/plum utility classes.
+ * This keeps the theme coherent when this file alone replaces src/index.css.
+ */
+:root {
+  --theme-brand-50: #F2F8F7;
+  --theme-brand-100: #E2F0ED;
+  --theme-brand-200: #C5E0DB;
+  --theme-brand-300: #9CC8C1;
+  --theme-brand-400: #6EA9A2;
+  --theme-brand-500: #4D8883;
+  --theme-brand-600: #336B6A;
+  --theme-brand-700: #2C5958;
+  --theme-brand-800: #284847;
+  --theme-brand-900: #243D3C;
+  --theme-brand-950: #102322;
+  --theme-plum-50: #F3F7F7;
+  --theme-plum-100: #E5EEEE;
+  --theme-plum-200: #CEDFDE;
+  --theme-plum-300: #A9C7C5;
+  --theme-plum-400: #7EA6A3;
+  --theme-plum-500: #608986;
+  --theme-plum-600: #4A6D6B;
+  --theme-plum-700: #3E5958;
+  --theme-plum-800: #354948;
+  --theme-plum-900: #2F3F3E;
+  --theme-plum-950: #192424;
+}
+
+.text-brand-50 { color: var(--theme-brand-50) !important; }
+.bg-brand-50 { background-color: var(--theme-brand-50) !important; }
+.border-brand-50 { border-color: var(--theme-brand-50) !important; }
+.text-brand-100 { color: var(--theme-brand-100) !important; }
+.bg-brand-100 { background-color: var(--theme-brand-100) !important; }
+.border-brand-100 { border-color: var(--theme-brand-100) !important; }
+.text-brand-200 { color: var(--theme-brand-200) !important; }
+.bg-brand-200 { background-color: var(--theme-brand-200) !important; }
+.border-brand-200 { border-color: var(--theme-brand-200) !important; }
+.text-brand-300 { color: var(--theme-brand-300) !important; }
+.bg-brand-300 { background-color: var(--theme-brand-300) !important; }
+.border-brand-300 { border-color: var(--theme-brand-300) !important; }
+.text-brand-400 { color: var(--theme-brand-400) !important; }
+.bg-brand-400 { background-color: var(--theme-brand-400) !important; }
+.border-brand-400 { border-color: var(--theme-brand-400) !important; }
+.text-brand-500 { color: var(--theme-brand-500) !important; }
+.bg-brand-500 { background-color: var(--theme-brand-500) !important; }
+.border-brand-500 { border-color: var(--theme-brand-500) !important; }
+.text-brand-600 { color: var(--theme-brand-600) !important; }
+.bg-brand-600 { background-color: var(--theme-brand-600) !important; }
+.border-brand-600 { border-color: var(--theme-brand-600) !important; }
+.text-brand-700 { color: var(--theme-brand-700) !important; }
+.bg-brand-700 { background-color: var(--theme-brand-700) !important; }
+.border-brand-700 { border-color: var(--theme-brand-700) !important; }
+.text-brand-800 { color: var(--theme-brand-800) !important; }
+.bg-brand-800 { background-color: var(--theme-brand-800) !important; }
+.border-brand-800 { border-color: var(--theme-brand-800) !important; }
+.text-brand-900 { color: var(--theme-brand-900) !important; }
+.bg-brand-900 { background-color: var(--theme-brand-900) !important; }
+.border-brand-900 { border-color: var(--theme-brand-900) !important; }
+.text-brand-950 { color: var(--theme-brand-950) !important; }
+.bg-brand-950 { background-color: var(--theme-brand-950) !important; }
+.border-brand-950 { border-color: var(--theme-brand-950) !important; }
+.bg-brand-50\/30 { background-color: color-mix(in srgb, var(--theme-brand-50) 30%, transparent) !important; }
+.bg-brand-50\/40 { background-color: color-mix(in srgb, var(--theme-brand-50) 40%, transparent) !important; }
+.bg-brand-50\/50 { background-color: color-mix(in srgb, var(--theme-brand-50) 50%, transparent) !important; }
+.hover\:bg-brand-50:hover { background-color: var(--theme-brand-50) !important; }
+.hover\:bg-brand-100:hover { background-color: var(--theme-brand-100) !important; }
+.hover\:bg-brand-200:hover { background-color: var(--theme-brand-200) !important; }
+.hover\:bg-brand-700:hover { background-color: var(--theme-brand-700) !important; }
+.hover\:bg-brand-50\/50:hover { background-color: color-mix(in srgb, var(--theme-brand-50) 50%, transparent) !important; }
+.hover\:border-brand-100:hover { border-color: var(--theme-brand-100) !important; }
+.hover\:border-brand-200:hover { border-color: var(--theme-brand-200) !important; }
+.hover\:border-brand-400:hover { border-color: var(--theme-brand-400) !important; }
+.hover\:border-brand-500:hover { border-color: var(--theme-brand-500) !important; }
+.hover\:text-brand-600:hover { color: var(--theme-brand-600) !important; }
+.hover\:text-brand-800:hover { color: var(--theme-brand-800) !important; }
+.focus\:border-brand-300:focus { border-color: var(--theme-brand-300) !important; }
+.focus\:border-brand-400:focus { border-color: var(--theme-brand-400) !important; }
+.focus\:border-brand-500:focus { border-color: var(--theme-brand-500) !important; }
+.text-plum-50 { color: var(--theme-plum-50) !important; }
+.bg-plum-50 { background-color: var(--theme-plum-50) !important; }
+.border-plum-50 { border-color: var(--theme-plum-50) !important; }
+.text-plum-100 { color: var(--theme-plum-100) !important; }
+.bg-plum-100 { background-color: var(--theme-plum-100) !important; }
+.border-plum-100 { border-color: var(--theme-plum-100) !important; }
+.text-plum-200 { color: var(--theme-plum-200) !important; }
+.bg-plum-200 { background-color: var(--theme-plum-200) !important; }
+.border-plum-200 { border-color: var(--theme-plum-200) !important; }
+.text-plum-300 { color: var(--theme-plum-300) !important; }
+.bg-plum-300 { background-color: var(--theme-plum-300) !important; }
+.border-plum-300 { border-color: var(--theme-plum-300) !important; }
+.text-plum-400 { color: var(--theme-plum-400) !important; }
+.bg-plum-400 { background-color: var(--theme-plum-400) !important; }
+.border-plum-400 { border-color: var(--theme-plum-400) !important; }
+.text-plum-500 { color: var(--theme-plum-500) !important; }
+.bg-plum-500 { background-color: var(--theme-plum-500) !important; }
+.border-plum-500 { border-color: var(--theme-plum-500) !important; }
+.text-plum-600 { color: var(--theme-plum-600) !important; }
+.bg-plum-600 { background-color: var(--theme-plum-600) !important; }
+.border-plum-600 { border-color: var(--theme-plum-600) !important; }
+.text-plum-700 { color: var(--theme-plum-700) !important; }
+.bg-plum-700 { background-color: var(--theme-plum-700) !important; }
+.border-plum-700 { border-color: var(--theme-plum-700) !important; }
+.text-plum-800 { color: var(--theme-plum-800) !important; }
+.bg-plum-800 { background-color: var(--theme-plum-800) !important; }
+.border-plum-800 { border-color: var(--theme-plum-800) !important; }
+.text-plum-900 { color: var(--theme-plum-900) !important; }
+.bg-plum-900 { background-color: var(--theme-plum-900) !important; }
+.border-plum-900 { border-color: var(--theme-plum-900) !important; }
+.text-plum-950 { color: var(--theme-plum-950) !important; }
+.bg-plum-950 { background-color: var(--theme-plum-950) !important; }
+.border-plum-950 { border-color: var(--theme-plum-950) !important; }
+.bg-plum-50\/50 { background-color: color-mix(in srgb, var(--theme-plum-50) 50%, transparent) !important; }
+.hover\:bg-plum-100:hover { background-color: var(--theme-plum-100) !important; }
+.hover\:bg-plum-200:hover { background-color: var(--theme-plum-200) !important; }
+.hover\:text-plum-800:hover { color: var(--theme-plum-800) !important; }
+.dark .dark\:bg-brand-900\/40 { background-color: color-mix(in srgb, var(--theme-brand-900) 40%, transparent) !important; }
+.dark .dark\:text-brand-300 { color: var(--theme-brand-300) !important; }
+.dark .dark\:bg-plum-900\/40 { background-color: color-mix(in srgb, var(--theme-plum-900) 40%, transparent) !important; }
+.dark .dark\:text-plum-300 { color: var(--theme-plum-300) !important; }
+
+/*
+ * Laptop-density pass. A 15px rem between 1024px and 1599px gives dense
+ * enterprise workspaces more usable room at browser 100%, while mobile keeps
+ * accessible 16px sizing and large monitors retain the full-size scale.
+ */
+@media (min-width: 1024px) and (max-width: 1599px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
