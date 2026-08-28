@@ -14,12 +14,10 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { DropdownSelect, type DropdownSelectOption } from '../components/ui/dropdown-select';
 import { Pagination } from '../components/ui/pagination';
-import { Tooltip } from '../components/ui/tooltip';
+import { ViewToggle, type CollectionViewMode } from '../components/ui/view-toggle';
 import {
   FileText,
   Loader2,
-  Grid2X2,
-  List,
   Search,
   SlidersHorizontal,
   Users,
@@ -28,9 +26,8 @@ import {
 
 type StatusFilter = 'all' | 'published' | 'draft';
 type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'submissions';
-type ViewMode = 'grid' | 'table';
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 10;
 const STATUS_OPTIONS: DropdownSelectOption<StatusFilter>[] = [
   { value: 'all', label: 'All status' },
   { value: 'published', label: 'Published' },
@@ -54,7 +51,7 @@ export default function FormsListPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [teamFilter, setTeamFilter] = useState<string>('all');
   const [sortOption, setSortOption] = useState<SortOption>('newest');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<CollectionViewMode>('grid');
   const [currentPage, setCurrentPage] = useState(1);
 
   const teamTree = useAppSelector((state) => state.teams.tree);
@@ -222,7 +219,6 @@ export default function FormsListPage() {
                     ariaLabel="Filter forms by team"
                     icon={<Users className="h-3.5 w-3.5" />}
                     className="w-full sm:w-40"
-                    menuClassName="sm:min-w-52"
                   />
                 )}
 
@@ -235,32 +231,11 @@ export default function FormsListPage() {
                   align="right"
                 />
 
-                <div className="col-span-2 flex h-9 items-center justify-self-end rounded-lg border border-border bg-card p-1 sm:col-auto" role="group" aria-label="Forms view">
-                  <Tooltip content="Grid view" side="top" tone="dark" delay="short">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('grid')}
-                      aria-label="Show forms in grid view"
-                      aria-pressed={viewMode === 'grid'}
-                      className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-semibold transition-colors ${viewMode === 'grid' ? 'bg-primary/[0.07] text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-                    >
-                      <Grid2X2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-                      Grid
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="List view" side="top" tone="light" delay="short">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('table')}
-                      aria-label="Show forms in list view"
-                      aria-pressed={viewMode === 'table'}
-                      className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[10px] font-semibold transition-colors ${viewMode === 'table' ? 'bg-primary/[0.07] text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-                    >
-                      <List className="h-3.5 w-3.5" strokeWidth={1.8} />
-                      List
-                    </button>
-                  </Tooltip>
-                </div>
+                <ViewToggle
+                  value={viewMode}
+                  onValueChange={setViewMode}
+                  className="col-span-2 justify-self-end sm:col-auto"
+                />
               </div>
             </div>
           )}

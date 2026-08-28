@@ -7,9 +7,11 @@ import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
 import CreateFormModal from '../components/forms/CreateFormModal';
 import FormWorkspaceCard from '../components/forms/FormWorkspaceCard';
+import FormWorkspaceTable from '../components/forms/FormWorkspaceTable';
 import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { ViewToggle, type CollectionViewMode } from '../components/ui/view-toggle';
 import {
   ArrowRight,
   BarChart3,
@@ -115,6 +117,7 @@ export default function DashboardPage() {
   const { currentOrg } = useAppSelector((state) => state.org);
   const { forms, isLoading } = useAppSelector((state) => state.forms);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [recentView, setRecentView] = useState<CollectionViewMode>('grid');
   const { can } = usePermissions();
   const canCreateForm = can(ACTIONS.CREATE_FORM);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
@@ -374,14 +377,16 @@ export default function DashboardPage() {
                 <h2 className="font-display text-lg font-bold tracking-tight text-foreground">Recent forms</h2>
                 <p className="mt-1 text-xs font-medium text-muted-foreground">Your {DASHBOARD_FORM_LIMIT} most recently updated forms</p>
               </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2">
+                <ViewToggle value={recentView} onValueChange={setRecentView} />
                 {canCreateForm && (
                   <Button
                     onClick={() => setShowCreateModal(true)}
-                    className="h-9 w-full rounded-lg sm:w-auto"
+                    className="h-9 rounded-lg px-3 sm:px-4"
                   >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Create Form
+                    <FileText className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">Create form</span>
+                    <span className="sm:hidden">Create</span>
                   </Button>
                 )}
               </div>
@@ -418,16 +423,24 @@ export default function DashboardPage() {
               </Card>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {recentForms.map((form) => (
-                    <FormWorkspaceCard
-                      key={form.id}
-                      form={form}
-                      orgSlug={currentOrg?.slug || 'default-org'}
-                      teamName={stats.teamBreakdown.find((team) => team.id === form.teamId)?.name}
-                    />
-                  ))}
-                </div>
+                {recentView === 'grid' ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    {recentForms.map((form) => (
+                      <FormWorkspaceCard
+                        key={form.id}
+                        form={form}
+                        orgSlug={currentOrg?.slug || 'default-org'}
+                        teamName={stats.teamBreakdown.find((team) => team.id === form.teamId)?.name}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <FormWorkspaceTable
+                    forms={recentForms}
+                    orgSlug={currentOrg?.slug || 'default-org'}
+                    getTeamName={(form) => stats.teamBreakdown.find((team) => team.id === form.teamId)?.name || 'No team'}
+                  />
+                )}
 
                 {/* View all link */}
                 {forms.length > DASHBOARD_FORM_LIMIT && (

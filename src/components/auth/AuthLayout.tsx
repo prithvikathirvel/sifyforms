@@ -8,27 +8,26 @@ interface AuthLayoutProps {
   contentClassName?: string;
 }
 
-/** Full-viewport, distraction-free shell shared by authentication pages. */
+/** Full-viewport authentication shell with a quiet, contextual route home. */
 export function AuthLayout({ children, contentClassName }: AuthLayoutProps) {
   return (
     <div className="public-shell flex min-h-[100dvh] flex-col overflow-x-hidden bg-background">
-      <nav className="flex w-full shrink-0 px-3 pt-3 sm:px-5 sm:pt-4 lg:px-8 xl:px-10 2xl:px-12" aria-label="Authentication navigation">
-        <Link
-          to="/"
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[11px] font-semibold text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-          Back to home
-        </Link>
-      </nav>
-
       <main
         className={cn(
-          'flex flex-1 items-center justify-center px-3 pb-3 pt-2 sm:px-5 sm:pb-5 sm:pt-3 lg:px-4 lg:pb-4',
+          'flex flex-1 items-center justify-center px-3 py-4 sm:px-5 sm:py-5 lg:px-4',
           contentClassName
         )}
       >
-        {children}
+        <div className="flex w-full flex-col items-center">
+          {children}
+          <Link
+            to="/"
+            className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
+            Back to SifyForms home
+          </Link>
+        </div>
       </main>
     </div>
   );
