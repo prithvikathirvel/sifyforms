@@ -130,7 +130,7 @@ export function TemplateSelectionContent({ onSelectTemplate, isSelecting = false
             placeholder="Search templates by name, purpose, or category…"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            className="h-10 w-full rounded-lg border border-input bg-card pl-9 pr-9 text-[13px] outline-none placeholder:text-muted-foreground focus:border-primary/35 focus:ring-2 focus:ring-primary/10"
+            className="h-10 w-full rounded-lg border border-input bg-card pl-9 pr-9 text-[13px] outline-none placeholder:text-muted-foreground focus:border-ink-400 focus:ring-4 focus:ring-primary/[0.06]"
           />
           {searchQuery && (
             <button

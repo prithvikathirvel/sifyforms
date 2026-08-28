@@ -44,6 +44,7 @@ const STEP_DESCRIPTION: Record<Step, string> = {
 };
 
 const slateCancelClass = 'border-ink-200 bg-ink-100 text-ink-700 hover:bg-ink-200 hover:text-ink-800';
+const modalFieldFocusClass = 'border-ink-200 focus-visible:border-ink-400 focus-visible:ring-4 focus-visible:ring-primary/[0.06] focus-visible:ring-offset-0';
 
 function flattenTeams(roots: TeamNode[]): TeamNode[] {
   const result: TeamNode[] = [];
@@ -101,6 +102,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   const goTo = (nextStep: Step) => {
     setActionError('');
     setJsonError('');
+    if (nextStep === 'json' && !formName.trim()) setFormNameLocal('Imported form');
     setStep(nextStep);
   };
 
@@ -362,6 +364,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
               placeholder="My registration form"
               value={formName}
               onChange={(event) => setFormNameLocal(event.target.value)}
+              className={modalFieldFocusClass}
             />
             <p className="text-[11px] font-medium text-muted-foreground">Choose a clear and descriptive name for your form.</p>
           </div>
@@ -375,7 +378,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
               placeholder="A brief description of your form"
               value={formDescription}
               onChange={(event) => setFormDescriptionLocal(event.target.value)}
-              className="min-h-[10rem] resize-y sm:min-h-[14rem]"
+              className={`min-h-[10rem] resize-y sm:min-h-[14rem] ${modalFieldFocusClass}`}
             />
           </div>
           <InlineError message={actionError} />
@@ -417,30 +420,40 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
       }}
     >
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-        <div className="mx-auto max-w-4xl space-y-4">
-          <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+        <div className="mx-auto max-w-4xl overflow-hidden rounded-xl border border-border bg-card">
+          <section className="p-4 sm:p-5">
             <div className="mb-4">
               <h3 className="font-display text-sm font-bold text-foreground">Import details</h3>
               <p className="mt-1 text-[11px] font-medium text-muted-foreground">Give the imported form a clear workspace name.</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="jsonFormName">Form name</Label>
+              <Label htmlFor="jsonFormName">
+                Form name <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="jsonFormName"
+                required
                 placeholder="Imported form"
                 value={formName}
                 onChange={(event) => setFormNameLocal(event.target.value)}
+                className={modalFieldFocusClass}
               />
+              <p className="text-[10px] font-medium text-muted-foreground">This name will help you identify the form in your workspace.</p>
             </div>
           </section>
 
-          <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="font-display text-sm font-bold text-foreground">JSON schema</h3>
-                <p className="mt-1 text-[11px] font-medium text-muted-foreground">Requires a top-level fields array.</p>
+          <section className="border-t border-border/70 p-4 sm:p-5">
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.05] text-primary">
+                  <Braces className="h-3.5 w-3.5" strokeWidth={1.8} />
+                </span>
+                <div>
+                  <h3 className="font-display text-sm font-bold text-foreground">JSON schema</h3>
+                  <p className="mt-1 text-[11px] font-medium text-muted-foreground">Requires a top-level fields array.</p>
+                </div>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={downloadTemplate} className="text-xs">
+              <Button type="button" variant="outline" size="sm" onClick={downloadTemplate} className="h-8 shrink-0 self-start text-[11px]">
                 <Download className="mr-1.5 h-3.5 w-3.5" />
                 Download example
               </Button>
@@ -449,21 +462,32 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
               id="jsonInput"
               autoFocus
               spellCheck={false}
-              placeholder={'{\n  "fields": [\n    { "id": "name", "type": "text", "label": "Full name" }\n  ]\n}'}
+              aria-label="JSON schema"
+              aria-describedby="json-validation-message"
+              placeholder={'{\n  "fields": [\n    {\n      "id": "name",\n      "type": "text",\n      "label": "Full name"\n    }\n  ]\n}'}
               value={jsonInput}
               onChange={(event) => {
                 setJsonInput(event.target.value);
                 setJsonError('');
               }}
-              className="scrollbar-compact min-h-[14rem] resize-y bg-ink-50/80 font-mono text-[12px] leading-5 text-ink-800 placeholder:text-ink-400 sm:min-h-[16rem]"
+              className={`scrollbar-compact h-[17rem] resize-none rounded-xl bg-ink-50/80 px-4 py-3 font-mono text-[12px] leading-5 text-ink-800 placeholder:text-ink-400 sm:h-[18rem] ${modalFieldFocusClass}`}
             />
-            {jsonError && <p className="mt-2 text-xs font-medium text-destructive">{jsonError}</p>}
+            <div
+              id="json-validation-message"
+              role={jsonError ? 'alert' : 'status'}
+              className={jsonError
+                ? 'mt-3 flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/[0.05] px-3 py-2.5 text-[11px] font-medium leading-4 text-destructive'
+                : 'mt-3 flex items-start gap-2 rounded-lg border border-sky-100 bg-sky-50/70 px-3 py-2.5 text-[11px] font-medium leading-4 text-ink-600'}
+            >
+              <Info className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${jsonError ? 'text-destructive' : 'text-sky-600'}`} strokeWidth={1.8} />
+              <p>{jsonError || 'Make sure your JSON is valid and includes a top-level "fields" array.'}</p>
+            </div>
           </section>
         </div>
       </div>
       <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-border/70 bg-ink-50/55 px-4 py-3 sm:flex-row sm:justify-end sm:px-6">
         <Button type="button" variant="outline" onClick={() => goTo('choose')} className={`w-full sm:w-auto ${slateCancelClass}`}>Cancel</Button>
-        <Button type="submit" disabled={!jsonInput.trim() || isLoading} className="w-full min-w-40 sm:w-auto">
+        <Button type="submit" disabled={!formName.trim() || !jsonInput.trim() || isLoading} className="w-full min-w-40 sm:w-auto">
           {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importing…</> : 'Import and create'}
         </Button>
       </footer>
@@ -473,7 +497,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && resetAndClose()}>
       <DialogContent
-        className={`flex max-w-5xl flex-col overflow-visible rounded-2xl border-border bg-card p-0 shadow-[0_24px_70px_rgba(15,23,42,0.2)] ${step === 'template' ? 'h-[min(46rem,92dvh)]' : step === 'choose' ? 'max-h-[92dvh]' : 'h-[min(40rem,92dvh)]'}`}
+        className={`flex max-w-5xl flex-col overflow-visible rounded-2xl border-border bg-card p-0 shadow-[0_24px_70px_rgba(15,23,42,0.2)] ${step === 'template' ? 'h-[min(46rem,92dvh)]' : step === 'json' ? 'h-[min(44rem,90dvh)]' : step === 'choose' ? 'max-h-[92dvh]' : 'h-[min(40rem,92dvh)]'}`}
         onClose={resetAndClose}
       >
         <DialogHeader className="shrink-0 border-b border-border/70 px-5 py-4 pr-14 sm:px-6 sm:py-5">

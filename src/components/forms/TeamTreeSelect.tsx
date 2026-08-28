@@ -188,7 +188,7 @@ export default function TeamTreeSelect({ teams, value, onChange, isLoading = fal
                 value={quickSearch}
                 onChange={(event) => setQuickSearch(event.target.value)}
                 placeholder="Search teams…"
-                className="h-8 w-full rounded-lg border border-input bg-background pl-9 pr-8 text-[11px] outline-none placeholder:text-muted-foreground focus:border-primary/35 focus:ring-2 focus:ring-primary/10"
+                className="h-8 w-full rounded-lg border border-input bg-background pl-9 pr-8 text-[11px] outline-none placeholder:text-muted-foreground focus:border-ink-400 focus:ring-4 focus:ring-primary/[0.06]"
               />
               {quickSearch && (
                 <button type="button" onClick={() => setQuickSearch('')} aria-label="Clear team search" className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
@@ -283,7 +283,7 @@ export default function TeamTreeSelect({ teams, value, onChange, isLoading = fal
                   value={browserSearch}
                   onChange={(event) => setBrowserSearch(event.target.value)}
                   placeholder="Search the complete team structure…"
-                  className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-9 text-[12px] outline-none placeholder:text-muted-foreground focus:border-primary/35 focus:ring-2 focus:ring-primary/10"
+                  className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-9 text-[12px] outline-none placeholder:text-muted-foreground focus:border-ink-400 focus:ring-4 focus:ring-primary/[0.06]"
                 />
                 {browserSearch && (
                   <button type="button" onClick={() => setBrowserSearch('')} aria-label="Clear full team search" className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">

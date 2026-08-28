@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { FileText, Loader2, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
+import {
+  ClipboardCheck,
+  FileText,
+  Info,
+  Loader2,
+  RotateCcw,
+  SlidersHorizontal,
+  Sparkles,
+  Wand2,
+} from 'lucide-react';
 import api from '../../lib/api';
 import type { FormField, FormSettings } from '../../types';
 import { Button } from '../ui/button';
@@ -25,6 +34,8 @@ function errorMessage(error: unknown) {
 }
 
 const cancelButtonClass = 'border-ink-200 bg-ink-100 text-ink-700 hover:bg-ink-200 hover:text-ink-800';
+const modalFieldFocusClass = 'border-ink-200 focus-visible:border-ink-400 focus-visible:ring-4 focus-visible:ring-primary/[0.06] focus-visible:ring-offset-0';
+const AI_PROMPT_MAX_LENGTH = 1000;
 
 /** Development-branch AI flow with a responsive body and fixed action footer. */
 export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFormCreationProps) {
@@ -81,20 +92,52 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFo
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         <div className="mx-auto max-w-4xl">
           {!generatedForm ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="ai-prompt">Describe your form in natural language</Label>
+            <div className="space-y-4 sm:space-y-5">
+              <div>
+                <Label htmlFor="ai-prompt" className="font-display text-base font-bold leading-6 text-foreground">
+                  Describe your form in natural language
+                </Label>
+                <p className="mt-1 text-xs font-medium text-muted-foreground">
+                  Tell us what information you want to collect and any rules or conditions.
+                </p>
+              </div>
+
+              <div className="relative">
                 <Textarea
                   id="ai-prompt"
                   autoFocus
-                  placeholder="I need a registration form for a tech conference that collects attendee name, email, company, ticket type, dietary restrictions, and accessibility needs…"
+                  maxLength={AI_PROMPT_MAX_LENGTH}
+                  aria-describedby="ai-prompt-guidance ai-prompt-count"
+                  placeholder="Example: I need a registration form for a tech conference that collects attendee name, email, company, ticket type, dietary restrictions, and accessibility needs..."
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
-                  className="min-h-[11rem] resize-y leading-5 sm:min-h-[16rem]"
+                  className={`min-h-[12rem] resize-none rounded-xl px-4 pb-9 pt-3.5 text-[13px] leading-5 placeholder:text-ink-400 sm:min-h-[15rem] ${modalFieldFocusClass}`}
                 />
-                <p className="text-[11px] font-medium text-muted-foreground">
-                  Be specific about the fields you need and any important requirements.
-                </p>
+                <span id="ai-prompt-count" className="pointer-events-none absolute bottom-3 right-3 rounded bg-card/90 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                  {prompt.length}/{AI_PROMPT_MAX_LENGTH}
+                </span>
+              </div>
+
+              <div id="ai-prompt-guidance" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                {[
+                  { icon: ClipboardCheck, title: 'Be specific', description: 'Mention all the fields you need' },
+                  { icon: FileText, title: 'Add context', description: 'Include the purpose and audience' },
+                  { icon: SlidersHorizontal, title: 'Set requirements', description: 'Add validation rules or conditions' },
+                  { icon: Sparkles, title: 'Better results', description: 'Clear input = better form output' },
+                ].map(({ icon: Icon, title, description }) => (
+                  <div key={title} className="rounded-lg border border-primary/[0.08] bg-primary/[0.025] px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={1.8} />
+                      <p className="text-[11px] font-semibold text-foreground">{title}</p>
+                    </div>
+                    <p className="mt-1 text-[10px] font-medium leading-4 text-muted-foreground">{description}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-start gap-2 rounded-lg border border-sky-100 bg-sky-50/70 px-3 py-2.5 text-[11px] font-medium leading-4 text-ink-600">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-600" strokeWidth={1.8} />
+                <p>The more details you provide, the more accurate and relevant your form will be.</p>
               </div>
 
               {generationError && (
@@ -105,7 +148,7 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFo
               )}
 
               {isGenerating && (
-                <div className="flex items-center justify-center gap-3 rounded-xl border border-border bg-ink-50/60 px-4 py-5">
+                <div className="flex items-center justify-center gap-3 rounded-xl border border-border bg-ink-50/60 px-4 py-4">
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/10 bg-card text-primary">
                     <Wand2 className="h-4 w-4" />
                   </span>
