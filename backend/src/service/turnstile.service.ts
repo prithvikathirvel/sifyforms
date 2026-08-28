@@ -46,7 +46,7 @@ function beginTokenVerification(hash: string): void {
     logger.warn('Turnstile local replay guard rejected submission', {
       tokenFingerprint: hash.slice(0, 12),
     });
-    throw createError(409, 'Security verification expired or was already used. Please try again.');
+    throw createError(409, 'Your session has expired. Please reload the page and try again.');
   }
   inFlightTokenHashes.add(hash);
 }
@@ -75,7 +75,7 @@ export function assertTurnstileVerification(
   if (!result.success) {
     const codes = result['error-codes'] ?? [];
     if (codes.includes('timeout-or-duplicate')) {
-      throw createError(409, 'Security verification expired or was already used. Please try again.');
+      throw createError(409, 'Your request was unambiguous. Please reload the page and try again.');
     }
     throw createError(400, 'Security verification failed. Please refresh and try again.');
   }
