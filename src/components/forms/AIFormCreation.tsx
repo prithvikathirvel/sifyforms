@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import {
   ArrowLeft,
-  Check,
   FileText,
-  Lightbulb,
   Loader2,
   RotateCcw,
   Sparkles,
@@ -91,57 +89,35 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId, teamNa
       </Button>
 
       {!generatedForm ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(16rem,0.65fr)]">
-          <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
-            <div className="mb-4 flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.06] text-primary">
-                <Wand2 className="h-4 w-4" strokeWidth={1.8} />
-              </span>
-              <div>
-                <h3 className="font-display text-sm font-bold text-foreground">Describe the form</h3>
-                <p className="mt-1 text-[11px] font-medium text-muted-foreground">Include the audience, fields, and any important rules.</p>
-              </div>
-            </div>
-            <Label htmlFor="ai-prompt">Form requirements</Label>
-            <Textarea
-              id="ai-prompt"
-              autoFocus
-              placeholder="Create an event registration form that collects attendee name, work email, company, ticket type, dietary requirements, and accessibility needs…"
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              className="mt-1.5 min-h-[11rem] resize-y leading-5"
-            />
-            <div className="mt-4 flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[10px] font-medium text-muted-foreground">
-                Form owner: <span className="font-semibold text-foreground">{teamName || 'Default team'}</span>
-              </p>
-              <Button type="button" onClick={() => void handleGenerateForm()} disabled={!prompt.trim() || isGenerating} className="min-w-40">
-                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                {isGenerating ? 'Generating…' : 'Generate form'}
-              </Button>
-            </div>
-          </section>
-
-          <aside className="rounded-xl border border-border bg-ink-50/55 p-4">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-primary">
-              <Lightbulb className="h-4 w-4" strokeWidth={1.8} />
+        <section className="mx-auto max-w-3xl rounded-xl border border-border bg-card p-4 sm:p-5">
+          <div className="mb-4 flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.06] text-primary">
+              <Wand2 className="h-4 w-4" strokeWidth={1.8} />
             </span>
-            <h3 className="mt-3 font-display text-[13px] font-bold text-foreground">For a stronger first draft</h3>
-            <ul className="mt-3 space-y-2.5 text-[11px] font-medium leading-4 text-muted-foreground">
-              {[
-                'Say who will complete the form.',
-                'List the information you need to collect.',
-                'Mention required fields and conditional rules.',
-                'Include the intended confirmation message.',
-              ].map((tip) => (
-                <li key={tip} className="flex gap-2">
-                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                  <span>{tip}</span>
-                </li>
-              ))}
-            </ul>
-          </aside>
-        </div>
+            <div>
+              <h3 className="font-display text-sm font-bold text-foreground">Describe the form</h3>
+              <p className="mt-1 text-[11px] font-medium text-muted-foreground">Include the audience, fields, and important rules in one clear request.</p>
+            </div>
+          </div>
+          <Label htmlFor="ai-prompt">Form requirements</Label>
+          <Textarea
+            id="ai-prompt"
+            autoFocus
+            placeholder="Create an event registration form that collects attendee name, work email, company, ticket type, dietary requirements, and accessibility needs…"
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            className="mt-1.5 min-h-[9rem] resize-y leading-5"
+          />
+          <div className="mt-4 flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[10px] font-medium text-muted-foreground">
+              Form owner: <span className="font-semibold text-foreground">{teamName || 'Default team'}</span>
+            </p>
+            <Button type="button" onClick={() => void handleGenerateForm()} disabled={!prompt.trim() || isGenerating} className="min-w-40">
+              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              {isGenerating ? 'Generating…' : 'Generate form'}
+            </Button>
+          </div>
+        </section>
       ) : (
         <div className="space-y-4">
           <section className="rounded-xl border border-border bg-card">
@@ -170,7 +146,7 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId, teamNa
                   {generatedForm.form.fields.length} field{generatedForm.form.fields.length === 1 ? '' : 's'}
                 </span>
               </div>
-              <div className="max-h-72 overflow-y-auto rounded-lg border border-border">
+              <div className="scrollbar-compact max-h-72 overflow-y-auto rounded-lg border border-border">
                 {generatedForm.form.fields.map((field, index) => (
                   <div key={field.id || index} className="flex items-center gap-3 border-b border-border/60 px-3 py-2.5 last:border-b-0">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink-50 text-[10px] font-bold tabular-nums text-ink-500">

@@ -197,7 +197,7 @@ export default function TeamTreeSelect({ teams, value, onChange, isLoading = fal
             )}
           </div>
 
-          <div role="listbox" aria-label="Teams" className="max-h-72 overflow-auto overscroll-contain p-1.5">
+          <div role="listbox" aria-label="Teams" className="scrollbar-compact max-h-72 overflow-auto overscroll-contain p-1.5">
             {normalizedSearch ? (
               searchRows.length > 0 ? (
                 <div className="space-y-0.5">

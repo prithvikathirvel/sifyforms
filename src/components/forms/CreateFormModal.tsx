@@ -7,11 +7,9 @@ import {
   CircleAlert,
   Download,
   FilePlus2,
-  FileText,
   Info,
   LayoutTemplate,
   Loader2,
-  UsersRound,
   Wand2,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
@@ -281,19 +279,9 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   };
 
   const renderTeamPicker = () => (
-    <section className="rounded-xl border border-border/80 bg-ink-50/55 p-3.5 sm:p-4" aria-labelledby="form-team-label">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,1.2fr)] lg:items-center">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-card text-primary ring-1 ring-border">
-              <UsersRound className="h-3.5 w-3.5" strokeWidth={1.8} />
-            </span>
-            <Label id="form-team-label" htmlFor="formTeam">Owning team</Label>
-          </div>
-          <p className="mt-1.5 max-w-md text-[11px] font-medium leading-4 text-muted-foreground">
-            This team and its parent teams inherit access to the form and responses.
-          </p>
-        </div>
+    <section className="rounded-xl border border-primary/[0.08] bg-primary/[0.018] p-3.5 sm:p-4" aria-labelledby="form-team-label">
+      <Label id="form-team-label" htmlFor="formTeam">Team</Label>
+      <div className="mt-2 w-full sm:max-w-xl">
         <TeamTreeSelect
           teams={teamTree}
           value={effectiveTeamId}
@@ -301,6 +289,9 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
           isLoading={teamsLoading}
         />
       </div>
+      <p className="mt-2.5 text-[11px] font-medium leading-4 text-muted-foreground">
+        This team, and the teams above it, can edit the form and see its responses.
+      </p>
     </section>
   );
 
@@ -354,67 +345,48 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
 
   const renderScratchStep = () => (
     <form
-      className="space-y-4"
+      className="mx-auto max-w-2xl space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
         void handleCreateFromScratch();
       }}
     >
       <StepBack onClick={() => goTo('choose')} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(16rem,0.65fr)]">
-        <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <div className="mb-4">
-            <h3 className="font-display text-sm font-bold text-foreground">Form details</h3>
-            <p className="mt-1 text-[11px] font-medium text-muted-foreground">You can change these details later in the builder.</p>
+      <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+        <div className="mb-4">
+          <h3 className="font-display text-sm font-bold text-foreground">Form details</h3>
+          <p className="mt-1 text-[11px] font-medium text-muted-foreground">Start with the essentials. Everything remains editable in the builder.</p>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="formName">Form name</Label>
+            <Input
+              id="formName"
+              autoFocus
+              required
+              placeholder="e.g. Event registration"
+              value={formName}
+              onChange={(event) => setFormNameLocal(event.target.value)}
+            />
           </div>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="formName">Form name</Label>
-              <Input
-                id="formName"
-                autoFocus
-                required
-                placeholder="e.g. Event registration"
-                value={formName}
-                onChange={(event) => setFormNameLocal(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="formDescription">Description <span className="font-medium text-muted-foreground">(optional)</span></Label>
-              <Textarea
-                id="formDescription"
-                rows={4}
-                placeholder="What will this form be used for?"
-                value={formDescription}
-                onChange={(event) => setFormDescriptionLocal(event.target.value)}
-                className="resize-none"
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="formDescription">Description <span className="font-medium text-muted-foreground">(optional)</span></Label>
+            <Textarea
+              id="formDescription"
+              rows={4}
+              placeholder="A brief description of your form"
+              value={formDescription}
+              onChange={(event) => setFormDescriptionLocal(event.target.value)}
+              className="resize-none"
+            />
           </div>
-        </section>
-
-        <aside className="rounded-xl border border-border bg-ink-50/55 p-4">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-primary">
-            <FileText className="h-4 w-4" strokeWidth={1.8} />
-          </span>
-          <h3 className="mt-3 font-display text-[13px] font-bold text-foreground">Clean starting canvas</h3>
-          <p className="mt-1.5 text-[11px] font-medium leading-5 text-muted-foreground">
-            The builder opens with an empty single-page layout. Add fields, rules, branding, and publishing settings there.
-          </p>
-          <div className="mt-4 border-t border-border/70 pt-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Owning team</p>
-            <p className="mt-1 text-xs font-semibold text-foreground">{selectedTeam?.name || 'Default team'}</p>
-          </div>
-        </aside>
-      </div>
+        </div>
+      </section>
       <InlineError message={actionError} />
-      <div className="flex justify-end gap-2 border-t border-border/70 pt-4">
-        <Button type="button" variant="outline" onClick={() => goTo('choose')}>Cancel</Button>
-        <Button type="submit" disabled={!formName.trim() || isLoading} className="min-w-32">
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-          {isLoading ? 'Creating…' : 'Create form'}
-        </Button>
-      </div>
+      <Button type="submit" disabled={!formName.trim() || isLoading} className="w-full">
+        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+        {isLoading ? 'Creating…' : 'Create form'}
+      </Button>
     </form>
   );
 
@@ -436,54 +408,29 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
 
   const renderJsonStep = () => (
     <form
-      className="space-y-4"
+      className="mx-auto max-w-2xl space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
         void handleImportJson();
       }}
     >
       <StepBack onClick={() => goTo('choose')} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(15rem,0.68fr)_minmax(0,1.32fr)]">
-        <section className="space-y-4 rounded-xl border border-border bg-card p-4">
-          <div>
-            <h3 className="font-display text-sm font-bold text-foreground">Import details</h3>
-            <p className="mt-1 text-[11px] font-medium leading-4 text-muted-foreground">Give the imported form a clear workspace name.</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="jsonFormName">Form name</Label>
-            <Input
-              id="jsonFormName"
-              placeholder="Imported form"
-              value={formName}
-              onChange={(event) => setFormNameLocal(event.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="jsonFormDescription">Description <span className="font-medium text-muted-foreground">(optional)</span></Label>
-            <Textarea
-              id="jsonFormDescription"
-              rows={3}
-              placeholder="Purpose of this form"
-              value={formDescription}
-              onChange={(event) => setFormDescriptionLocal(event.target.value)}
-              className="resize-none"
-            />
-          </div>
-          <div className="rounded-lg border border-border/70 bg-ink-50/60 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Owning team</p>
-            <p className="mt-1 text-xs font-semibold text-foreground">{selectedTeam?.name || 'Default team'}</p>
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-border bg-card p-4">
-          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <Label htmlFor="jsonInput">JSON schema</Label>
-              <p className="mt-1 text-[10px] font-medium text-muted-foreground">Requires a top-level fields array.</p>
-            </div>
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="jsonFormName">Form name</Label>
+          <Input
+            id="jsonFormName"
+            placeholder="Imported form"
+            value={formName}
+            onChange={(event) => setFormNameLocal(event.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label htmlFor="jsonInput">JSON schema</Label>
             <Button type="button" variant="outline" size="sm" onClick={downloadTemplate} className="h-8 text-[11px]">
               <Download className="mr-1.5 h-3.5 w-3.5" />
-              Download example
+              Download template
             </Button>
           </div>
           <Textarea
@@ -496,16 +443,13 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
               setJsonInput(event.target.value);
               setJsonError('');
             }}
-            className="min-h-[18rem] resize-y bg-ink-50/80 font-mono text-[12px] leading-5 text-ink-800 placeholder:text-ink-400 focus-visible:ring-primary/20"
+            className="scrollbar-compact min-h-[13rem] resize-y font-mono text-[12px] leading-5"
           />
           {jsonError && <InlineError message={jsonError} />}
-        </section>
-      </div>
-      <div className="flex justify-end gap-2 border-t border-border/70 pt-4">
-        <Button type="button" variant="outline" onClick={() => goTo('choose')}>Cancel</Button>
-        <Button type="submit" disabled={!jsonInput.trim() || isLoading} className="min-w-40">
+        </div>
+        <Button type="submit" disabled={!jsonInput.trim() || isLoading} className="w-full">
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Braces className="mr-2 h-4 w-4" />}
-          {isLoading ? 'Importing…' : 'Import and create'}
+          {isLoading ? 'Importing…' : 'Import and create form'}
         </Button>
       </div>
     </form>
@@ -529,7 +473,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5">
+        <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5">
           {step === 'choose' && renderChooseStep()}
           {step === 'scratch' && renderScratchStep()}
           {step === 'template' && renderTemplateStep()}

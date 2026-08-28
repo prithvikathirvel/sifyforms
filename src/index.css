@@ -257,6 +257,65 @@
     -webkit-mask-image: linear-gradient(to bottom, black, transparent 82%);
     mask-image: linear-gradient(to bottom, black, transparent 82%);
   }
+
+  /* Quiet workspace scrollbar for modal bodies and longer content regions. */
+  .scrollbar-subtle {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar-thumb {
+    min-height: 40px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.18);
+    background-clip: padding-box;
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--primary) / 0.32);
+  }
+
+  /* Narrow variant for tree menus, code editors, and horizontal filter rails. */
+  .scrollbar-compact {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.2) transparent;
+  }
+
+  .scrollbar-compact::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  .scrollbar-compact::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-compact::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.2);
+    background-clip: padding-box;
+  }
+
+  .scrollbar-compact::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--primary) / 0.34);
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar-corner,
+  .scrollbar-compact::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 /*

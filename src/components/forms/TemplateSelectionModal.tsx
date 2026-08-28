@@ -168,7 +168,7 @@ export function TemplateSelectionContent({ onSelectTemplate, isSelecting = false
       </div>
 
       {categories.length > 1 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Template categories">
+        <div className="scrollbar-compact flex gap-1.5 overflow-x-auto pb-1.5" aria-label="Template categories">
           <button
             type="button"
             onClick={() => setCategoryFilter('all')}
@@ -334,7 +334,7 @@ export function TemplateSelectionModal({ isOpen, onClose, onSelectTemplate }: Te
             </div>
           </div>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           <TemplateSelectionContent onSelectTemplate={(template) => {
             onSelectTemplate(template);
             onClose();
