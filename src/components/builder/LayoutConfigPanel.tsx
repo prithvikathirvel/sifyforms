@@ -194,7 +194,7 @@ export default function LayoutConfigPanel({
       {/* ── Back navigation (multi-step only) ─────────────────── */}
       {isMultiStep && (
         <section>
-          <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3.5">
+                      <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3.5">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">Allow going back</p>
               <p className="mt-0.5 text-xs text-muted-foreground">Respondents can return to previous steps.</p>
@@ -205,14 +205,14 @@ export default function LayoutConfigPanel({
               aria-checked={layout.allowBackNavigation !== false}
               onClick={() => onUpdateLayout({ allowBackNavigation: layout.allowBackNavigation === false })}
               className={cn(
-                'relative h-6 w-11 shrink-0 rounded-full transition-colors',
+                'relative h-6 w-11 shrink-0 rounded-full transition-colors overflow-hidden',
                 layout.allowBackNavigation !== false ? 'bg-primary' : 'bg-muted'
               )}
             >
               <span
                 className={cn(
                   'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-                  layout.allowBackNavigation !== false ? 'translate-x-[22px]' : 'translate-x-0.5'
+                  layout.allowBackNavigation !== false ? 'translate-x-[20px]' : 'translate-x-0.5'
                 )}
               />
             </button>
@@ -309,14 +309,14 @@ export default function LayoutConfigPanel({
                           aria-checked={step.lockOnComplete === true}
                           onClick={() => onUpdateStep(step.id, { lockOnComplete: step.lockOnComplete !== true })}
                           className={cn(
-                            'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+                            'relative h-5 w-9 shrink-0 rounded-full transition-colors overflow-hidden',
                             step.lockOnComplete === true ? 'bg-amber-500' : 'bg-muted'
                           )}
                         >
                           <span
                             className={cn(
                               'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
-                              step.lockOnComplete === true ? 'translate-x-[18px]' : 'translate-x-0.5'
+                              step.lockOnComplete === true ? 'translate-x-[16px]' : 'translate-x-0.5'
                             )}
                           />
                         </button>
@@ -337,30 +337,44 @@ export default function LayoutConfigPanel({
                               const otherStep = !checked
                                 ? steps.find((s) => s.id !== step.id && s.fieldIds.includes(field.id))
                                 : undefined;
+                              const isAssignedToOtherStep = !!otherStep;
+
                               return (
                                 <label
                                   key={field.id}
                                   className={cn(
                                     'flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted/50',
-                                    checked && 'bg-primary/[0.04]'
+                                    checked && 'bg-primary/[0.04]',
+                                    isAssignedToOtherStep && 'cursor-not-allowed opacity-60'
                                   )}
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={(e) => {
-                                      const newIds = e.target.checked
-                                        ? [...step.fieldIds, field.id]
-                                        : step.fieldIds.filter((id) => id !== field.id);
-                                      onAssignFieldsToStep(step.id, newIds);
-                                    }}
-                                    className="h-4 w-4 rounded border-primary"
-                                  />
+                                  {!isAssignedToOtherStep ? (
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={(e) => {
+                                        const newIds = e.target.checked
+                                          ? [...step.fieldIds, field.id]
+                                          : step.fieldIds.filter((id) => id !== field.id);
+                                        onAssignFieldsToStep(step.id, newIds);
+                                      }}
+                                      className="h-4 w-4 rounded border-primary"
+                                    />
+                                  ) : (
+                                    <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 flex items-center gap-1">
+                                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <path d="M17 8l-5-5-5 5"/>
+                                        <path d="M12 3v12"/>
+                                      </svg>
+                                      Allocated
+                                    </span>
+                                  )}
                                   <span className="min-w-0 flex-1 truncate">{field.label || 'Untitled field'}</span>
                                   <span className="shrink-0 text-[10px] font-medium uppercase text-muted-foreground">{field.type}</span>
                                   {otherStep && (
                                     <span className="shrink-0 rounded bg-ink-100 px-1.5 py-0.5 text-[9px] font-semibold text-ink-600">
-                                      {otherStep.title || `Step ${otherStep.order + 1}`}
+                                      Step {otherStep.order + 1}
                                     </span>
                                   )}
                                 </label>

@@ -28,9 +28,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import FieldPalette from '../components/builder/FieldPalette';
 import SortableField from '../components/builder/SortableField';
 import FieldInspector from '../components/builder/FieldInspector';
-import LayoutModal from '../components/builder/LayoutModal';
-import SettingsModal from '../components/builder/SettingsModal';
-import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Plus } from 'lucide-react';
+
+import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Plus, SlidersHorizontal } from 'lucide-react';
 import type { FormField } from '../types';
 import { cn } from '../lib/utils';
 import FormPreview from '../components/builder/FormPreview';
@@ -209,8 +208,6 @@ export default function FormBuilderPage() {
   const [showNamingDialog, setShowNamingDialog] = useState<'duplicate' | 'template' | null>(null);
   const [newName, setNewName] = useState('');
   const [isProcessingAction, setIsProcessingAction] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showLayout, setShowLayout] = useState(false);
   const [copied, setCopied] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [mode, setMode] = useState<EditorMode>('canvas');
@@ -921,22 +918,11 @@ export default function FormBuilderPage() {
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0"
-              onClick={() => setShowSettings(true)}
-              title="Form Settings"
-              aria-label="Form Settings"
+              onClick={() => navigate(`/forms/${formId}/settings`)}
+              title="Settings"
+              aria-label="Settings"
             >
               <Settings className="h-3.5 w-3.5" strokeWidth={1.8} />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => setShowLayout(true)}
-              title="Layout"
-              aria-label="Layout"
-            >
-              <Layout className="h-3.5 w-3.5" strokeWidth={1.8} />
             </Button>
 
             <div className="relative group">
@@ -1168,6 +1154,34 @@ export default function FormBuilderPage() {
       {/* Main Content */}
       {mode === 'preview' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* Preview header bar */}
+          <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border/70 bg-card px-4 py-2">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setMode('canvas')}
+                title="Back to canvas"
+                aria-label="Back to canvas"
+              >
+                <Layout className="h-3.5 w-3.5" strokeWidth={1.8} />
+              </Button>
+              <span className="text-[12px] font-medium text-muted-foreground">Preview</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => navigate(`/forms/${formId}/settings`)}
+                title="Settings"
+                aria-label="Settings"
+              >
+                <Settings className="h-3.5 w-3.5" strokeWidth={1.8} />
+              </Button>
+            </div>
+          </div>
           <FormPreview
             schema={builder.schema}
             settings={builder.settings}
@@ -1282,11 +1296,7 @@ export default function FormBuilderPage() {
         </div>
       )}
 
-      {/* Layout Modal */}
-      <LayoutModal open={showLayout} onClose={() => setShowLayout(false)} />
 
-      {/* Settings Modal */}
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} formId={formId} />
     </div>
   );
 }

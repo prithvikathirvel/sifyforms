@@ -24,14 +24,14 @@ import RolesPage from './pages/RolesPage';
 import RequirePermission from './components/layout/RequirePermission';
 import UpdateProfilePage from './pages/UpdateProfilePage';
 
-// Token only — used for /org/setup
+// Token only ï¿½ used for /org/setup
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAppSelector((state) => state.auth);
   if (!token) return <Navigate to="/auth/login" replace />;
   return <>{children}</>;
 }
 
-// Token + org — used for all pages that need an org
+// Token + org ï¿½ used for all pages that need an org
 function OrgRoute({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
   const { token, user } = useAppSelector((state) => state.auth);
@@ -77,13 +77,14 @@ function App() {
           <Route path="/auth/login" element={<LoginPage />} />
           <Route path="/auth/signup" element={<SignupPage />} />
 
-          {/* Protected routes — token only */}
+          {/* Protected routes ï¿½ token only */}
           <Route path="/org/setup" element={<ProtectedRoute><OrgSetupPage /></ProtectedRoute>} />
 
-          {/* Org routes — token + org required */}
+          {/* Org routes ï¿½ token + org required */}
           <Route path="/dashboard" element={<OrgRoute><DashboardPage /></OrgRoute>} />
           <Route path="/forms" element={<OrgRoute><FormsListPage /></OrgRoute>} />
           <Route path="/forms/:formId/edit" element={<OrgRoute><FormBuilderPage /></OrgRoute>} />
+          <Route path="/forms/:formId/settings" element={<OrgRoute><FormSettingsPage /></OrgRoute>} />
           <Route path="/forms/:formId/submissions" element={<OrgRoute><SubmissionsPage /></OrgRoute>} />
           <Route path="/members" element={<OrgRoute><RequirePermission action="VIEW_MEMBERS" label="Members"><MembersPage /></RequirePermission></OrgRoute>} />
           <Route path="/teams" element={<OrgRoute><RequirePermission action="VIEW_TEAM" label="Teams"><TeamsPage /></RequirePermission></OrgRoute>} />
