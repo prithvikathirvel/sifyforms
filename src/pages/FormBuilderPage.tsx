@@ -223,8 +223,8 @@ export default function FormBuilderPage() {
   const [showLayout, setShowLayout] = useState(false);
   const [copied, setCopied] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
-  const [isPaletteOpen, setIsPaletteOpen] = useState(true);
-  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 1100);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 1280);
   const [canvasView, setCanvasView] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // AI modal state for global form editing
