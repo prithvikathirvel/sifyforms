@@ -945,6 +945,12 @@ export interface BuilderState {
   layout: FormLayout;
   /** AI session identifier used by the backend to maintain conversation state */
   aiSessionId?: string | null;
+  /**
+   * UI-only canvas orientation — 'vertical' (Google Forms-like, centered narrow
+   * column) or 'horizontal' (occupies the full horizontal screen). Pure editor
+   * presentation state; never persisted to the backend schema.
+   */
+  orientation: 'vertical' | 'horizontal';
 }
 
 // Response returned when editing an existing form via the AI endpoint

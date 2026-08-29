@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
 import { fetchForm, updateForm, publishForm, duplicateForm, saveFormAsTemplate } from '../store/formsSlice';
 import {
@@ -16,6 +16,7 @@ import {
   moveFieldToStep,
   updateLayout,
   setLayoutMode,
+  setOrientation,
   addStep,
   removeStep,
   updateStep,
@@ -36,14 +37,12 @@ import SortableField from '../components/builder/SortableField';
 import FieldInspector from '../components/builder/FieldInspector';
 import LayoutConfigPanel from '../components/builder/LayoutConfigPanel';
 import { SettingsPanel } from '../components/builder/SettingsModal';
-import InteractivePreview from '../components/builder/InteractivePreview';
 import type { FormSchema, FormLayout, FormField } from '../types';
 import { cn } from '../lib/utils';
 import {
-  ArrowLeft, ChevronRight, Save, Loader2, Download, MoreVertical, Copy,
+  ArrowLeft, Save, Loader2, Download, MoreVertical, Copy,
   Globe, Check, Wand2, PenLine, Eye, Undo2, Redo2,
-  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-  Layout, Settings, MousePointerClick, CircleDot, Plus, Rows3,
+  Layout, Settings, MousePointerClick, CircleDot, Library, Rows3,
   X, AlertTriangle,
 } from 'lucide-react';
 
@@ -224,25 +223,22 @@ export default function FormBuilderPage() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAISubmitting, setIsAISubmitting] = useState(false);
 
-  // Canvas presentation mode (pure UI — does not affect logic or data)
-  const [canvasMode, setCanvasMode] = useState<'edit' | 'preview'>('edit');
   // Workspace view — Build (canvas) / Layout / Settings. Pure navigation.
   const [workspace, setWorkspace] = useState<'build' | 'layout' | 'settings'>('build');
-  // Responsive panel toggles (persisted per session, UI only)
-  const [showPalette, setShowPalette] = useState(true);
-  const [showInspector, setShowInspector] = useState(true);
-  const [isNarrow, setIsNarrow] = useState(false);
-  const [showPaletteOverlay, setShowPaletteOverlay] = useState(false);
-  const [showInspectorOverlay, setShowInspectorOverlay] = useState(false);
+  // Floating field-library popover (Build only).
+  const [showLibrary, setShowLibrary] = useState(false);
+  // First-time layout choice (Vertical / Horizontal) for a brand-new empty form.
+  const [showOrientationDialog, setShowOrientationDialog] = useState(false);
+  const orientationPromptedRef = useRef(false);
 
-  // Detect narrow screens to auto-collapse panels into slide-overs
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1100px)');
-    const update = () => setIsNarrow(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
+    if (currentForm && !orientationPromptedRef.current) {
+      orientationPromptedRef.current = true;
+      if ((currentForm.schema.fields?.length ?? 0) === 0) {
+        setShowOrientationDialog(true);
+      }
+    }
+  }, [currentForm]);
 
   const handleDuplicateField = (fieldId: string) => {
     const source = builder.schema.fields.find((f) => f.id === fieldId);
@@ -874,60 +870,56 @@ export default function FormBuilderPage() {
 
   const selectedField = builder.schema.fields.find((f) => f.id === builder.selectedFieldId);
 
+  // Published form URL (only relevant once the form is live). The header shows
+  // a small eye icon that jumps to this when published — there is no separate
+  // "Preview" button because the canvas IS the live preview.
+  const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+  const publishedFormUrl =
+    currentForm.isPublished && currentForm.slug
+      ? `${BASE_URL}/${currentOrg?.slug || 'default-org'}/${currentForm.slug}`
+      : null;
+
+  const isHorizontal = builder.orientation === 'horizontal';
+
   return (
     <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
       {/* Header */}
       <header className="z-20 border-b border-border bg-background/95 backdrop-blur">
-        <div className="flex h-[52px] items-center justify-between gap-3 px-3">
-          {/* Left: breadcrumb + name */}
-          <div className="flex min-w-0 items-center gap-1.5">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} aria-label="Back to dashboard" className="h-8 w-8 p-0">
+        <div className="flex h-[56px] items-center justify-between gap-3 px-4">
+          {/* Left: back + transparent title input */}
+          <div className="flex min-w-0 items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} aria-label="Back to dashboard" className="h-8 w-8 shrink-0 p-0">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="flex min-w-0 items-center gap-1 text-[12px] text-muted-foreground">
-              <Link to="/forms" className="whitespace-nowrap rounded px-1 py-0.5 hover:bg-muted hover:text-foreground">
-                Forms
-              </Link>
-              <ChevronRight className="h-3 w-3 shrink-0" />
-              <input
-                value={builder.formName}
-                onChange={(e) => dispatch(setFormName(e.target.value))}
-                placeholder="Untitled form"
-                aria-label="Form name"
-                className="w-40 max-w-[200px] rounded border-transparent bg-transparent px-1 py-0.5 font-medium text-foreground outline-none transition-colors hover:border-border focus:border-input focus:bg-background"
-              />
-              <ChevronRight className="h-3 w-3 shrink-0" />
-              <span className="whitespace-nowrap font-medium text-foreground">
-                {workspace === 'build' ? 'Build' : workspace === 'layout' ? 'Layout' : 'Settings'}
+            <input
+              value={builder.formName}
+              onChange={(e) => dispatch(setFormName(e.target.value))}
+              placeholder="Untitled form"
+              aria-label="Form name"
+              className="min-w-0 max-w-[420px] flex-1 truncate border-none bg-transparent px-1 py-1 text-[16px] font-semibold text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            {builder.unsavedChanges && (
+              <span className="hidden shrink-0 rounded-full bg-amber-500/10 px-2 py-px text-[10px] font-medium text-amber-700 sm:inline">
+                Unsaved
               </span>
-            </div>
-            <div className="mx-1 h-5 w-px bg-border" />
-            <div className="flex items-center gap-1.5">
-              <span className="hidden rounded-full bg-muted px-2 py-px text-[10px] font-medium text-muted-foreground sm:inline">
-                {builder.schema.fields.length} field{builder.schema.fields.length !== 1 ? 's' : ''}
-              </span>
-              {builder.unsavedChanges && (
-                <span className="rounded-full bg-amber-500/10 px-2 py-px text-[10px] font-medium text-amber-700">Unsaved</span>
-              )}
-              {currentForm.isPublished && (
-                <span className="rounded-full bg-emerald-500/10 px-2 py-px text-[10px] font-medium text-emerald-700">Published</span>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Right: actions */}
-          <div className="flex items-center gap-1">
-            {/* Undo / Redo */}
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleUndo} disabled={undoStack.current.length === 0} aria-label="Undo" title="Undo">
-              <Undo2 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleRedo} disabled={redoStack.current.length === 0} aria-label="Redo" title="Redo">
-              <Redo2 className="h-4 w-4" />
-            </Button>
+          {/* Right: AI · Save · Publish (+ eye when published) */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {publishedFormUrl && (
+              <a
+                href={publishedFormUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="View published form"
+                aria-label="View published form"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-emerald-700"
+              >
+                <Eye className="h-4 w-4" />
+              </a>
+            )}
 
-            <div className="mx-1 h-5 w-px bg-border" />
-
-            {/* AI assist */}
             <Button
               variant="ghost"
               size="sm"
@@ -938,48 +930,6 @@ export default function FormBuilderPage() {
               <Wand2 className="h-4 w-4 text-brand-600" />
               <span className="hidden md:inline">AI</span>
             </Button>
-
-            {/* Preview */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCanvasMode('preview')}
-              className="h-8 gap-1.5 px-2.5 text-[13px]"
-              title="Preview form"
-            >
-              <Eye className="h-4 w-4" />
-              <span className="hidden sm:inline">Preview</span>
-            </Button>
-
-            {/* More actions */}
-            <div className="relative">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="More actions">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-              <details className="group absolute right-0 top-full mt-1 z-50">
-                <summary className="hidden" />
-                <div className="w-52 rounded-lg border border-border bg-background p-1 shadow-lg">
-                  <button
-                    onClick={() => { setNewName(`${builder.formName} (Copy)`); setShowNamingDialog('duplicate'); }}
-                    className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
-                  >
-                    <Copy className="h-4 w-4 text-muted-foreground" /> Duplicate form
-                  </button>
-                  <button
-                    onClick={() => { setNewName(builder.formName); setShowNamingDialog('template'); }}
-                    className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
-                  >
-                    <Rows3 className="h-4 w-4 text-muted-foreground" /> Save as template
-                  </button>
-                  <button
-                    onClick={handleExportJSON}
-                    className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
-                  >
-                    <Download className="h-4 w-4 text-muted-foreground" /> Export JSON
-                  </button>
-                </div>
-              </details>
-            </div>
 
             <div className="mx-1 h-5 w-px bg-border" />
 
@@ -993,35 +943,279 @@ export default function FormBuilderPage() {
             </Button>
           </div>
         </div>
+      </header>
 
-        {/* Workspace nav */}
-        <div className="flex items-center gap-0.5 border-t border-border px-3">
-          {([
-            { id: 'build', label: 'Build', icon: PenLine },
-            { id: 'layout', label: 'Layout', icon: Layout },
-            { id: 'settings', label: 'Settings', icon: Settings },
-          ] as const).map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setWorkspace(tab.id)}
-                aria-current={workspace === tab.id ? 'page' : undefined}
+      {/* Main area: full-width canvas + floating controls */}
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          {workspace === 'build' && (
+            <main className="min-h-0 flex-1 overflow-y-auto scrollbar-subtle">
+              <div
                 className={cn(
-                  'flex items-center gap-1.5 border-b-2 px-3 py-2 text-[13px] font-medium transition-colors',
-                  workspace === tab.id
-                    ? 'border-brand-600 text-foreground'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                  'mx-auto px-6 py-16',
+                  isHorizontal ? 'w-full max-w-[1600px]' : 'max-w-3xl'
                 )}
               >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </header>
+                {/* Canvas acts as the published-form preview */}
+                <div className={cn('rounded-2xl border border-border bg-card p-6 shadow-sm', isHorizontal && 'sm:p-8')}>
+                  {/* Form header */}
+                  <div className="mb-6">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                      {builder.formName || 'Untitled form'}
+                    </h1>
+                    <Textarea
+                      value={builder.formDescription}
+                      onChange={(e) => dispatch(setFormDescription(e.target.value))}
+                      placeholder="Add a description for your form (optional)"
+                      className="mt-2 min-h-[56px] resize-none border-transparent bg-transparent p-0 text-[13px] text-muted-foreground shadow-none outline-none placeholder:text-muted-foreground/60 focus:border-transparent focus:ring-0"
+                    />
+                  </div>
+
+                  {/* Fields */}
+                  <DroppableCanvas>
+                    <SortableContext
+                      items={builder.schema.fields.map((f) => f.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {builder.schema.fields.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border bg-muted/20 py-20 text-center">
+                          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground">
+                            <MousePointerClick className="h-6 w-6" />
+                          </div>
+                          <p className="text-[13px] font-medium text-foreground">Build your form</p>
+                          <p className="mt-1 text-[12px] text-muted-foreground">
+                            Click the field library on the left to add your first field.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setShowLibrary(true)}
+                            className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground shadow-sm hover:bg-muted"
+                          >
+                            <Library className="h-3.5 w-3.5" /> Open field library
+                          </button>
+                        </div>
+                      ) : (
+                        <FieldsByWidth
+                          fields={builder.schema.fields}
+                          onDuplicateField={handleDuplicateField}
+                          readOnly={false}
+                        />
+                      )}
+                    </SortableContext>
+                  </DroppableCanvas>
+                </div>
+              </div>
+            </main>
+          )}
+
+          {workspace === 'layout' && (
+            <main className="min-h-0 flex-1 overflow-y-auto scrollbar-subtle">
+              <div className={cn('mx-auto px-6 py-16', isHorizontal ? 'w-full max-w-[1600px]' : 'max-w-3xl')}>
+                <div className="mb-5 flex items-center gap-2">
+                  <Layout className="h-4 w-4 text-brand-600" />
+                  <h1 className="text-lg font-semibold tracking-tight text-foreground">Layout settings</h1>
+                </div>
+                <LayoutConfigPanel
+                  layout={builder.layout}
+                  fields={builder.schema.fields}
+                  onSetLayoutMode={(mode) => dispatch(setLayoutMode(mode))}
+                  onUpdateLayout={(updates) => dispatch(updateLayout(updates))}
+                  onAddStep={() => dispatch(addStep())}
+                  onRemoveStep={(id) => dispatch(removeStep(id))}
+                  onUpdateStep={(id, updates) => dispatch(updateStep({ id, updates }))}
+                  onAssignFieldsToStep={(stepId, fieldIds) => dispatch(assignFieldsToStep({ stepId, fieldIds }))}
+                />
+              </div>
+            </main>
+          )}
+
+          {workspace === 'settings' && (
+            <main className="min-h-0 flex-1 overflow-hidden">
+              <SettingsPanel formId={formId} />
+            </main>
+          )}
+
+          {/* Floating centered Build | Layout | Settings pill */}
+          <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2">
+            <div className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-border bg-background/95 p-1 shadow-lg backdrop-blur">
+              {([
+                { id: 'build', label: 'Build', icon: PenLine },
+                { id: 'layout', label: 'Layout', icon: Layout },
+                { id: 'settings', label: 'Settings', icon: Settings },
+              ] as const).map((tab) => {
+                const Icon = tab.icon;
+                const active = workspace === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setWorkspace(tab.id)}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors',
+                      active ? 'bg-brand-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Floating Field library button (left) — Build only */}
+          {workspace === 'build' && (
+            <>
+              <div className="absolute left-4 top-3 z-30">
+                <button
+                  type="button"
+                  onClick={() => setShowLibrary((v) => !v)}
+                  aria-label="Field library"
+                  title="Field library"
+                  className={cn(
+                    'flex h-10 items-center gap-2 rounded-full border px-3.5 text-[13px] font-medium shadow-lg backdrop-blur transition-colors',
+                    showLibrary
+                      ? 'border-brand-400 bg-background text-foreground'
+                      : 'border-border bg-background/95 text-foreground hover:bg-muted'
+                  )}
+                >
+                  <Library className="h-4 w-4 text-brand-600" />
+                  <span className="hidden sm:inline">Field library</span>
+                </button>
+              </div>
+
+              {/* Field library popover */}
+              {showLibrary && (
+                <div className="absolute left-4 top-[52px] z-30 w-72 overflow-hidden rounded-xl border border-border bg-background shadow-xl">
+                  <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                    <span className="text-[13px] font-semibold text-foreground">Field library</span>
+                    <button type="button" onClick={() => setShowLibrary(false)} className="rounded p-1 text-muted-foreground hover:bg-muted" aria-label="Close field library">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="max-h-[70vh] overflow-y-auto p-2">
+                    <FieldPalette onAddField={(t) => handleAddField(t)} />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Floating undo / redo + more actions (right) */}
+          <div className="absolute right-4 top-3 z-30 flex items-center gap-0.5 rounded-full border border-border bg-background/95 p-1 shadow-lg backdrop-blur">
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={undoStack.current.length === 0}
+              aria-label="Undo"
+              title="Undo"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+            >
+              <Undo2 className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={redoStack.current.length === 0}
+              aria-label="Redo"
+              title="Redo"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+            >
+              <Redo2 className="h-4 w-4" />
+            </button>
+            <div className="mx-0.5 h-5 w-px bg-border" />
+            <details className="group relative">
+              <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" title="More actions">
+                <MoreVertical className="h-4 w-4" />
+              </summary>
+              <div className="absolute right-0 top-full mt-1 w-52 rounded-lg border border-border bg-background p-1 shadow-lg">
+                <button
+                  onClick={() => { setNewName(`${builder.formName} (Copy)`); setShowNamingDialog('duplicate'); }}
+                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
+                >
+                  <Copy className="h-4 w-4 text-muted-foreground" /> Duplicate form
+                </button>
+                <button
+                  onClick={() => { setNewName(builder.formName); setShowNamingDialog('template'); }}
+                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
+                >
+                  <Rows3 className="h-4 w-4 text-muted-foreground" /> Save as template
+                </button>
+                <button
+                  onClick={handleExportJSON}
+                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
+                >
+                  <Download className="h-4 w-4 text-muted-foreground" /> Export JSON
+                </button>
+              </div>
+            </details>
+          </div>
+        </DndContext>
+      </div>
+
+      {/* Field Inspector — opens as a modal when a field is selected */}
+      {selectedField && (
+        <FieldInspector
+          key={selectedField.id}
+          field={selectedField}
+          allFields={builder.schema.fields}
+          variables={builder.schema.variables}
+          formId={formId}
+          onUpdate={(updates) => dispatch(updateField({ id: selectedField.id, updates }))}
+          onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
+          onClose={() => dispatch(selectField(null))}
+        />
+      )}
+
+      {/* Orientation choice — first-time creation of an empty form */}
+      <Dialog open={showOrientationDialog} onOpenChange={setShowOrientationDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose your form layout</DialogTitle>
+            <DialogDescription>
+              Pick how your form should be laid out on screen. You can change this later in Layout.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 py-4">
+            <button
+              type="button"
+              onClick={() => { dispatch(setOrientation('vertical')); setShowOrientationDialog(false); }}
+              className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-colors hover:border-brand-400 hover:bg-brand-50/30"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Rows3 className="h-5 w-5" />
+              </span>
+              <span className="flex-1">
+                <span className="block text-[14px] font-semibold text-foreground">Vertical</span>
+                <span className="mt-0.5 block text-[12px] leading-relaxed text-muted-foreground">
+                  A centered, narrow column — the classic Google Forms style. Best for forms with a few fields.
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { dispatch(setOrientation('horizontal')); setShowOrientationDialog(false); }}
+              className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-colors hover:border-brand-400 hover:bg-brand-50/30"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Layout className="h-5 w-5" />
+              </span>
+              <span className="flex-1">
+                <span className="block text-[14px] font-semibold text-foreground">Horizontal</span>
+                <span className="mt-0.5 block text-[12px] leading-relaxed text-muted-foreground">
+                  Occupies the full horizontal screen — fields spread out wider. Best for spacious, data-dense forms.
+                </span>
+              </span>
+            </button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOrientationDialog(false)}>
+              Skip for now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* AI Prompt Dialog - global */}
       <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
@@ -1097,7 +1291,11 @@ export default function FormBuilderPage() {
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && newName.trim()) {
-                  showNamingDialog === 'duplicate' ? handleDuplicateForm(newName) : handleSaveAsTemplate(newName);
+                  if (showNamingDialog === 'duplicate') {
+                    handleDuplicateForm(newName);
+                  } else {
+                    handleSaveAsTemplate(newName);
+                  }
                 }
               }}
             />
@@ -1160,246 +1358,6 @@ export default function FormBuilderPage() {
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="flex min-h-0 flex-1">
-        {workspace === 'build' && (
-          <>
-            {/* Field Palette (collapsible) */}
-            {!isNarrow && showPalette && (
-              <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-background">
-                <FieldPalette onAddField={handleAddField} />
-              </aside>
-            )}
-
-            {/* Canvas */}
-            <main className="flex min-w-0 flex-1 flex-col">
-              {/* Canvas toolbar */}
-              <div className="flex items-center justify-between gap-3 border-b border-border bg-background px-3 py-1.5">
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => (isNarrow ? setShowPaletteOverlay((v) => !v) : setShowPalette((v) => !v))}
-                    aria-label={showPalette ? 'Hide field library' : 'Show field library'}
-                    title={showPalette ? 'Hide field library' : 'Show field library'}
-                    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    {showPalette ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-                  </button>
-                  <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
-                    {(['edit', 'preview'] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setCanvasMode(mode)}
-                        aria-pressed={canvasMode === mode}
-                        className={cn(
-                          'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors',
-                          canvasMode === mode
-                            ? 'bg-background text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}
-                      >
-                        {mode === 'edit' ? <PenLine className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                        {mode === 'edit' ? 'Edit' : 'Preview'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
-                    {builder.layout.mode === 'multiStep'
-                      ? `${builder.layout.steps?.length ?? 0} step${(builder.layout.steps?.length ?? 0) !== 1 ? 's' : ''}`
-                      : 'Single page'}
-                  </span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span>{builder.schema.fields.length} field{builder.schema.fields.length !== 1 ? 's' : ''}</span>
-                  <button
-                    type="button"
-                    onClick={() => (isNarrow ? setShowInspectorOverlay((v) => !v) : setShowInspector((v) => !v))}
-                    aria-label={showInspector ? 'Hide inspector' : 'Show inspector'}
-                    title={showInspector ? 'Hide inspector' : 'Show inspector'}
-                    className="ml-1 rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    {showInspector ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Scrollable canvas */}
-              <div className="flex-1 overflow-y-auto scrollbar-subtle">
-                <div className="mx-auto max-w-3xl px-6 py-8">
-                  {canvasMode === 'preview' ? (
-                    <>
-                      <div className="mb-5 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-[12px] text-brand-800">
-                        <Eye className="h-4 w-4 shrink-0" />
-                        <span className="flex-1">Interactive preview — enter values and test validation. Nothing is saved.</span>
-                        <button
-                          type="button"
-                          onClick={() => setCanvasMode('edit')}
-                          className="rounded px-2 py-0.5 font-medium text-brand-700 hover:bg-brand-100"
-                        >
-                          Back to edit
-                        </button>
-                      </div>
-                      <div className="mb-5">
-                        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                          {builder.formName || 'Untitled form'}
-                        </h1>
-                        {builder.formDescription && (
-                          <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-muted-foreground">
-                            {builder.formDescription}
-                          </p>
-                        )}
-                      </div>
-                      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                        <InteractivePreview fields={builder.schema.fields} />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {/* Form header preview */}
-                      <div className="mb-5">
-                        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                          {builder.formName || 'Untitled form'}
-                        </h1>
-                        <Textarea
-                          value={builder.formDescription}
-                          onChange={(e) => dispatch(setFormDescription(e.target.value))}
-                          placeholder="Add a description for your form (optional)"
-                          className="mt-2 min-h-[56px] resize-none text-[13px]"
-                        />
-                      </div>
-
-                      {/* Fields */}
-                      <DndContext
-                        collisionDetection={closestCenter}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                      >
-                        <DroppableCanvas>
-                          <SortableContext
-                            items={builder.schema.fields.map((f) => f.id)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            <div className="space-y-3">
-                              {builder.schema.fields.length === 0 ? (
-                                <div className="rounded-xl border border-dashed border-border bg-card/60 py-16 text-center">
-                                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground">
-                                    <MousePointerClick className="h-6 w-6" />
-                                  </div>
-                                  <p className="text-[13px] font-medium text-foreground">Build your form</p>
-                                  <p className="mt-1 text-[12px] text-muted-foreground">
-                                    Click a field on the left to add it, or drag it here.
-                                  </p>
-                                  {!showPalette && (
-                                    <button
-                                      type="button"
-                                      onClick={() => { if (isNarrow) setShowPaletteOverlay(true); else setShowPalette(true); }}
-                                      className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground shadow-sm hover:bg-muted"
-                                    >
-                                      <Plus className="h-3.5 w-3.5" /> Open field library
-                                    </button>
-                                  )}
-                                </div>
-                              ) : (
-                                <FieldsByWidth
-                                  fields={builder.schema.fields}
-                                  onDuplicateField={handleDuplicateField}
-                                  readOnly={false}
-                                />
-                              )}
-                            </div>
-                          </SortableContext>
-                        </DroppableCanvas>
-                      </DndContext>
-                    </>
-                  )}
-                </div>
-              </div>
-            </main>
-
-            {/* Inspector Panel (collapsible) */}
-            {!isNarrow && showInspector && (
-              <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-border bg-background">
-                <FieldInspector
-                  key={selectedField?.id || 'form-actions'}
-                  field={selectedField}
-                  allFields={builder.schema.fields}
-                  variables={builder.schema.variables}
-                  formId={formId}
-                  onUpdate={(updates) => selectedField && dispatch(updateField({ id: selectedField.id, updates }))}
-                  onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
-                  onClose={() => dispatch(selectField(null))}
-                />
-              </aside>
-            )}
-          </>
-        )}
-
-        {workspace === 'layout' && (
-          <main className="min-w-0 flex-1 overflow-y-auto scrollbar-subtle">
-            <div className="mx-auto max-w-3xl px-6 py-8">
-              <div className="mb-5 flex items-center gap-2">
-                <Layout className="h-4 w-4 text-brand-600" />
-                <h1 className="text-lg font-semibold tracking-tight text-foreground">Layout settings</h1>
-              </div>
-              <LayoutConfigPanel
-                layout={builder.layout}
-                fields={builder.schema.fields}
-                onSetLayoutMode={(mode) => dispatch(setLayoutMode(mode))}
-                onUpdateLayout={(updates) => dispatch(updateLayout(updates))}
-                onAddStep={() => dispatch(addStep())}
-                onRemoveStep={(id) => dispatch(removeStep(id))}
-                onUpdateStep={(id, updates) => dispatch(updateStep({ id, updates }))}
-                onAssignFieldsToStep={(stepId, fieldIds) => dispatch(assignFieldsToStep({ stepId, fieldIds }))}
-              />
-            </div>
-          </main>
-        )}
-
-        {workspace === 'settings' && (
-          <main className="min-w-0 flex-1 overflow-hidden">
-            <SettingsPanel formId={formId} />
-          </main>
-        )}
-      </div>
-
-      {/* Narrow-screen slide-overs */}
-      {isNarrow && showPaletteOverlay && (
-        <div className="fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowPaletteOverlay(false)} />
-          <aside className="absolute left-0 top-0 h-full w-64 border-r border-border bg-background shadow-xl">
-            <div className="flex items-center justify-between border-b border-border px-3 py-2">
-              <span className="text-[13px] font-semibold">Field library</span>
-              <button type="button" onClick={() => setShowPaletteOverlay(false)} className="rounded p-1 text-muted-foreground hover:bg-muted">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="h-[calc(100%-41px)]">
-              <FieldPalette onAddField={(t) => { handleAddField(t); setShowPaletteOverlay(false); }} />
-            </div>
-          </aside>
-        </div>
-      )}
-      {isNarrow && showInspectorOverlay && (
-        <div className="fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowInspectorOverlay(false)} />
-          <aside className="absolute right-0 top-0 h-full w-80 border-l border-border bg-background shadow-xl">
-            <FieldInspector
-              key={selectedField?.id || 'narrow-inspector'}
-              field={selectedField}
-              allFields={builder.schema.fields}
-              variables={builder.schema.variables}
-              formId={formId}
-              onUpdate={(updates) => selectedField && dispatch(updateField({ id: selectedField.id, updates }))}
-              onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
-              onClose={() => { dispatch(selectField(null)); setShowInspectorOverlay(false); }}
-            />
-          </aside>
-        </div>
-      )}
-
       {/* Status bar */}
       <footer className="flex items-center justify-between border-t border-border bg-background px-4 py-1.5 text-[11px] text-muted-foreground">
         <div className="flex items-center gap-3">
@@ -1407,7 +1365,7 @@ export default function FormBuilderPage() {
           <span className="text-muted-foreground/40">·</span>
           <span>{builder.schema.fields.filter((f) => f.required).length} required</span>
           <span className="text-muted-foreground/40">·</span>
-          <span>{builder.schema.fields.filter((f) => f.unique).length} unique</span>
+          <span className="capitalize">{builder.orientation} layout</span>
         </div>
         <div className="flex items-center gap-2">
           {builder.unsavedChanges ? (
@@ -1421,143 +1379,6 @@ export default function FormBuilderPage() {
           )}
         </div>
       </footer>
-
-      {/* AI Prompt Dialog - global */}
-      <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Build with AI (form-level)</DialogTitle>
-            <DialogDescription>Describe the change you want to make to the entire form.</DialogDescription>
-          </DialogHeader>
-          <div className="mt-6">
-            <Textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              className="w-full h-32"
-              placeholder="e.g. add a DOB field"
-              disabled={isAISubmitting}
-            />
-          </div>
-
-          {isAISubmitting && (
-            <div className="flex flex-col items-center justify-center py-8 space-y-4">
-              <div className="relative">
-                <div className="w-12 h-12 bg-primary rounded-full animate-pulse"></div>
-                <div className="absolute inset-0 w-12 h-12 bg-primary rounded-full animate-ping opacity-20"></div>
-                <Wand2 className="absolute inset-0 w-12 h-12 text-white flex items-center justify-center" />
-              </div>
-              <p className="text-center text-brand-600 font-medium">
-                AI is updating your form...
-              </p>
-            </div>
-          )}
-
-          <DialogFooter className="space-x-2 justify-center mt-8">
-            <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={handleFormAISubmit}
-              disabled={isAISubmitting || aiPrompt.trim() === ''}
-            >
-              {isAISubmitting ? (
-                <>
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                  Applying AI edits...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="h-4 w-4 mr-2" />
-                  Submit
-                </>
-              )}
-            </Button>
-            <Button variant="ghost" onClick={() => setShowAIModal(false)}>Cancel</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Naming Dialog */}
-      <Dialog open={!!showNamingDialog} onOpenChange={() => setShowNamingDialog(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {showNamingDialog === 'duplicate' ? 'Duplicate Form' : 'Save as Template'}
-            </DialogTitle>
-            <DialogDescription>
-              {showNamingDialog === 'duplicate'
-                ? 'Check the name for your new duplicated form.'
-                : 'Enter a name for this organization template.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Enter name..."
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newName.trim()) {
-                  showNamingDialog === 'duplicate' ? handleDuplicateForm(newName) : handleSaveAsTemplate(newName);
-                }
-              }}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNamingDialog(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => showNamingDialog === 'duplicate' ? handleDuplicateForm(newName) : handleSaveAsTemplate(newName)}
-              disabled={!newName.trim() || isProcessingAction}
-            >
-              {isProcessingAction && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Confirm
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Published URL Modal */}
-      {publishedUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setPublishedUrl(null)} />
-          <Card className="relative z-50 w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-500" />
-                Form Published!
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Your form is now live and ready to collect submissions.
-              </p>
-              <div className="flex items-center gap-2">
-                <Input value={publishedUrl} readOnly className="flex-1" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyToClipboard(publishedUrl)}
-                >
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => window.open(publishedUrl, '_blank')}
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Form
-                </Button>
-                <Button className="flex-1" onClick={() => setPublishedUrl(null)}>
-                  Done
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

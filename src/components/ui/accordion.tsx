@@ -11,6 +11,10 @@ interface AccordionItemProps {
   className?: string;
   /** Renders a small status dot on the right (before the chevron). */
   status?: 'active' | 'configured' | 'empty';
+  /** Force this section open (used by the modal inspector's single-section view). */
+  active?: boolean;
+  /** Hide this section (used by the modal inspector to show one section at a time). */
+  inactive?: boolean;
 }
 
 export function AccordionItem({
@@ -21,32 +25,40 @@ export function AccordionItem({
   children,
   className,
   status,
+  active,
+  inactive,
 }: AccordionItemProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  if (inactive) return null;
+
+  // When `active` is forced open (single-section modal inspector view) we keep
+  // the section expanded regardless of local toggle state.
+  const open = active ? true : isOpen;
 
   return (
     <div
       className={cn(
         'overflow-hidden rounded-lg border bg-card shadow-sm transition-colors',
-        isOpen ? 'border-border' : 'border-border',
+        open ? 'border-border' : 'border-border',
         className
       )}
     >
       <button
         type="button"
-        aria-expanded={isOpen}
+        aria-expanded={open}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           'flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors',
           'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          isOpen && 'bg-muted/30'
+          open && 'bg-muted/30'
         )}
       >
         {icon && (
           <span
             className={cn(
               'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors',
-              isOpen ? 'bg-brand-100 text-brand-700' : 'bg-muted text-muted-foreground'
+              open ? 'bg-brand-100 text-brand-700' : 'bg-muted text-muted-foreground'
             )}
           >
             {icon}
@@ -68,11 +80,11 @@ export function AccordionItem({
         <ChevronDown
           className={cn(
             'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
-            isOpen && 'rotate-180'
+            open && 'rotate-180'
           )}
         />
       </button>
-      {isOpen && (
+       {open && (
         <div className="border-t border-border bg-background px-3.5 pb-3.5 pt-3">{children}</div>
       )}
     </div>

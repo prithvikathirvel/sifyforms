@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
-import { X, Plus, Trash2, Shield, Settings, Calculator, Link, Eye, EyeOff, Database, Loader2, Wand2, Globe, FileSpreadsheet, AlertCircle, FileText, ClipboardCheck, BarChart2 } from 'lucide-react';
+import { X, Plus, Trash2, Shield, Settings, Calculator, Link, Eye, EyeOff, Database, Loader2, Wand2, Globe, FileSpreadsheet, AlertCircle, FileText, ClipboardCheck, BarChart2, ArrowLeft, ChevronRight, Upload, ListPlus } from 'lucide-react';
 import type { FormField, ShowConditionOperator, ShowWhenNode, FormVariable, DateConstraint, TableValidationRule, TableValidationRuleType, LinkingConditionNode } from '../../types';
 import { isShowWhenGroup, isLinkingGroup } from '../../types';
 import { AdvancedLinkingModal } from './AdvancedLinkingModal';
@@ -169,6 +169,9 @@ export default function FieldInspector({
   const [showTableConfigModal, setShowTableConfigModal] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
 
+  // Modal inspector internal navigation — a section key or null (home).
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+
   // AI prompt modal state
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiPrompt, setAIPrompt] = useState('');
@@ -183,31 +186,7 @@ export default function FieldInspector({
     }
   };
 
-  if (!field) {
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h3 className="text-[13px] font-semibold tracking-tight text-foreground">Inspector</h3>
-          {onClose && (
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close inspector">
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-
-        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-muted/40 text-muted-foreground">
-            <Settings className="h-6 w-6" />
-          </div>
-          <h4 className="text-sm font-semibold text-foreground">No field selected</h4>
-          <p className="mt-1.5 max-w-[220px] text-[12px] leading-relaxed text-muted-foreground">
-            Select any field on the canvas to edit its properties, validation rules, and smart
-            connections.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!field) return null;
 
   const hasOptions = ['select', 'multiselect', 'radio', 'checkbox'].includes(field.type);
   const otherFields = allFields.filter(f => f.id !== field.id);
@@ -278,57 +257,149 @@ export default function FieldInspector({
     }
   };
 
-  // Show When (Field Visibility) state
-  const showWhen = field.showWhen;
-
   const HeaderIcon = FIELD_ICONS[field.type] || Settings;
+  const showWhen = field.showWhen;
+  const constraintTypes = ['text', 'email', 'phone', 'number', 'date', 'time', 'textarea'];
+  const hasShowWhen = !!showWhen && !!showWhen.conditions && showWhen.conditions.length > 0;
+  const hasValidation = (field.rules?.length ?? 0) > 0;
+
+  // Property cards shown on the inspector "home" screen. Clicking one drills
+  // into a single-section detail view (matching the modal size) with a back button.
+  const sections: { key: string; icon: React.ReactNode; title: string; subtitle: string; configured: boolean }[] = [];
+  sections.push({ key: 'basic', icon: <Settings className="h-4 w-4" />, title: 'Basic Properties', subtitle: 'Label, placeholder, help text', configured: true });
+  if (constraintTypes.includes(field.type)) {
+    sections.push({
+      key: 'constraints', icon: <Database className="h-4 w-4" />, title: 'Constraints & Defaults',
+      subtitle: 'Default value and min/max limits',
+      configured: !!(field.defaultValue || field.minValue || field.maxValue || (field.validation && Object.keys(field.validation).length > 0)),
+    });
+  }
+  if (hasOptions) {
+    sections.push({ key: 'options', icon: <ListPlus className="h-4 w-4" />, title: 'Options Configuration', subtitle: `${field.options?.length || 0} option(s)`, configured: (field.options?.length || 0) > 0 });
+  }
+  if (field.type === 'display') {
+    sections.push({ key: 'display', icon: <Eye className="h-4 w-4" />, title: 'Display Configuration', subtitle: 'Variable display settings', configured: true });
+  }
+  if (field.type === 'table') {
+    sections.push({ key: 'table', icon: <Database className="h-4 w-4" />, title: 'Table Configuration', subtitle: `${field.tableConfig?.columns?.length ?? 0} column(s)`, configured: (field.tableConfig?.columns?.length ?? 0) > 0 });
+  }
+  if (field.type === 'file') {
+    sections.push({ key: 'file', icon: <Upload className="h-4 w-4" />, title: 'File Upload Settings', subtitle: 'Allowed types and size limits', configured: !!field.fileConfig && Object.keys(field.fileConfig).length > 0 });
+  }
+  sections.push({ key: 'external', icon: <Globe className="h-4 w-4" />, title: 'External Validation', subtitle: field.externalValidation?.enabled ? 'Connected to 3rd party API' : 'Verify value with an API', configured: !!field.externalValidation?.enabled });
+  sections.push({ key: 'smart', icon: <Link className="h-4 w-4" />, title: 'Smart Connections', subtitle: field.fieldLinking?.enabled ? 'Connected to another field' : 'Connect fields with dynamic behavior', configured: !!field.fieldLinking?.enabled });
+  sections.push({ key: 'calc', icon: <Calculator className="h-4 w-4" />, title: 'Data Calculations', subtitle: `${variables.length} variable(s)`, configured: variables.length > 0 });
+  sections.push({ key: 'visibility', icon: hasShowWhen ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />, title: 'Conditional Visibility', subtitle: hasShowWhen ? 'Visible under conditions' : 'Always visible', configured: hasShowWhen });
+  if (field.type !== 'table') {
+    sections.push({ key: 'validation', icon: <Shield className="h-4 w-4" />, title: 'Input Validation', subtitle: hasValidation ? `${field.rules!.length} rule(s) active` : 'No validation rules', configured: !!hasValidation });
+  }
+  if (field.type === 'table') {
+    sections.push({ key: 'tableValidation', icon: <Shield className="h-4 w-4" />, title: 'Table Validation', subtitle: 'Row / column checks', configured: (field.tableValidation?.length || 0) > 0 });
+  }
+  sections.push({ key: 'alerts', icon: <AlertCircle className="h-4 w-4" />, title: 'Custom Alerts', subtitle: (field.alerts?.length || 0) > 0 ? `${field.alerts!.length} rule(s)` : 'Dynamic messages on input', configured: (field.alerts?.length || 0) > 0 });
+  sections.push({ key: 'docs', icon: <FileText className="h-4 w-4" />, title: 'Support Documents', subtitle: (field.supportDocuments?.length || 0) > 0 ? `${field.supportDocuments!.length} attached` : 'Attach reference guides', configured: (field.supportDocuments?.length || 0) > 0 });
+  if (formType === 'voting' && hasOptions) {
+    sections.push({ key: 'poll', icon: <BarChart2 className="h-4 w-4" />, title: 'Poll Question', subtitle: field.isPollQuestion ? 'Votes counted' : 'Not counted in tally', configured: !!field.isPollQuestion });
+  }
+  if (formType === 'assessment' && hasOptions) {
+    sections.push({ key: 'scoring', icon: <ClipboardCheck className="h-4 w-4" />, title: 'Assessment Scoring', subtitle: field.correctAnswer ? 'Correct answer set' : 'Set correct answer & points', configured: !!field.correctAnswer });
+  }
+
+  const activeMeta = sections.find((s) => s.key === activeSection);
+  const detailTitle = activeMeta?.title || '';
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="flex max-h-[85vh] max-w-4xl w-[calc(100vw-2rem)] flex-col p-0 overflow-hidden sm:max-w-4xl sm:w-full">
       {/* Field context header */}
-      <div className="border-b border-border px-4 py-3">
-        <div className="flex items-start gap-3">
+      <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+        {activeSection ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setActiveSection(null)}
+            aria-label="Back to all properties"
+            title="Back"
+            className="h-8 w-8 shrink-0 p-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        ) : (
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
             <HeaderIcon className="h-4 w-4" />
           </span>
-          <div className="min-w-0 flex-1">
-            <label htmlFor="inspector-label" className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Label
-            </label>
-            <Input
-              id="inspector-label"
-              value={field.label}
-              onChange={(e) => onUpdate({ label: e.target.value })}
-              placeholder="Field label"
-              className="mt-1 h-8 px-2 text-[13px] font-semibold"
-            />
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="rounded border border-border bg-muted/40 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {getFieldTypeLabel(field.type)}
-              </span>
-              <label className="flex cursor-pointer items-center gap-1.5 rounded border border-border bg-muted/40 px-1.5 py-px text-[10px] font-medium text-foreground">
-                <input
-                  type="checkbox"
-                  checked={field.required}
-                  onChange={(e) => {
-                    const required = e.target.checked;
-                    onUpdate({ required, unique: required ? field.unique : false });
-                  }}
-                  className="h-3 w-3 accent-primary"
-                />
-                Required
-              </label>
+        )}
+        <div className="min-w-0 flex-1">
+          {activeSection ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Field</p>
+              <p className="truncate text-[14px] font-semibold text-foreground">{detailTitle}</p>
             </div>
-          </div>
-          {onClose && (
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close inspector">
-              <X className="h-4 w-4" />
-            </Button>
+          ) : (
+            <>
+              <label htmlFor="inspector-label" className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Label
+              </label>
+              <Input
+                id="inspector-label"
+                value={field.label}
+                onChange={(e) => onUpdate({ label: e.target.value })}
+                placeholder="Field label"
+                className="mt-1 h-8 px-2 text-[13px] font-semibold"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="rounded border border-border bg-muted/40 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {getFieldTypeLabel(field.type)}
+                </span>
+                <label className="flex cursor-pointer items-center gap-1.5 rounded border border-border bg-muted/40 px-1.5 py-px text-[10px] font-medium text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={field.required}
+                    onChange={(e) => {
+                      const required = e.target.checked;
+                      onUpdate({ required, unique: required ? field.unique : false });
+                    }}
+                    className="h-3 w-3 accent-primary"
+                  />
+                  Required
+                </label>
+              </div>
+            </>
           )}
         </div>
+        {onClose && (
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close inspector">
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 scrollbar-subtle">
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-subtle">
+      {!activeSection ? (
+        <div className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-2">
+          {sections.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setActiveSection(s.key)}
+              className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-left shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50/30"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                {s.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                  {s.title}
+                  {s.configured && <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />}
+                </span>
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">{s.subtitle}</span>
+              </span>
+              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="p-3">
       <Accordion>
         {/* Basic Properties */}
         <AccordionItem
@@ -336,6 +407,8 @@ export default function FieldInspector({
           subtitle="Label, placeholder, and help text"
           icon={<Settings className="h-4 w-4" />}
           defaultOpen={true}
+          active={activeSection === 'basic'}
+          inactive={activeSection !== null && activeSection !== 'basic'}
         >
           <div className="space-y-4">
             {/* Label */}
@@ -463,6 +536,8 @@ export default function FieldInspector({
             subtitle="Set default values and min/max limits"
             icon={<Database className="h-4 w-4" />}
             defaultOpen={false}
+            active={activeSection === 'constraints'}
+            inactive={activeSection !== null && activeSection !== 'constraints'}
           >
             <div className="space-y-4">
               {/* Default Value */}
@@ -605,6 +680,8 @@ export default function FieldInspector({
             subtitle={`${field.options?.length || 0} option(s) configured`}
             icon={<Database className="h-4 w-4" />}
             defaultOpen={field.options && field.options.length > 0}
+            active={activeSection === 'options'}
+            inactive={activeSection !== null && activeSection !== 'options'}
           >
             {field.type === 'multiselect' ? (
               <MultiSelectConfig 
@@ -673,6 +750,8 @@ export default function FieldInspector({
             subtitle="Variable display settings"
             icon={<Eye className="h-4 w-4" />}
             defaultOpen={true}
+            active={activeSection === 'display'}
+            inactive={activeSection !== null && activeSection !== 'display'}
           >
             <DisplayFieldConfig
               field={field}
@@ -689,6 +768,8 @@ export default function FieldInspector({
             subtitle={`${field.tableConfig?.columns?.length ?? 0} column(s) configured`}
             icon={<Database className="h-4 w-4" />}
             defaultOpen={true}
+            active={activeSection === 'table'}
+            inactive={activeSection !== null && activeSection !== 'table'}
           >
             <div className="space-y-3">
               <Button
@@ -732,6 +813,8 @@ export default function FieldInspector({
             subtitle="Allowed file types and size limits"
             icon={<Database className="h-4 w-4" />}
             defaultOpen={true}
+            active={activeSection === 'file'}
+            inactive={activeSection !== null && activeSection !== 'file'}
           >
             <div className="space-y-4">
               {/* Accept Types */}
@@ -831,6 +914,8 @@ export default function FieldInspector({
           subtitle={field.externalValidation?.enabled ? "Connected to " + field.externalValidation.url : "Verify value with a 3rd party API"}
           icon={<Globe className="h-4 w-4" />}
           defaultOpen={field.externalValidation?.enabled}
+          active={activeSection === 'external'}
+          inactive={activeSection !== null && activeSection !== 'external'}
         >
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md border gap-2">
@@ -860,6 +945,8 @@ export default function FieldInspector({
           }
           icon={<Link className="h-4 w-4" />}
           defaultOpen={field.fieldLinking?.enabled}
+          active={activeSection === 'smart'}
+          inactive={activeSection !== null && activeSection !== 'smart'}
         >
           <div className="space-y-4">
             <Button
@@ -975,6 +1062,8 @@ export default function FieldInspector({
           subtitle={`${variables.length} variable(s) available`}
           icon={<Calculator className="h-4 w-4" />}
           defaultOpen={variables.length > 0}
+          active={activeSection === 'calc'}
+          inactive={activeSection !== null && activeSection !== 'calc'}
         >
           <div className="space-y-4">
             <Button
@@ -1007,6 +1096,8 @@ export default function FieldInspector({
           }
           icon={showWhen && showWhen.conditions && showWhen.conditions.length > 0 ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
           defaultOpen={showWhen && showWhen.conditions && showWhen.conditions.length > 0}
+          active={activeSection === 'visibility'}
+          inactive={activeSection !== null && activeSection !== 'visibility'}
         >
           <div className="space-y-4">
             <Button
@@ -1062,6 +1153,8 @@ export default function FieldInspector({
             }
             icon={<Shield className="h-4 w-4" />}
             defaultOpen={field.rules && field.rules.length > 0}
+            active={activeSection === 'validation'}
+            inactive={activeSection !== null && activeSection !== 'validation'}
           >
             <div className="space-y-4">
               <Button
@@ -1168,6 +1261,8 @@ export default function FieldInspector({
               subtitle={rules.length > 0 ? `${rules.filter(r => r.enabled !== false).length} active rule(s)` : 'No validation rules'}
               icon={<Shield className="h-4 w-4" />}
               defaultOpen={rules.length > 0}
+              active={activeSection === 'tableValidation'}
+              inactive={activeSection !== null && activeSection !== 'tableValidation'}
             >
               <div className="space-y-3">
                 {rules.map((rule) => (
@@ -1367,6 +1462,8 @@ export default function FieldInspector({
           }
           icon={<AlertCircle className="h-4 w-4" />}
           defaultOpen={field.alerts && field.alerts.length > 0}
+          active={activeSection === 'alerts'}
+          inactive={activeSection !== null && activeSection !== 'alerts'}
         >
           <div className="space-y-4">
             <Button
@@ -1402,6 +1499,8 @@ export default function FieldInspector({
           }
           icon={<FileText className="h-4 w-4" />}
           defaultOpen={field.supportDocuments && field.supportDocuments.length > 0}
+          active={activeSection === 'docs'}
+          inactive={activeSection !== null && activeSection !== 'docs'}
         >
           <div className="space-y-4">
             <Button
@@ -1434,6 +1533,8 @@ export default function FieldInspector({
             subtitle={field.isPollQuestion ? 'Votes on this field are counted' : 'Not included in vote tally'}
             icon={<BarChart2 className="h-4 w-4" />}
             defaultOpen={!!field.isPollQuestion}
+            active={activeSection === 'poll'}
+            inactive={activeSection !== null && activeSection !== 'poll'}
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 border rounded-lg bg-card">
@@ -1466,6 +1567,8 @@ export default function FieldInspector({
             subtitle={field.correctAnswer ? `Correct answer set · ${field.points ?? 1} pt${(field.points ?? 1) !== 1 ? 's' : ''}` : 'Set correct answer and point value'}
             icon={<ClipboardCheck className="h-4 w-4" />}
             defaultOpen={!!field.correctAnswer}
+            active={activeSection === 'scoring'}
+            inactive={activeSection !== null && activeSection !== 'scoring'}
           >
             <div className="space-y-4">
               <div className="space-y-2">
@@ -1531,6 +1634,8 @@ export default function FieldInspector({
           </AccordionItem>
         )}
       </Accordion>
+        </div>
+      )}
       </div>
 
       {/* AI Prompt Dialog */}
@@ -1684,6 +1789,7 @@ export default function FieldInspector({
         allFields={allFields}
         variables={variables}
       />
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
