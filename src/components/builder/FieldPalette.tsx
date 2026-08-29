@@ -1,4 +1,3 @@
-import { Button } from '../ui/button';
 import { useDraggable } from '@dnd-kit/core';
 import {
   Type,
@@ -18,6 +17,7 @@ import {
   Calculator,
   ListPlus,
   Table,
+  GripVertical,
 } from 'lucide-react';
 import type { FormField } from '../../types';
 import { cn } from '../../lib/utils';
@@ -71,37 +71,52 @@ function DraggableFieldType({ type, label, icon: Icon, onAddField }: {
       {...listeners}
       {...attributes}
       className={cn(
-        'cursor-grab active:cursor-grabbing',
+        'group flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-transparent bg-card px-2.5 py-2 transition-colors',
+        'hover:border-border hover:bg-muted/60 active:cursor-grabbing active:border-primary/40 active:bg-accent',
         isDragging && 'opacity-50'
       )}
+      onClick={() => onAddField(type)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onAddField(type);
+        }
+      }}
     >
-      <Button
-        variant="ghost"
-        className="w-full justify-start"
-        onClick={() => onAddField(type)}
-      >
-        <Icon className="h-4 w-4 mr-3" />
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted/60 text-muted-foreground transition-colors group-hover:border-primary/30 group-hover:bg-accent group-hover:text-primary">
+        <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
         {label}
-      </Button>
+      </span>
+      <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-opacity group-hover:opacity-100 md:opacity-0" />
     </div>
   );
 }
 
 export default function FieldPalette({ onAddField }: FieldPaletteProps) {
   return (
-    <div className="p-4">
-      <h3 className="font-semibold mb-4">Form Fields</h3>
-      <p className="text-xs text-muted-foreground mb-4">Drag fields to the canvas or click to add</p>
-      <div className="space-y-2">
-        {fieldTypes.map(({ type, label, icon: Icon }) => (
-          <DraggableFieldType
-            key={type}
-            type={type}
-            label={label}
-            icon={Icon}
-            onAddField={onAddField}
-          />
-        ))}
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 border-b border-border/70 px-4 py-3.5">
+        <h2 className="text-[13px] font-semibold text-foreground">Form Fields</h2>
+        <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+          Drag fields to the canvas or click to add
+        </p>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
+        <div className="space-y-1">
+          {fieldTypes.map(({ type, label, icon: Icon }) => (
+            <DraggableFieldType
+              key={type}
+              type={type}
+              label={label}
+              icon={Icon}
+              onAddField={onAddField}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

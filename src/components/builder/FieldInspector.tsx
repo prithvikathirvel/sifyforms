@@ -184,20 +184,20 @@ export default function FieldInspector({
 
   if (!field) {
     return (
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg">Field Inspector</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+      <div className="flex h-full flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-3.5">
+          <h3 className="text-[13px] font-semibold text-foreground">Field Inspector</h3>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="pt-10 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center text-muted-foreground">
-            <Settings className="w-8 h-8" />
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-6 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <Settings className="h-6 w-6" />
           </div>
-          <p className="text-sm text-muted-foreground px-4">
-            Select any field on the canvas to edit its specific properties, validation rules, and smart connections.
+          <p className="text-[13px] leading-5 text-muted-foreground">
+            Select any field on the canvas to edit its properties, validation rules, and smart connections.
           </p>
         </div>
       </div>
@@ -277,16 +277,17 @@ export default function FieldInspector({
   const showWhen = field.showWhen;
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg">Field Properties</h3>
+    <div className="flex h-full flex-col">
+      <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-3.5">
+        <h3 className="text-[13px] font-semibold text-foreground">Field Inspector</h3>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
       <Accordion>
         {/* Basic Properties */}
         <AccordionItem
@@ -1489,6 +1490,7 @@ export default function FieldInspector({
           </AccordionItem>
         )}
       </Accordion>
+      </div>
 
       {/* AI Prompt Dialog */}
       <Dialog open={showAIModal} onOpenChange={setShowAIModal}>

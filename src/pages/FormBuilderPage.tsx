@@ -31,8 +31,9 @@ import SortableField from '../components/builder/SortableField';
 import FieldInspector from '../components/builder/FieldInspector';
 import LayoutModal from '../components/builder/LayoutModal';
 import SettingsModal from '../components/builder/SettingsModal';
-import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Monitor, Tablet, Smartphone, Plus } from 'lucide-react';
 import type { FormField } from '../types';
+import { cn } from '../lib/utils';
 
 // Droppable canvas component
 function DroppableCanvas({ children }: { children: React.ReactNode }) {
@@ -43,13 +44,29 @@ function DroppableCanvas({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[200px] transition-colors ${isOver ? 'bg-muted/50' : ''
-        }`}
+      className={cn(
+        'min-h-[360px] rounded-lg transition-colors',
+        isOver && 'bg-primary/[0.04]'
+      )}
     >
       {children}
     </div>
   );
 }
+
+type DeviceMode = 'desktop' | 'tablet' | 'mobile';
+
+const DEVICE_WIDTHS: Record<DeviceMode, string> = {
+  desktop: 'max-w-[900px]',
+  tablet: 'max-w-[640px]',
+  mobile: 'max-w-[400px]',
+};
+
+const DEVICE_OPTIONS: { value: DeviceMode; label: string; icon: React.ElementType }[] = [
+  { value: 'desktop', label: 'Desktop', icon: Monitor },
+  { value: 'tablet', label: 'Tablet', icon: Tablet },
+  { value: 'mobile', label: 'Mobile', icon: Smartphone },
+];
 
 // Helper component to render fields by width with step information
 function FieldsByWidth({ fields }: { fields: FormField[] }) {
@@ -186,6 +203,7 @@ export default function FormBuilderPage() {
   const [showLayout, setShowLayout] = useState(false);
   const [copied, setCopied] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [device, setDevice] = useState<DeviceMode>('desktop');
 
   // AI modal state for global form editing
   const [showAIModal, setShowAIModal] = useState(false);
@@ -766,129 +784,173 @@ export default function FormBuilderPage() {
   const selectedField = builder.schema.fields.find((f) => f.id === builder.selectedFieldId);
 
   return (
-    <div className="app-shell min-h-screen bg-workspace">
+    <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
       {/* Header */}
-      <header className="bg-background border-b sticky top-0 z-10">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <div className="flex items-center gap-2 group/name relative">
-                <Input
-                  value={builder.formName}
-                  onChange={(e) => dispatch(setFormName(e.target.value))}
-                  className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 p-0 h-auto bg-transparent min-w-[200px]"
-                  placeholder="Form Name"
-                />
-                <Edit2 className="h-3 w-3 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
-              </div>
-            </div>
-            {builder.unsavedChanges && (
-              <Badge variant="secondary">Unsaved changes</Badge>
-            )}
-            {currentForm.isPublished && (
-              <Badge variant="success">Published</Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
+      <header className="shrink-0 border-b border-border/70 bg-card">
+        <div className="flex h-14 items-center gap-2 px-3 sm:px-4">
+          {/* Left — back + form name */}
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
+              className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+              onClick={() => navigate('/dashboard')}
+              title="Back to dashboard"
+            >
+              <ArrowLeft className="h-4 w-4" strokeWidth={1.8} />
+              <span className="hidden sm:inline">Back</span>
+            </Button>
+            <div className="h-5 w-px shrink-0 bg-border/70" />
+            <div className="group/name flex min-w-0 items-center gap-1.5">
+              <Input
+                value={builder.formName}
+                onChange={(e) => dispatch(setFormName(e.target.value))}
+                className="h-7 w-full max-w-[280px] truncate border-transparent bg-transparent px-1.5 text-[13px] font-semibold shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                placeholder="Untitled form"
+                aria-label="Form name"
+              />
+              <Edit2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100" />
+            </div>
+            {builder.unsavedChanges && (
+              <span className="hidden shrink-0 items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground md:flex">
+                Unsaved
+              </span>
+            )}
+          </div>
+
+          {/* Center — status + device preview */}
+          <div className="hidden items-center gap-2.5 md:flex">
+            {currentForm.isPublished ? (
+              <Badge variant="success">Published</Badge>
+            ) : (
+              <Badge variant="outline" className="text-muted-foreground">Draft</Badge>
+            )}
+            <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+              {DEVICE_OPTIONS.map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setDevice(value)}
+                  title={`Preview as ${label}`}
+                  aria-label={`Preview as ${label}`}
+                  className={cn(
+                    'flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors',
+                    device === value
+                      ? 'bg-card text-foreground shadow-sm ring-1 ring-border'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+                  <span className="hidden lg:inline">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right — actions */}
+          <div className="flex flex-1 items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
               onClick={() => setShowSettings(true)}
               title="Form Settings"
+              aria-label="Form Settings"
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-4 w-4" strokeWidth={1.8} />
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
+              className="h-8 w-8 p-0"
               onClick={() => setShowLayout(true)}
               title="Layout"
+              aria-label="Layout"
             >
-              <Layout className="h-4 w-4" />
+              <Layout className="h-4 w-4" strokeWidth={1.8} />
             </Button>
 
             <div className="relative group">
-              <Button variant="ghost" size="sm">
-                <MoreVertical className="h-4 w-4" />
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="More actions">
+                <MoreVertical className="h-4 w-4" strokeWidth={1.8} />
               </Button>
-              <div className="absolute right-0 top-full mt-1 w-48 bg-background border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      setNewName(`${builder.formName} (Copy)`);
-                      setShowNamingDialog('duplicate');
-                    }}
-                    className="flex items-center w-full px-4 py-2 text-sm hover:bg-muted text-left"
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Duplicate Form
-                  </button>
-                  <button
-                    onClick={() => {
-                      setNewName(builder.formName);
-                      setShowNamingDialog('template');
-                    }}
-                    className="flex items-center w-full px-4 py-2 text-sm hover:bg-muted text-left"
-                  >
-                    <Layout className="h-4 w-4 mr-2" />
-                    Save as Template
-                  </button>
-                  <button
-                    onClick={handleExportJSON}
-                    className="flex items-center w-full px-4 py-2 text-sm hover:bg-muted text-left"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export JSON
-                  </button>
-                </div>
+              <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-popover p-1 opacity-0 shadow-lg shadow-foreground/5 invisible transition-all group-hover:opacity-100 group-hover:visible">
+                <button
+                  onClick={() => {
+                    setNewName(`${builder.formName} (Copy)`);
+                    setShowNamingDialog('duplicate');
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-muted"
+                >
+                  <Copy className="h-4 w-4 text-muted-foreground" />
+                  Duplicate Form
+                </button>
+                <button
+                  onClick={() => {
+                    setNewName(builder.formName);
+                    setShowNamingDialog('template');
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-muted"
+                >
+                  <Layout className="h-4 w-4 text-muted-foreground" />
+                  Save as Template
+                </button>
+                <button
+                  onClick={handleExportJSON}
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-muted"
+                >
+                  <Download className="h-4 w-4 text-muted-foreground" />
+                  Export JSON
+                </button>
               </div>
             </div>
 
-            <div className="h-4 w-[1px] bg-border mx-1" />
-            {/* AI button near save */}
+            <div className="mx-1 h-5 w-px bg-border/70" />
+
             <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
               size="sm"
+              className="h-8 gap-1.5 rounded-lg bg-primary px-2.5 text-primary-foreground hover:bg-primary/90"
               onClick={() => setShowAIModal(true)}
             >
-              <Wand2 className="h-4 w-4 mr-2" />AI
+              <Wand2 className="h-4 w-4" strokeWidth={1.8} />
+              <span className="hidden sm:inline">AI Assist</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving}>
+
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg px-2.5" onClick={handleSave} disabled={isSaving}>
               {isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
+                  <Save className="h-4 w-4" strokeWidth={1.8} />
+                  <span className="hidden sm:inline">Save</span>
                 </>
               )}
             </Button>
+
             {currentForm.isPublished && currentOrg && (
               <Button
                 variant="outline"
                 size="sm"
+                className="h-8 gap-1.5 rounded-lg px-2.5"
                 onClick={() => {
                   const orgSlug = currentOrg?.slug || 'default-org';
                   const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
                   window.open(`${BASE_URL}/${orgSlug}/${currentForm.slug}`, '_blank');
                 }}
               >
-                <Eye className="h-4 w-4 mr-2" />
-                Preview
+                <Eye className="h-4 w-4" strokeWidth={1.8} />
+                <span className="hidden sm:inline">Preview</span>
               </Button>
             )}
-            <Button size="sm" onClick={handlePublish} disabled={isPublishing}>
+
+            <Button size="sm" className="h-8 gap-1.5 rounded-lg px-3" onClick={handlePublish} disabled={isPublishing}>
               {isPublishing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Globe className="h-4 w-4 mr-2" />
-                  Publish
+                  <Globe className="h-4 w-4" strokeWidth={1.8} />
+                  <span className="hidden sm:inline">Publish</span>
                 </>
               )}
             </Button>
@@ -1034,55 +1096,68 @@ export default function FormBuilderPage() {
       )}
 
       {/* Main Content */}
-      <div className="flex h-[calc(100vh-57px)]">
+      <div className="min-h-0 flex-1 grid grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)] lg:grid-cols-[280px_minmax(0,1fr)_350px]">
         {/* Field Palette */}
-        <div className="w-64 bg-background border-r overflow-y-auto">
+        <aside className="hidden min-w-0 overflow-hidden border-r border-border/70 bg-card md:flex md:flex-col">
           <FieldPalette onAddField={handleAddField} />
-        </div>
+        </aside>
 
         {/* Canvas */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-4xl mx-auto">
-            {/* Form Description */}
-            <div className="mb-6">
-              <Textarea
-                value={builder.formDescription}
-                onChange={(e) => dispatch(setFormDescription(e.target.value))}
-                placeholder="Add a description for your form (optional)"
-                className="resize-none"
-              />
-            </div>
+        <main className="min-w-0 overflow-y-auto bg-workspace">
+          <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            <div className={cn('mx-auto rounded-xl border border-border bg-card shadow-sm transition-[max-width] duration-200', DEVICE_WIDTHS[device])}>
+              {/* Form title + description */}
+              <div className="border-b border-border/70 px-5 py-6 sm:px-8">
+                <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                  {builder.formName || 'Untitled form'}
+                </h1>
+                <Textarea
+                  value={builder.formDescription}
+                  onChange={(e) => dispatch(setFormDescription(e.target.value))}
+                  placeholder="Add a description for your form (optional)"
+                  className="mt-2 min-h-[40px] resize-none border-transparent bg-transparent p-0 text-[13px] text-muted-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
 
-            {/* Fields */}
-            <DndContext
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <DroppableCanvas>
-                <SortableContext
-                  items={builder.schema.fields.map((f) => f.id)}
-                  strategy={verticalListSortingStrategy}
+              {/* Fields */}
+              <div className="px-5 py-6 sm:px-8 sm:py-8">
+                <DndContext
+                  collisionDetection={closestCenter}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
                 >
-                  <div className="space-y-3">
-                    {builder.schema.fields.length === 0 ? (
-                      <Card className="border-dashed">
-                        <CardContent className="py-12 text-center text-muted-foreground">
-                          <p>Drag fields from the left panel to build your form</p>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <FieldsByWidth fields={builder.schema.fields} />
-                    )}
-                  </div>
-                </SortableContext>
-              </DroppableCanvas>
-            </DndContext>
+                  <DroppableCanvas>
+                    <SortableContext
+                      items={builder.schema.fields.map((f) => f.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-3">
+                        {builder.schema.fields.length === 0 ? (
+                          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-6 py-14 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/[0.06] text-primary">
+                              <Plus className="h-6 w-6" strokeWidth={1.8} />
+                            </div>
+                            <p className="mt-4 text-[14px] font-semibold text-foreground">
+                              Drag and drop a field here
+                            </p>
+                            <p className="mt-1 text-[12px] text-muted-foreground">
+                              Or click a field type from the library on the left to add it
+                            </p>
+                          </div>
+                        ) : (
+                          <FieldsByWidth fields={builder.schema.fields} />
+                        )}
+                      </div>
+                    </SortableContext>
+                  </DroppableCanvas>
+                </DndContext>
+              </div>
+            </div>
           </div>
-        </div>
+        </main>
 
         {/* Inspector Panel */}
-        <div className="w-80 bg-background border-l flex flex-col overflow-hidden overflow-y-auto">
+        <aside className="hidden min-w-0 overflow-hidden border-l border-border/70 bg-card lg:flex lg:flex-col">
           <FieldInspector
             key={selectedField?.id || 'form-actions'}
             field={selectedField}
@@ -1093,7 +1168,7 @@ export default function FormBuilderPage() {
             onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
             onClose={() => dispatch(selectField(null))}
           />
-        </div>
+        </aside>
       </div>
 
       {/* Layout Modal */}
