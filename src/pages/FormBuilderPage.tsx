@@ -33,7 +33,7 @@ import SettingsModal from '../components/builder/SettingsModal';
 import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Plus } from 'lucide-react';
 import type { FormField } from '../types';
 import { cn } from '../lib/utils';
-import FieldPreview from '../components/builder/FieldPreview';
+import FormPreview from '../components/builder/FormPreview';
 
 // Droppable canvas component
 function DroppableCanvas({ children }: { children: React.ReactNode }) {
@@ -58,7 +58,8 @@ type EditorMode = 'canvas' | 'preview';
 
 const PANEL_MIN = 200;
 const PANEL_MAX = 480;
-const PANEL_DEFAULT = 240;
+const PALETTE_DEFAULT = 240;
+const INSPECTOR_DEFAULT = 320;
 
 // Helper component to render fields by width with step information
 function FieldsByWidth({ fields }: { fields: FormField[] }) {
@@ -197,8 +198,8 @@ export default function FormBuilderPage() {
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [mode, setMode] = useState<EditorMode>('canvas');
   const [isEditingName, setIsEditingName] = useState(false);
-  const [paletteWidth, setPaletteWidth] = useState(PANEL_DEFAULT);
-  const [inspectorWidth, setInspectorWidth] = useState(PANEL_DEFAULT);
+  const [paletteWidth, setPaletteWidth] = useState(PALETTE_DEFAULT);
+  const [inspectorWidth, setInspectorWidth] = useState(INSPECTOR_DEFAULT);
 
   // Drag-to-resize handlers for the side panels.
   const beginResize = (side: 'palette' | 'inspector') => (e: React.PointerEvent) => {
@@ -810,7 +811,7 @@ export default function FormBuilderPage() {
     <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
       {/* Header */}
       <header className="relative shrink-0 border-b border-border/70 bg-card">
-        <div className="flex h-12 items-center gap-1 px-2.5 sm:px-3">
+        <div className="flex h-14 items-center gap-1 px-2.5 sm:px-3">
           {/* Left — back + form name + status */}
           <div className="flex min-w-0 flex-1 items-center gap-1">
             <Button
@@ -898,7 +899,7 @@ export default function FormBuilderPage() {
           </div>
 
           {/* Right — actions */}
-          <div className="flex flex-1 items-center justify-end gap-0.5">
+          <div className="flex flex-1 items-center justify-end gap-1.5">
             <Button
               variant="ghost"
               size="sm"
@@ -1148,57 +1149,55 @@ export default function FormBuilderPage() {
       )}
 
       {/* Main Content */}
-      <div className="min-h-0 flex-1 flex">
-        {/* Field Palette */}
-        <aside
-          className="relative shrink-0 overflow-hidden border-r border-border/70 bg-card"
-          style={{ width: paletteWidth }}
-        >
-          <div className="flex h-full flex-col">
-            <FieldPalette onAddField={handleAddField} />
-          </div>
-        </aside>
+      {mode === 'preview' ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <FormPreview
+            schema={builder.schema}
+            settings={builder.settings}
+            formId={formId}
+            name={builder.formName}
+            description={builder.formDescription}
+          />
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 flex">
+          {/* Field Palette */}
+          <aside
+            className="relative shrink-0 overflow-hidden border-r border-border/70 bg-card"
+            style={{ width: paletteWidth }}
+          >
+            <div className="flex h-full flex-col">
+              <FieldPalette onAddField={handleAddField} />
+            </div>
+          </aside>
 
-        {/* Palette resize handle */}
-        <div
-          onPointerDown={beginResize('palette')}
-          className="z-10 w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40"
-          role="separator"
-          aria-orientation="vertical"
-        />
+          {/* Palette resize handle */}
+          <div
+            onPointerDown={beginResize('palette')}
+            className="z-10 w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40"
+            role="separator"
+            aria-orientation="vertical"
+          />
 
-        {/* Canvas */}
-        <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
-          <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            <div className="mx-auto max-w-[900px] rounded-xl border border-border bg-card shadow-sm">
-              {/* Form title + description */}
-              <div className="border-b border-border/70 px-5 py-6 sm:px-8">
-                <h1 className="min-w-0 break-words text-lg font-bold tracking-tight text-foreground sm:text-xl">
-                  {builder.formName || 'Untitled form'}
-                </h1>
-                <Textarea
-                  value={builder.formDescription}
-                  onChange={(e) => dispatch(setFormDescription(e.target.value))}
-                  placeholder="Add a description for your form (optional)"
-                  className="mt-2 min-h-[40px] resize-none border-transparent bg-transparent p-0 text-[13px] text-muted-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
-              </div>
+          {/* Canvas */}
+          <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
+            <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+              <div className="mx-auto max-w-[900px] rounded-xl border border-border bg-card shadow-sm">
+                {/* Form title + description */}
+                <div className="border-b border-border/70 px-5 py-6 sm:px-8">
+                  <h1 className="min-w-0 break-words text-lg font-bold tracking-tight text-foreground sm:text-xl">
+                    {builder.formName || 'Untitled form'}
+                  </h1>
+                  <Textarea
+                    value={builder.formDescription}
+                    onChange={(e) => dispatch(setFormDescription(e.target.value))}
+                    placeholder="Add a description for your form (optional)"
+                    className="mt-2 min-h-[40px] resize-none border-transparent bg-transparent p-0 text-[13px] text-muted-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
 
-              {/* Fields / Preview */}
-              <div className="px-5 py-6 sm:px-8 sm:py-8">
-                {mode === 'preview' ? (
-                  <div className="space-y-6">
-                    {builder.schema.fields.length === 0 ? (
-                      <p className="py-10 text-center text-[13px] text-muted-foreground">
-                        Nothing to preview yet — add fields to your form.
-                      </p>
-                    ) : (
-                      builder.schema.fields.map((field) => (
-                        <FieldPreview key={field.id} field={field} variables={builder.schema.variables ?? []} />
-                      ))
-                    )}
-                  </div>
-                ) : (
+                {/* Fields */}
+                <div className="px-5 py-6 sm:px-8 sm:py-8">
                   <DndContext
                     collisionDetection={closestCenter}
                     onDragStart={handleDragStart}
@@ -1229,37 +1228,37 @@ export default function FormBuilderPage() {
                       </SortableContext>
                     </DroppableCanvas>
                   </DndContext>
-                )}
+                </div>
               </div>
             </div>
-          </div>
-        </main>
+          </main>
 
-        {/* Inspector resize handle */}
-        <div
-          onPointerDown={beginResize('inspector')}
-          className="z-10 w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40"
-          role="separator"
-          aria-orientation="vertical"
-        />
-
-        {/* Inspector Panel */}
-        <aside
-          className="relative shrink-0 overflow-hidden border-l border-border/70 bg-card"
-          style={{ width: inspectorWidth }}
-        >
-          <FieldInspector
-            key={selectedField?.id || 'form-actions'}
-            field={selectedField}
-            allFields={builder.schema.fields}
-            variables={builder.schema.variables}
-            formId={formId}
-            onUpdate={(updates) => selectedField && dispatch(updateField({ id: selectedField.id, updates }))}
-            onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
-            onClose={() => dispatch(selectField(null))}
+          {/* Inspector resize handle */}
+          <div
+            onPointerDown={beginResize('inspector')}
+            className="z-10 w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40"
+            role="separator"
+            aria-orientation="vertical"
           />
-        </aside>
-      </div>
+
+          {/* Inspector Panel */}
+          <aside
+            className="relative shrink-0 overflow-hidden border-l border-border/70 bg-card"
+            style={{ width: inspectorWidth }}
+          >
+            <FieldInspector
+              key={selectedField?.id || 'form-actions'}
+              field={selectedField}
+              allFields={builder.schema.fields}
+              variables={builder.schema.variables}
+              formId={formId}
+              onUpdate={(updates) => selectedField && dispatch(updateField({ id: selectedField.id, updates }))}
+              onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
+              onClose={() => dispatch(selectField(null))}
+            />
+          </aside>
+        </div>
+      )}
 
       {/* Layout Modal */}
       <LayoutModal open={showLayout} onClose={() => setShowLayout(false)} />
