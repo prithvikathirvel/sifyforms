@@ -436,7 +436,11 @@ export interface FormLayout {
   steps?: FormStep[];
   /** Allow going back to previous steps (multi-step only). Default: true */
   allowBackNavigation?: boolean;
-  /** Label/field arrangement. 'vertical' (label above input) is the default. */
+  /**
+   * Form width layout. 'vertical' (default) renders a narrow, centered card;
+   * 'horizontal' renders a full-width container where fields flow left-to-right
+   * by their width (full/half/third) and wrap onto new rows.
+   */
   orientation?: 'vertical' | 'horizontal';
 }
 

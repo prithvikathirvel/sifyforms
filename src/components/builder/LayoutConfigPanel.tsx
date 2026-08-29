@@ -2,7 +2,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
-import { Plus, Trash2, FileText, Layers, Lock, AlignLeft, AlignHorizontalSpaceBetween } from 'lucide-react';
+import { Plus, Trash2, FileText, Layers, Lock, RectangleVertical, RectangleHorizontal } from 'lucide-react';
 import type { FormLayout, FormStep, FormField } from '../../types';
 
 interface LayoutConfigPanelProps {
@@ -72,10 +72,10 @@ export default function LayoutConfigPanel({
         </div>
       </div>
 
-      {/* Orientation */}
+      {/* Layout Width (Orientation) */}
       <div className="space-y-4">
         <div>
-          <Label className="text-sm font-semibold text-foreground mb-3 block">Label Orientation</Label>
+          <Label className="text-sm font-semibold text-foreground mb-3 block">Form Layout</Label>
           <div className="grid grid-cols-2 gap-3">
             <Button
               variant={(layout.orientation || 'vertical') === 'vertical' ? 'default' : 'outline'}
@@ -83,9 +83,9 @@ export default function LayoutConfigPanel({
               className="flex-col h-auto py-4 px-3 gap-2 relative"
               onClick={() => onUpdateLayout({ orientation: 'vertical' })}
             >
-              <AlignLeft className="h-5 w-5" />
+              <RectangleVertical className="h-5 w-5" />
               <span className="text-sm font-medium">Vertical</span>
-              <span className="text-xs text-muted-foreground">Label above the field</span>
+              <span className="text-xs text-muted-foreground">Narrow centered form</span>
               {(layout.orientation || 'vertical') === 'vertical' && (
                 <div className="absolute top-2 right-2">
                   <div className="w-2 h-2 bg-primary rounded-full"></div>
@@ -98,9 +98,9 @@ export default function LayoutConfigPanel({
               className="flex-col h-auto py-4 px-3 gap-2 relative"
               onClick={() => onUpdateLayout({ orientation: 'horizontal' })}
             >
-              <AlignHorizontalSpaceBetween className="h-5 w-5" />
+              <RectangleHorizontal className="h-5 w-5" />
               <span className="text-sm font-medium">Horizontal</span>
-              <span className="text-xs text-muted-foreground">Label beside the field</span>
+              <span className="text-xs text-muted-foreground">Full-width rows, fields side by side</span>
               {(layout.orientation || 'vertical') === 'horizontal' && (
                 <div className="absolute top-2 right-2">
                   <div className="w-2 h-2 bg-primary rounded-full"></div>

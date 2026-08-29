@@ -14,6 +14,7 @@ import { evaluateShowWhen, evaluateLinkingConditions } from '../../lib/ruleEngin
 import { CalculationEngine } from '../../lib/calculationEngine';
 import { getPublicDownloadUrl } from '../../lib/dms';
 import type { FormField, FormSchema, FormSettings, FormBrandingSection } from '../../types';
+import { cn } from '../../lib/utils';
 
 interface FormPreviewProps {
   schema: FormSchema;
@@ -515,11 +516,20 @@ export default function FormPreview({ schema, settings, formId, name, descriptio
   const gridClass = (w: string) =>
     w === 'half' ? 'grid grid-cols-2 gap-4' : w === 'third' ? 'grid grid-cols-3 gap-4' : 'space-y-6';
 
+  const spanClass = (f: FormField) =>
+    f.width === 'half'
+      ? 'col-span-1 sm:col-span-3'
+      : f.width === 'third'
+        ? 'col-span-1 sm:col-span-2'
+        : 'col-span-1 sm:col-span-6';
+
+  const isHorizontal = orientation === 'horizontal';
+
   return (
     <div className="min-h-full bg-muted/30" data-theme={settings.theme || 'default'}>
       <PreviewBranding section={settings.header} variant="header" formId={formId} />
       <div className="px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl">
+        <div className={isHorizontal ? 'mx-auto w-full max-w-[1400px]' : 'mx-auto max-w-2xl'}>
           <div className="form-card rounded-lg border border-border bg-card p-6 shadow-xl sm:p-8">
             <div className="mb-6">
               <h2 className="min-w-0 break-words text-2xl font-semibold text-foreground">{name || 'Untitled form'}</h2>
@@ -530,6 +540,39 @@ export default function FormPreview({ schema, settings, formId, name, descriptio
               <p className="py-10 text-center text-[13px] text-muted-foreground">
                 Nothing to preview yet — add fields to your form.
               </p>
+            ) : isHorizontal ? (
+              <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
+                {visibleFields.map((field) => {
+                  if (field.type === 'display') {
+                    return (
+                      <div key={field.id} className={cn('space-y-2', spanClass(field))}>
+                        <DisplayField field={field} variables={variables} />
+                      </div>
+                    );
+                  }
+                  const error = touched[field.id] ? validateField(field, values[field.id]) : null;
+                  return (
+                    <div key={field.id} className={cn('space-y-2', spanClass(field))}>
+                      <Label>
+                        {field.label}
+                        {field.required && <span className="ml-1 text-destructive">*</span>}
+                      </Label>
+                      <FieldControl
+                        field={field}
+                        value={values[field.id]}
+                        values={values as Record<string, unknown>}
+                        onChange={(v) => setValue(field.id, v)}
+                        onBlur={() => setTouchedField(field.id)}
+                        formId={formId}
+                        dmsEnabled={settings.dms?.enabled === true}
+                      />
+                      {field.helpText && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
+                      {error && <p className="text-[13px] text-destructive">{error}</p>}
+                      {renderSupportDocuments(field)}
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               grouped.map((group, gi) => (
                 <div key={gi} className={gridClass(group.width)}>
@@ -542,34 +585,6 @@ export default function FormPreview({ schema, settings, formId, name, descriptio
                       );
                     }
                     const error = touched[field.id] ? validateField(field, values[field.id]) : null;
-                    if (orientation === 'horizontal') {
-                      return (
-                        <div key={field.id} className="space-y-2">
-                          <div className="flex items-start gap-4">
-                            <div className="flex w-[34%] min-w-[110px] justify-end pt-2">
-                              <Label className="text-right">
-                                {field.label}
-                                {field.required && <span className="ml-1 text-destructive">*</span>}
-                              </Label>
-                            </div>
-                            <div className="min-w-0 flex-1 space-y-1.5">
-                              <FieldControl
-                                field={field}
-                                value={values[field.id]}
-                                values={values as Record<string, unknown>}
-                                onChange={(v) => setValue(field.id, v)}
-                                onBlur={() => setTouchedField(field.id)}
-                                formId={formId}
-                                dmsEnabled={settings.dms?.enabled === true}
-                              />
-                              {field.helpText && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
-                              {error && <p className="text-[13px] text-destructive">{error}</p>}
-                              {renderSupportDocuments(field)}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
                     return (
                       <div key={field.id} className="space-y-2">
                         <Label>

@@ -178,6 +178,20 @@ function FieldsByWidth({
     }
   };
 
+  // Horizontal layout: each field spans columns of a 6-column grid based on its
+  // width (full = 6, half = 3, third = 2), flowing left-to-right with wrapping.
+  // On mobile they collapse to a single full-width column.
+  const spanClass = (field: FormField) => {
+    switch (field.width || 'full') {
+      case 'half':
+        return 'col-span-1 sm:col-span-3';
+      case 'third':
+        return 'col-span-1 sm:col-span-2';
+      default:
+        return 'col-span-1 sm:col-span-6';
+    }
+  };
+
   const renderSupportDocuments = (field: FormField) => {
     const docs = Array.isArray(field.supportDocuments)
       ? field.supportDocuments.filter((doc) => doc && doc.label && (doc.url || doc.fileData || doc.documentId))
@@ -275,17 +289,18 @@ function FieldsByWidth({
   const renderFieldItem = (field: FormField) => {
     const opts = validationOpts(field, formValues);
 
-    const labelEl = (
-      <Label className={orientation === 'horizontal' ? 'text-right' : undefined}>
-        {field.label}
-        {(field.required || opts.required) && (
-          <span className="text-destructive ml-1">*</span>
-        )}
-      </Label>
-    );
-
-    const controlEl = (
-      <>
+    return (
+      <div
+        key={field.id}
+        id={`field-${field.id}`}
+        className={orientation === 'horizontal' ? `space-y-2 ${spanClass(field)}` : 'space-y-2'}
+      >
+        <Label>
+          {field.label}
+          {(field.required || opts.required) && (
+            <span className="text-destructive ml-1">*</span>
+          )}
+        </Label>
         {renderField(field)}
         {field.helpText && (
           <p className="text-sm text-muted-foreground">{field.helpText}</p>
@@ -325,31 +340,17 @@ function FieldsByWidth({
             ✓ {externalValidationSuccess[field.id]}
           </p>
         )}
-      </>
-    );
-
-    if (orientation === 'horizontal') {
-      return (
-        <div key={field.id} id={`field-${field.id}`} className="space-y-2">
-          <div className="flex items-start gap-4">
-            <div className="w-[34%] min-w-[110px] pt-2">
-              {labelEl}
-            </div>
-            <div className="min-w-0 flex-1 space-y-1.5">
-              {controlEl}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div key={field.id} id={`field-${field.id}`} className="space-y-2">
-        {labelEl}
-        {controlEl}
       </div>
     );
   };
+
+  if (orientation === 'horizontal') {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
+        {fields.map((field) => renderFieldItem(field))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -2875,7 +2876,7 @@ export default function PublicFormPage() {
     >
       <FormBranding section={form.settings?.header} variant="header" formId={form.id} />
       <div className="py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
+      <div className={layout.orientation === 'horizontal' ? 'mx-auto w-full max-w-[1400px]' : 'max-w-2xl mx-auto'}>
         <Card className="form-card border-border shadow-xl">
           <CardHeader>
             <CardTitle className="min-w-0 break-words text-2xl">{form.name}</CardTitle>

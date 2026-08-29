@@ -66,6 +66,7 @@ function FieldsByWidth({ fields }: { fields: FormField[] }) {
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
   const isMultiStep = builder.layout.mode === 'multiStep';
+  const isHorizontal = builder.layout.orientation === 'horizontal';
 
   const groupByWidth = (fieldList: FormField[]) => {
     const groups: Array<{ width: 'full' | 'half' | 'third'; fields: FormField[] }> = [];
@@ -89,23 +90,42 @@ function FieldsByWidth({ fields }: { fields: FormField[] }) {
     }
   };
 
+  // Horizontal layout: fields flow left-to-right on a 6-column grid and wrap by
+  // their width (full = 6 cols, half = 3 cols, third = 2 cols). On mobile they
+  // collapse to a single full-width column.
+  const getSpanClass = (field: FormField) => {
+    switch (field.width || 'full') {
+      case 'half': return 'col-span-1 sm:col-span-3';
+      case 'third': return 'col-span-1 sm:col-span-2';
+      default: return 'col-span-1 sm:col-span-6';
+    }
+  };
+
   const renderFieldItem = (field: FormField) => (
     <SortableField
       key={field.id}
       field={field}
       isSelected={field.id === builder.selectedFieldId}
-      orientation={builder.layout.orientation}
+      className={isHorizontal ? getSpanClass(field) : undefined}
       onSelect={() => dispatch(selectField(field.id))}
       onDelete={() => dispatch(removeField(field.id))}
     />
   );
 
-  const renderGroups = (fieldList: FormField[]) =>
-    groupByWidth(fieldList).map((group, i) => (
+  const renderGroups = (fieldList: FormField[]) => {
+    if (isHorizontal) {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
+          {fieldList.map(renderFieldItem)}
+        </div>
+      );
+    }
+    return groupByWidth(fieldList).map((group, i) => (
       <div key={i} className={getGridClass(group.width)}>
         {group.fields.map(renderFieldItem)}
       </div>
     ));
+  };
 
   if (isMultiStep && builder.layout.steps && builder.layout.steps.length > 0) {
     const steps = [...builder.layout.steps].sort((a, b) => a.order - b.order);
@@ -148,11 +168,7 @@ function FieldsByWidth({ fields }: { fields: FormField[] }) {
 
   return (
     <div className="space-y-4">
-      {groupByWidth(fields).map((group, i) => (
-        <div key={i} className={getGridClass(group.width)}>
-          {group.fields.map(renderFieldItem)}
-        </div>
-      ))}
+      {renderGroups(fields)}
     </div>
   );
 }
@@ -1184,7 +1200,10 @@ export default function FormBuilderPage() {
           {/* Canvas */}
           <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
             <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-              <div className="mx-auto max-w-[900px] rounded-xl border border-border bg-card shadow-sm">
+              <div className={cn(
+                'mx-auto rounded-xl border border-border bg-card shadow-sm',
+                builder.layout.orientation === 'horizontal' ? 'w-full' : 'max-w-[900px]'
+              )}>
                 {/* Form title + description */}
                 <div className="border-b border-border/70 px-5 py-6 sm:px-8">
                   <h1 className="min-w-0 break-words text-lg font-bold tracking-tight text-foreground sm:text-xl">

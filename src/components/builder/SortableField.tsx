@@ -10,7 +10,7 @@ interface SortableFieldProps {
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
-  orientation?: 'vertical' | 'horizontal';
+  className?: string;
 }
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
@@ -33,7 +33,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   table: 'Table Grid',
 };
 
-export default function SortableField({ field, isSelected, onSelect, onDelete, orientation = 'vertical' }: SortableFieldProps) {
+export default function SortableField({ field, isSelected, onSelect, onDelete, className }: SortableFieldProps) {
   const {
     attributes,
     listeners,
@@ -58,7 +58,8 @@ export default function SortableField({ field, isSelected, onSelect, onDelete, o
         isSelected
           ? 'border-primary shadow-[0_0_0_1px_hsl(var(--primary))]'
           : 'border-border hover:border-primary/40',
-        isDragging && 'opacity-50'
+        isDragging && 'opacity-50',
+        className
       )}
       onClick={onSelect}
     >
@@ -73,40 +74,24 @@ export default function SortableField({ field, isSelected, onSelect, onDelete, o
         </button>
 
         {/* Field body */}
-        {orientation === 'horizontal' ? (
-          <div className="flex min-w-0 flex-1 items-start gap-3">
-            <div className="flex w-[34%] min-w-[110px] items-center justify-end gap-1">
-              <span className="truncate text-right text-[13px] font-semibold text-foreground">
-                {field.label || 'Untitled field'}
-              </span>
-              {field.required && <span className="text-destructive">*</span>}
-            </div>
-            <div className="min-w-0 flex-1 rounded-md border border-dashed border-border bg-muted/40 px-2.5 py-1.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-[13px] font-semibold text-foreground">
+              {field.label || 'Untitled field'}
+            </span>
+            {field.required && <span className="text-destructive">*</span>}
+          </div>
+          <div className="mt-1 flex items-center gap-2">
+            <span className="rounded border border-border bg-muted/50 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {FIELD_TYPE_LABELS[field.type] || field.type}
+            </span>
+            {field.placeholder && (
               <span className="truncate text-[11px] text-muted-foreground">
-                {field.placeholder || `${FIELD_TYPE_LABELS[field.type] || field.type} field`}
+                {field.placeholder}
               </span>
-            </div>
+            )}
           </div>
-        ) : (
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-[13px] font-semibold text-foreground">
-                {field.label || 'Untitled field'}
-              </span>
-              {field.required && <span className="text-destructive">*</span>}
-            </div>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="rounded border border-border bg-muted/50 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {FIELD_TYPE_LABELS[field.type] || field.type}
-              </span>
-              {field.placeholder && (
-                <span className="truncate text-[11px] text-muted-foreground">
-                  {field.placeholder}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100">
