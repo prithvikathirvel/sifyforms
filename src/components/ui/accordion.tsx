@@ -15,24 +15,26 @@ export function AccordionItem({ title, subtitle, icon, defaultOpen = false, chil
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className={cn("border rounded-lg overflow-hidden", className)}>
+    <div className={cn('overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm', className)}>
       <button
+        type="button"
+        aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 bg-white hover:bg-muted transition-colors flex items-center justify-between text-left"
+        className="flex w-full items-center justify-between gap-3 bg-card px-3.5 py-3 text-left transition-colors hover:bg-muted/45"
       >
-        <div className="flex items-center gap-3">
-          {icon && <div className="text-muted-foreground">{icon}</div>}
-          <div>
-            <div className="font-medium text-foreground">{title}</div>
-            {subtitle && <div className="text-sm text-muted-foreground">{subtitle}</div>}
+        <div className="flex min-w-0 items-center gap-2.5">
+          {icon && <div className="shrink-0 text-muted-foreground">{icon}</div>}
+          <div className="min-w-0">
+            <div className="truncate text-[13px] font-semibold text-foreground">{title}</div>
+            {subtitle && <div className="mt-0.5 truncate text-[11px] leading-4 text-muted-foreground">{subtitle}</div>}
           </div>
         </div>
-        <div className="text-muted-foreground transition-transform duration-200">
+        <div className="shrink-0 text-muted-foreground" aria-hidden="true">
           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </div>
       </button>
       {isOpen && (
-        <div className="px-4 py-3 bg-muted border-t">
+        <div className="border-t border-border/70 bg-muted/25 px-3.5 py-3">
           {children}
         </div>
       )}
@@ -47,7 +49,7 @@ interface AccordionProps {
 
 export function Accordion({ children, className }: AccordionProps) {
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn('space-y-2.5', className)}>
       {children}
     </div>
   );

@@ -59,6 +59,26 @@ const countShowWhenConditions = (nodes: ShowWhenNode[]): number =>
     0
   );
 
+const FIELD_TYPE_LABELS: Record<FormField['type'], string> = {
+  text: 'Text input',
+  email: 'Email',
+  phone: 'Phone',
+  number: 'Number',
+  select: 'Dropdown',
+  radio: 'Radio buttons',
+  checkbox: 'Checkboxes',
+  multiselect: 'Multi-select',
+  date: 'Date picker',
+  time: 'Time picker',
+  textarea: 'Long text',
+  file: 'File upload',
+  rating: 'Rating',
+  signature: 'Signature',
+  html: 'Instructions',
+  display: 'Display value',
+  table: 'Table grid',
+};
+
 import CSVImportModal from './CSVImportModal';
 
 interface FieldInspectorProps {
@@ -184,23 +204,30 @@ export default function FieldInspector({
 
   if (!field) {
     return (
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg">Field Inspector</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
+      <aside className="flex h-full min-h-0 flex-col bg-card" aria-label="Field inspector">
+        <div className="flex items-center justify-between border-b border-border/70 px-4 py-3.5">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Configure</p>
+            <h2 className="mt-1 text-sm font-bold tracking-tight text-foreground">Field inspector</h2>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close field inspector">
+            <X className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
 
-        <div className="pt-10 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center text-muted-foreground">
-            <Settings className="w-8 h-8" />
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-8 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/15 bg-primary/5 text-primary">
+            <Settings className="h-6 w-6" aria-hidden="true" />
           </div>
-          <p className="text-sm text-muted-foreground px-4">
-            Select any field on the canvas to edit its specific properties, validation rules, and smart connections.
+          <h3 className="mt-5 text-sm font-bold tracking-tight text-foreground">Select a field to configure it</h3>
+          <p className="mt-2 max-w-[240px] text-xs leading-5 text-muted-foreground">
+            Choose a field on the canvas to edit content, validation, logic, files, and advanced behavior.
           </p>
+          <div className="mt-5 rounded-lg border border-dashed border-border px-3 py-2 text-[11px] text-muted-foreground">
+            Tip: press Enter on a field to open its inspector
+          </div>
         </div>
-      </div>
+      </aside>
     );
   }
 
@@ -276,18 +303,66 @@ export default function FieldInspector({
   // Show When (Field Visibility) state
   const showWhen = field.showWhen;
 
+  const conditionCount = showWhen?.conditions ? countShowWhenConditions(showWhen.conditions) : 0;
+  const statusCount = [
+    field.required,
+    field.unique,
+    conditionCount > 0,
+    Boolean(field.rules?.length || field.validation),
+    Boolean(field.fileConfig || field.supportDocuments?.length),
+  ].filter(Boolean).length;
+
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg">Field Properties</h3>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
+    <aside className="flex h-full min-h-0 flex-col bg-card" aria-label={`Configure ${field.label || 'field'}`}>
+      <div className="shrink-0 border-b border-border/70 bg-card px-4 pb-3.5 pt-3.5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/5 text-primary">
+            <Settings className="h-4 w-4" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Field {String(allFields.findIndex((item) => item.id === field.id) + 1).padStart(2, '0')}</p>
+              {statusCount > 0 && <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">{statusCount} active</span>}
+            </div>
+            <h2 className="mt-1 truncate text-sm font-bold tracking-tight text-foreground">{field.label || 'Untitled field'}</h2>
+            <div className="mt-1 flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground">
+              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-semibold">{FIELD_TYPE_LABELS[field.type]}</span>
+              <span className="truncate font-mono" title={field.id}>{field.id}</span>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close field inspector">
+            <X className="h-4 w-4" aria-hidden="true" />
           </Button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/80 bg-muted/25 px-2.5 py-2 text-xs hover:bg-muted/50">
+            <span className="font-semibold text-foreground">Required</span>
+            <input
+              type="checkbox"
+              checked={!!field.required}
+              onChange={(event) => onUpdate({ required: event.target.checked, unique: event.target.checked ? field.unique : false })}
+              className="h-3.5 w-3.5 accent-primary"
+            />
+          </label>
+          <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/80 bg-muted/25 px-2.5 py-2 text-xs hover:bg-muted/50">
+            <span className="font-semibold text-foreground">Disabled</span>
+            <input
+              type="checkbox"
+              checked={!!field.disabled}
+              onChange={(event) => onUpdate({ disabled: event.target.checked })}
+              className="h-3.5 w-3.5 accent-primary"
+            />
+          </label>
         </div>
       </div>
 
-      <Accordion>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="mb-3 flex items-center justify-between px-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Configuration</p>
+          <span className="text-[10px] text-muted-foreground">Changes apply instantly</span>
+        </div>
+        <Accordion>
         {/* Basic Properties */}
         <AccordionItem
           title="Basic Properties"
@@ -1641,6 +1716,7 @@ export default function FieldInspector({
         allFields={allFields}
         variables={variables}
       />
-    </div>
+      </div>
+    </aside>
   );
 }
