@@ -261,7 +261,7 @@ function BrandingSectionEditor({
   );
 }
 
-export default function SettingsModal({ open, onClose, formId }: SettingsModalProps) {
+export function SettingsPanel({ formId }: { formId?: string }) {
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
   const currentOrg = useAppSelector((state) => state.org.currentOrg);
@@ -271,18 +271,8 @@ export default function SettingsModal({ open, onClose, formId }: SettingsModalPr
   const paymentCancelUrl = formId ? `${origin}/payment/${formId}/status?cancelled=true` : '';
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">Form Settings</DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </DialogHeader>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col md:flex-row">
+    <div className="flex-1 min-h-0 overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col md:flex-row">
             <div className="w-full md:w-48 border-b md:border-b-0 md:border-r bg-muted/20">
               <TabsList className="flex flex-row md:flex-col h-auto w-full justify-start p-2 bg-transparent gap-1">
                 <TabsTrigger value="general" className="w-full justify-start data-[state=active]:bg-background">
@@ -1161,7 +1151,23 @@ export default function SettingsModal({ open, onClose, formId }: SettingsModalPr
               </TabsContent>
             </div>
           </Tabs>
-        </div>
+    </div>
+  );
+}
+
+export default function SettingsModal({ open, onClose, formId }: SettingsModalProps) {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-6 py-4 border-b">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-lg font-semibold">Form Settings</DialogTitle>
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </DialogHeader>
+        <SettingsPanel formId={formId} />
       </DialogContent>
     </Dialog>
   );
