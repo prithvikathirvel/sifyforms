@@ -287,7 +287,7 @@ export default function FieldInspector({
         </div>
       </div>
 
-      <div className="inspector-body min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
       <Accordion>
         {/* Basic Properties */}
         <AccordionItem

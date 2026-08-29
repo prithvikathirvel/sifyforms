@@ -362,27 +362,6 @@
   }
 }
 
-/*
- * Compact controls inside the Field Inspector. The inspector's accordions
- * host a lot of buttons that ship at the app-wide default height; tightening
- * them here (scoped to the inspector body only) keeps the panel dense without
- * affecting buttons elsewhere in the product.
- */
-.inspector-body button {
-  height: 2rem;
-  min-height: 2rem;
-  padding-left: 0.7rem;
-  padding-right: 0.7rem;
-  font-size: 12px;
-}
-
-/* Small inline icon buttons (row delete, CSV import, add-rule) stay compact. */
-.inspector-body button.h-7,
-.inspector-body button.h-6 {
-  height: 1.625rem;
-  min-height: 1.625rem;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
