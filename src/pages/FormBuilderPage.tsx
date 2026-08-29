@@ -31,9 +31,10 @@ import SortableField from '../components/builder/SortableField';
 import FieldInspector from '../components/builder/FieldInspector';
 import LayoutModal from '../components/builder/LayoutModal';
 import SettingsModal from '../components/builder/SettingsModal';
-import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Monitor, Tablet, Smartphone, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Plus, PanelLeft, PanelRight, X } from 'lucide-react';
 import type { FormField } from '../types';
 import { cn } from '../lib/utils';
+import FieldPreview from '../components/builder/FieldPreview';
 
 // Droppable canvas component
 function DroppableCanvas({ children }: { children: React.ReactNode }) {
@@ -54,19 +55,12 @@ function DroppableCanvas({ children }: { children: React.ReactNode }) {
   );
 }
 
-type DeviceMode = 'desktop' | 'tablet' | 'mobile';
+type EditorMode = 'canvas' | 'preview';
 
-const DEVICE_WIDTHS: Record<DeviceMode, string> = {
-  desktop: 'max-w-[900px]',
-  tablet: 'max-w-[640px]',
-  mobile: 'max-w-[400px]',
-};
-
-const DEVICE_OPTIONS: { value: DeviceMode; label: string; icon: React.ElementType }[] = [
-  { value: 'desktop', label: 'Desktop', icon: Monitor },
-  { value: 'tablet', label: 'Tablet', icon: Tablet },
-  { value: 'mobile', label: 'Mobile', icon: Smartphone },
-];
+const PALETTE_MIN = 220;
+const PALETTE_MAX = 420;
+const INSPECTOR_MIN = 280;
+const INSPECTOR_MAX = 520;
 
 // Helper component to render fields by width with step information
 function FieldsByWidth({ fields }: { fields: FormField[] }) {
@@ -203,7 +197,40 @@ export default function FormBuilderPage() {
   const [showLayout, setShowLayout] = useState(false);
   const [copied, setCopied] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
-  const [device, setDevice] = useState<DeviceMode>('desktop');
+  const [mode, setMode] = useState<EditorMode>('canvas');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(true);
+  const [paletteWidth, setPaletteWidth] = useState(256);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorWidth, setInspectorWidth] = useState(350);
+
+  // Drag-to-resize handlers for the side panels.
+  const beginResize = (side: 'palette' | 'inspector') => (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = side === 'palette' ? paletteWidth : inspectorWidth;
+
+    const handleMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const next = side === 'palette' ? startW + dx : startW - dx;
+      if (side === 'palette') {
+        setPaletteWidth(Math.max(PALETTE_MIN, Math.min(PALETTE_MAX, next)));
+      } else {
+        setInspectorWidth(Math.max(INSPECTOR_MIN, Math.min(INSPECTOR_MAX, next)));
+      }
+    };
+    const handleUp = () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+  };
 
   // AI modal state for global form editing
   const [showAIModal, setShowAIModal] = useState(false);
@@ -789,7 +816,7 @@ export default function FormBuilderPage() {
       <header className="shrink-0 border-b border-border/70 bg-card">
         <div className="flex h-14 items-center gap-2 px-3 sm:px-4">
           {/* Left — back + form name */}
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <Button
               variant="ghost"
               size="sm"
@@ -801,24 +828,54 @@ export default function FormBuilderPage() {
               <span className="hidden sm:inline">Back</span>
             </Button>
             <div className="h-5 w-px shrink-0 bg-border/70" />
-            <div className="group/name flex min-w-0 items-center gap-1.5">
+
+            {/* Inline-editable form name */}
+            {isEditingName ? (
               <Input
+                autoFocus
                 value={builder.formName}
                 onChange={(e) => dispatch(setFormName(e.target.value))}
-                className="h-7 w-full max-w-[280px] truncate border-transparent bg-transparent px-1.5 text-[13px] font-semibold shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                onBlur={() => setIsEditingName(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === 'Escape') setIsEditingName(false);
+                }}
+                className="h-7 w-full max-w-[240px] min-w-[120px] border-input bg-background px-2 text-[13px] font-semibold shadow-none"
                 placeholder="Untitled form"
                 aria-label="Form name"
               />
-              <Edit2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100" />
-            </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditingName(true)}
+                className="group/name flex min-w-0 max-w-[260px] items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
+                title="Rename form"
+              >
+                <span className="truncate text-[13px] font-semibold text-foreground">
+                  {builder.formName || 'Untitled form'}
+                </span>
+                <Edit2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100" />
+              </button>
+            )}
+
             {builder.unsavedChanges && (
               <span className="hidden shrink-0 items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground md:flex">
                 Unsaved
               </span>
             )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-1 h-8 w-8 p-0 text-muted-foreground"
+              onClick={() => setPaletteOpen((v) => !v)}
+              title={paletteOpen ? 'Hide field library' : 'Show field library'}
+              aria-label={paletteOpen ? 'Hide field library' : 'Show field library'}
+            >
+              <PanelLeft className={cn('h-4 w-4', !paletteOpen && 'text-primary')} strokeWidth={1.8} />
+            </Button>
           </div>
 
-          {/* Center — status + device preview */}
+          {/* Center — status + canvas/preview toggle */}
           <div className="hidden items-center gap-2.5 md:flex">
             {currentForm.isPublished ? (
               <Badge variant="success">Published</Badge>
@@ -826,22 +883,22 @@ export default function FormBuilderPage() {
               <Badge variant="outline" className="text-muted-foreground">Draft</Badge>
             )}
             <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
-              {DEVICE_OPTIONS.map(({ value, label, icon: Icon }) => (
+              {(['canvas', 'preview'] as const).map((value) => (
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setDevice(value)}
-                  title={`Preview as ${label}`}
-                  aria-label={`Preview as ${label}`}
+                  onClick={() => setMode(value)}
+                  aria-pressed={mode === value}
                   className={cn(
-                    'flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors',
-                    device === value
+                    'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium capitalize transition-colors',
+                    mode === value
                       ? 'bg-card text-foreground shadow-sm ring-1 ring-border'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
-                  <span className="hidden lg:inline">{label}</span>
+                  {value === 'preview' && <Eye className="h-3.5 w-3.5" strokeWidth={1.8} />}
+                  {value === 'canvas' && <Layout className="h-3.5 w-3.5" strokeWidth={1.8} />}
+                  {value}
                 </button>
               ))}
             </div>
@@ -849,6 +906,17 @@ export default function FormBuilderPage() {
 
           {/* Right — actions */}
           <div className="flex flex-1 items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-muted-foreground"
+              onClick={() => setInspectorOpen((v) => !v)}
+              title={inspectorOpen ? 'Hide field inspector' : 'Show field inspector'}
+              aria-label={inspectorOpen ? 'Hide field inspector' : 'Show field inspector'}
+            >
+              <PanelRight className={cn('h-4 w-4', !inspectorOpen && 'text-primary')} strokeWidth={1.8} />
+            </Button>
+
             <Button
               variant="ghost"
               size="sm"
@@ -1096,19 +1164,45 @@ export default function FormBuilderPage() {
       )}
 
       {/* Main Content */}
-      <div className="min-h-0 flex-1 grid grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)] lg:grid-cols-[280px_minmax(0,1fr)_350px]">
+      <div className="min-h-0 flex-1 flex">
         {/* Field Palette */}
-        <aside className="hidden min-w-0 overflow-hidden border-r border-border/70 bg-card md:flex md:flex-col">
-          <FieldPalette onAddField={handleAddField} />
-        </aside>
+        {paletteOpen && (
+          <aside
+            className="relative shrink-0 overflow-hidden border-r border-border/70 bg-card"
+            style={{ width: paletteWidth }}
+          >
+            <div className="flex h-full flex-col">
+              <FieldPalette onAddField={handleAddField} />
+            </div>
+            {/* Close */}
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(false)}
+              aria-label="Close field library"
+              className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </aside>
+        )}
+
+        {/* Palette resize handle */}
+        {paletteOpen && (
+          <div
+            onPointerDown={beginResize('palette')}
+            className="z-10 w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40"
+            role="separator"
+            aria-orientation="vertical"
+          />
+        )}
 
         {/* Canvas */}
-        <main className="min-w-0 overflow-y-auto bg-workspace">
+        <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
           <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            <div className={cn('mx-auto rounded-xl border border-border bg-card shadow-sm transition-[max-width] duration-200', DEVICE_WIDTHS[device])}>
+            <div className="mx-auto max-w-[900px] rounded-xl border border-border bg-card shadow-sm">
               {/* Form title + description */}
               <div className="border-b border-border/70 px-5 py-6 sm:px-8">
-                <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                <h1 className="min-w-0 break-words text-xl font-bold tracking-tight text-foreground sm:text-2xl">
                   {builder.formName || 'Untitled form'}
                 </h1>
                 <Textarea
@@ -1119,56 +1213,85 @@ export default function FormBuilderPage() {
                 />
               </div>
 
-              {/* Fields */}
+              {/* Fields / Preview */}
               <div className="px-5 py-6 sm:px-8 sm:py-8">
-                <DndContext
-                  collisionDetection={closestCenter}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                >
-                  <DroppableCanvas>
-                    <SortableContext
-                      items={builder.schema.fields.map((f) => f.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      <div className="space-y-3">
-                        {builder.schema.fields.length === 0 ? (
-                          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-6 py-14 text-center">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/[0.06] text-primary">
-                              <Plus className="h-6 w-6" strokeWidth={1.8} />
+                {mode === 'preview' ? (
+                  <div className="space-y-6">
+                    {builder.schema.fields.length === 0 ? (
+                      <p className="py-10 text-center text-[13px] text-muted-foreground">
+                        Nothing to preview yet — add fields to your form.
+                      </p>
+                    ) : (
+                      builder.schema.fields.map((field) => (
+                        <FieldPreview key={field.id} field={field} variables={builder.schema.variables ?? []} />
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  <DndContext
+                    collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <DroppableCanvas>
+                      <SortableContext
+                        items={builder.schema.fields.map((f) => f.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-3">
+                          {builder.schema.fields.length === 0 ? (
+                            <div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-6 py-14 text-center">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/[0.06] text-primary">
+                                <Plus className="h-6 w-6" strokeWidth={1.8} />
+                              </div>
+                              <p className="mt-4 text-[14px] font-semibold text-foreground">
+                                Drag and drop a field here
+                              </p>
+                              <p className="mt-1 text-[12px] text-muted-foreground">
+                                Or click a field type from the library on the left to add it
+                              </p>
                             </div>
-                            <p className="mt-4 text-[14px] font-semibold text-foreground">
-                              Drag and drop a field here
-                            </p>
-                            <p className="mt-1 text-[12px] text-muted-foreground">
-                              Or click a field type from the library on the left to add it
-                            </p>
-                          </div>
-                        ) : (
-                          <FieldsByWidth fields={builder.schema.fields} />
-                        )}
-                      </div>
-                    </SortableContext>
-                  </DroppableCanvas>
-                </DndContext>
+                          ) : (
+                            <FieldsByWidth fields={builder.schema.fields} />
+                          )}
+                        </div>
+                      </SortableContext>
+                    </DroppableCanvas>
+                  </DndContext>
+                )}
               </div>
             </div>
           </div>
         </main>
 
-        {/* Inspector Panel */}
-        <aside className="hidden min-w-0 overflow-hidden border-l border-border/70 bg-card lg:flex lg:flex-col">
-          <FieldInspector
-            key={selectedField?.id || 'form-actions'}
-            field={selectedField}
-            allFields={builder.schema.fields}
-            variables={builder.schema.variables}
-            formId={formId}
-            onUpdate={(updates) => selectedField && dispatch(updateField({ id: selectedField.id, updates }))}
-            onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
-            onClose={() => dispatch(selectField(null))}
+        {/* Inspector resize handle */}
+        {inspectorOpen && (
+          <div
+            onPointerDown={beginResize('inspector')}
+            className="z-10 w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40"
+            role="separator"
+            aria-orientation="vertical"
           />
-        </aside>
+        )}
+
+        {/* Inspector Panel */}
+        {inspectorOpen && (
+          <aside
+            className="relative shrink-0 overflow-hidden border-l border-border/70 bg-card"
+            style={{ width: inspectorWidth }}
+          >
+            <FieldInspector
+              key={selectedField?.id || 'form-actions'}
+              field={selectedField}
+              allFields={builder.schema.fields}
+              variables={builder.schema.variables}
+              formId={formId}
+              onUpdate={(updates) => selectedField && dispatch(updateField({ id: selectedField.id, updates }))}
+              onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
+              onClose={() => dispatch(selectField(null))}
+            />
+          </aside>
+        )}
       </div>
 
       {/* Layout Modal */}

@@ -2627,7 +2627,7 @@ export default function PublicFormPage() {
         <div className="max-w-2xl mx-auto py-8">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">{previewConfig.title || 'Review Your Information'}</CardTitle>
+              <CardTitle className="min-w-0 break-words text-2xl">{previewConfig.title || 'Review Your Information'}</CardTitle>
               {previewConfig.description && (
                 <p className="text-sm text-muted-foreground mt-2">{previewConfig.description}</p>
               )}
@@ -2769,7 +2769,7 @@ export default function PublicFormPage() {
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
               <CreditCard className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="text-xl">{form.name}</CardTitle>
+            <CardTitle className="min-w-0 break-words text-xl">{form.name}</CardTitle>
             {stepLabel && <p className="text-xs font-medium text-primary">{stepLabel}</p>}
             <CardDescription>
               {isOtpStep
@@ -2850,9 +2850,9 @@ export default function PublicFormPage() {
       <div className="max-w-2xl mx-auto">
         <Card className="form-card border-border shadow-xl">
           <CardHeader>
-            <CardTitle className="text-2xl">{form.name}</CardTitle>
+            <CardTitle className="min-w-0 break-words text-2xl">{form.name}</CardTitle>
             {form.description && (
-              <CardDescription>{form.description}</CardDescription>
+              <CardDescription className="break-words">{form.description}</CardDescription>
             )}
             {isMultiStep && currentStep && (
               <div className="pt-2 space-y-2">
