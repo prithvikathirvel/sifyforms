@@ -20,7 +20,6 @@ const initialState: BuilderState & { aiSessionId?: string | null } = {
   formDescription: '',
   layout: defaultLayout,
   aiSessionId: null,
-  orientation: 'vertical',
 };
 
 const builderSlice = createSlice({
@@ -129,9 +128,6 @@ const builderSlice = createSlice({
     updateLayout: (state, action: PayloadAction<Partial<FormLayout>>) => {
       state.layout = { ...state.layout, ...action.payload };
       state.unsavedChanges = true;
-    },
-    setOrientation: (state, action: PayloadAction<'vertical' | 'horizontal'>) => {
-      state.orientation = action.payload;
     },
     setLayoutMode: (state, action: PayloadAction<'singlePage' | 'multiStep'>) => {
       state.layout.mode = action.payload;
@@ -244,7 +240,6 @@ export const {
   setAISessionId,
   updateLayout,
   setLayoutMode,
-  setOrientation,
   addStep,
   removeStep,
   updateStep,
