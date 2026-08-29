@@ -814,20 +814,20 @@ export default function FormBuilderPage() {
     <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
       {/* Header */}
       <header className="shrink-0 border-b border-border/70 bg-card">
-        <div className="flex h-14 items-center gap-2 px-3 sm:px-4">
+        <div className="flex h-12 items-center gap-2 px-3 sm:px-4">
           {/* Left — back + form name */}
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+              className="h-7 gap-1.5 rounded-lg px-2 text-[12px] text-muted-foreground hover:text-foreground"
               onClick={() => navigate('/dashboard')}
               title="Back to dashboard"
             >
-              <ArrowLeft className="h-4 w-4" strokeWidth={1.8} />
+              <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
               <span className="hidden sm:inline">Back</span>
             </Button>
-            <div className="h-5 w-px shrink-0 bg-border/70" />
+            <div className="h-4 w-px shrink-0 bg-border/70" />
 
             {/* Inline-editable form name */}
             {isEditingName ? (
@@ -839,7 +839,7 @@ export default function FormBuilderPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === 'Escape') setIsEditingName(false);
                 }}
-                className="h-7 w-full max-w-[240px] min-w-[120px] border-input bg-background px-2 text-[13px] font-semibold shadow-none"
+                className="h-7 w-full max-w-[220px] min-w-[120px] border-input bg-background px-2 text-[12px] font-semibold shadow-none"
                 placeholder="Untitled form"
                 aria-label="Form name"
               />
@@ -847,13 +847,13 @@ export default function FormBuilderPage() {
               <button
                 type="button"
                 onClick={() => setIsEditingName(true)}
-                className="group/name flex min-w-0 max-w-[260px] items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
+                className="group/name flex min-w-0 max-w-[240px] items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
                 title="Rename form"
               >
-                <span className="truncate text-[13px] font-semibold text-foreground">
+                <span className="truncate text-[12px] font-semibold text-foreground">
                   {builder.formName || 'Untitled form'}
                 </span>
-                <Edit2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100" />
+                <Edit2 className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100" />
               </button>
             )}
 
@@ -863,95 +863,50 @@ export default function FormBuilderPage() {
               </span>
             )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-1 h-8 w-8 p-0 text-muted-foreground"
-              onClick={() => setPaletteOpen((v) => !v)}
-              title={paletteOpen ? 'Hide field library' : 'Show field library'}
-              aria-label={paletteOpen ? 'Hide field library' : 'Show field library'}
-            >
-              <PanelLeft className={cn('h-4 w-4', !paletteOpen && 'text-primary')} strokeWidth={1.8} />
-            </Button>
-          </div>
-
-          {/* Center — status + canvas/preview toggle */}
-          <div className="hidden items-center gap-2.5 md:flex">
             {currentForm.isPublished ? (
               <Badge variant="success">Published</Badge>
             ) : (
               <Badge variant="outline" className="text-muted-foreground">Draft</Badge>
             )}
-            <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
-              {(['canvas', 'preview'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setMode(value)}
-                  aria-pressed={mode === value}
-                  className={cn(
-                    'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium capitalize transition-colors',
-                    mode === value
-                      ? 'bg-card text-foreground shadow-sm ring-1 ring-border'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {value === 'preview' && <Eye className="h-3.5 w-3.5" strokeWidth={1.8} />}
-                  {value === 'canvas' && <Layout className="h-3.5 w-3.5" strokeWidth={1.8} />}
-                  {value}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Right — actions */}
-          <div className="flex flex-1 items-center justify-end gap-1">
+          <div className="flex flex-1 items-center justify-end gap-0.5">
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground"
-              onClick={() => setInspectorOpen((v) => !v)}
-              title={inspectorOpen ? 'Hide field inspector' : 'Show field inspector'}
-              aria-label={inspectorOpen ? 'Hide field inspector' : 'Show field inspector'}
-            >
-              <PanelRight className={cn('h-4 w-4', !inspectorOpen && 'text-primary')} strokeWidth={1.8} />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
+              className="h-7 w-7 p-0"
               onClick={() => setShowSettings(true)}
               title="Form Settings"
               aria-label="Form Settings"
             >
-              <Settings className="h-4 w-4" strokeWidth={1.8} />
+              <Settings className="h-3.5 w-3.5" strokeWidth={1.8} />
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0"
+              className="h-7 w-7 p-0"
               onClick={() => setShowLayout(true)}
               title="Layout"
               aria-label="Layout"
             >
-              <Layout className="h-4 w-4" strokeWidth={1.8} />
+              <Layout className="h-3.5 w-3.5" strokeWidth={1.8} />
             </Button>
 
             <div className="relative group">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="More actions">
-                <MoreVertical className="h-4 w-4" strokeWidth={1.8} />
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="More actions">
+                <MoreVertical className="h-3.5 w-3.5" strokeWidth={1.8} />
               </Button>
-              <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-popover p-1 opacity-0 shadow-lg shadow-foreground/5 invisible transition-all group-hover:opacity-100 group-hover:visible">
+              <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-lg border border-border bg-popover p-1 opacity-0 shadow-lg shadow-foreground/5 invisible transition-all group-hover:opacity-100 group-hover:visible">
                 <button
                   onClick={() => {
                     setNewName(`${builder.formName} (Copy)`);
                     setShowNamingDialog('duplicate');
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-muted"
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
                 >
-                  <Copy className="h-4 w-4 text-muted-foreground" />
+                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                   Duplicate Form
                 </button>
                 <button
@@ -959,38 +914,38 @@ export default function FormBuilderPage() {
                     setNewName(builder.formName);
                     setShowNamingDialog('template');
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-muted"
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
                 >
-                  <Layout className="h-4 w-4 text-muted-foreground" />
+                  <Layout className="h-3.5 w-3.5 text-muted-foreground" />
                   Save as Template
                 </button>
                 <button
                   onClick={handleExportJSON}
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-muted"
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
                 >
-                  <Download className="h-4 w-4 text-muted-foreground" />
+                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
                   Export JSON
                 </button>
               </div>
             </div>
 
-            <div className="mx-1 h-5 w-px bg-border/70" />
+            <div className="mx-1 h-4 w-px bg-border/70" />
 
             <Button
               size="sm"
-              className="h-8 gap-1.5 rounded-lg bg-primary px-2.5 text-primary-foreground hover:bg-primary/90"
+              className="h-7 gap-1.5 rounded-lg bg-primary px-2.5 text-[12px] text-primary-foreground hover:bg-primary/90"
               onClick={() => setShowAIModal(true)}
             >
-              <Wand2 className="h-4 w-4" strokeWidth={1.8} />
+              <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
               <span className="hidden sm:inline">AI Assist</span>
             </Button>
 
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg px-2.5" onClick={handleSave} disabled={isSaving}>
+            <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-2.5 text-[12px]" onClick={handleSave} disabled={isSaving}>
               {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <>
-                  <Save className="h-4 w-4" strokeWidth={1.8} />
+                  <Save className="h-3.5 w-3.5" strokeWidth={1.8} />
                   <span className="hidden sm:inline">Save</span>
                 </>
               )}
@@ -1000,24 +955,24 @@ export default function FormBuilderPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 rounded-lg px-2.5"
+                className="h-7 gap-1.5 rounded-lg px-2.5 text-[12px]"
                 onClick={() => {
                   const orgSlug = currentOrg?.slug || 'default-org';
                   const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
                   window.open(`${BASE_URL}/${orgSlug}/${currentForm.slug}`, '_blank');
                 }}
               >
-                <Eye className="h-4 w-4" strokeWidth={1.8} />
+                <Eye className="h-3.5 w-3.5" strokeWidth={1.8} />
                 <span className="hidden sm:inline">Preview</span>
               </Button>
             )}
 
-            <Button size="sm" className="h-8 gap-1.5 rounded-lg px-3" onClick={handlePublish} disabled={isPublishing}>
+            <Button size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-[12px]" onClick={handlePublish} disabled={isPublishing}>
               {isPublishing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <>
-                  <Globe className="h-4 w-4" strokeWidth={1.8} />
+                  <Globe className="h-3.5 w-3.5" strokeWidth={1.8} />
                   <span className="hidden sm:inline">Publish</span>
                 </>
               )}
@@ -1025,6 +980,65 @@ export default function FormBuilderPage() {
           </div>
         </div>
       </header>
+
+      {/* Floating editor toolbar */}
+      <div className="shrink-0 px-3 pt-2 sm:px-4">
+        <div className="relative flex h-10 items-center rounded-xl border border-border/70 bg-card px-1.5 shadow-sm">
+          {/* Left — field library toggle */}
+          <div className="flex flex-1 items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-7 gap-1.5 rounded-lg px-2.5 text-[12px] font-medium',
+                paletteOpen ? 'text-muted-foreground hover:text-foreground' : 'text-primary hover:text-primary/80'
+              )}
+              onClick={() => setPaletteOpen((v) => !v)}
+            >
+              <PanelLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
+              {paletteOpen ? 'Hide Field Library' : 'Show Field Library'}
+            </Button>
+          </div>
+
+          {/* Center — canvas/preview toggle (borderless, slate) */}
+          <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center rounded-lg bg-ink-100 p-0.5">
+            {(['canvas', 'preview'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMode(value)}
+                aria-pressed={mode === value}
+                className={cn(
+                  'flex h-7 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium capitalize transition-colors',
+                  mode === value
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {value === 'preview' && <Eye className="h-3.5 w-3.5" strokeWidth={1.8} />}
+                {value === 'canvas' && <Layout className="h-3.5 w-3.5" strokeWidth={1.8} />}
+                {value}
+              </button>
+            ))}
+          </div>
+
+          {/* Right — inspector toggle */}
+          <div className="flex flex-1 items-center justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-7 gap-1.5 rounded-lg px-2.5 text-[12px] font-medium',
+                inspectorOpen ? 'text-muted-foreground hover:text-foreground' : 'text-primary hover:text-primary/80'
+              )}
+              onClick={() => setInspectorOpen((v) => !v)}
+            >
+              <PanelRight className="h-3.5 w-3.5" strokeWidth={1.8} />
+              {inspectorOpen ? 'Hide Inspector' : 'Field Inspector'}
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* AI Prompt Dialog - global */}
       <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
@@ -1202,7 +1216,7 @@ export default function FormBuilderPage() {
             <div className="mx-auto max-w-[900px] rounded-xl border border-border bg-card shadow-sm">
               {/* Form title + description */}
               <div className="border-b border-border/70 px-5 py-6 sm:px-8">
-                <h1 className="min-w-0 break-words text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                <h1 className="min-w-0 break-words text-lg font-bold tracking-tight text-foreground sm:text-xl">
                   {builder.formName || 'Untitled form'}
                 </h1>
                 <Textarea
