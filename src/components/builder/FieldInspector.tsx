@@ -21,6 +21,7 @@ import { SupportDocumentsModal } from './SupportDocumentsModal';
 import { TableConfigModal } from './TableConfigModal';
 import { Accordion, AccordionItem } from '../ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { FIELD_ICONS, getFieldTypeLabel } from './fieldMeta';
 
 /** Human-readable summary of a Smart Connection condition tree, e.g. `A equals 1 AND (B equals 2 OR C equals 3)` */
 function describeLinkingConditions(
@@ -184,20 +185,24 @@ export default function FieldInspector({
 
   if (!field) {
     return (
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg">Field Inspector</h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h3 className="text-[13px] font-semibold tracking-tight text-foreground">Inspector</h3>
+          {onClose && (
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close inspector">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
-        <div className="pt-10 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center text-muted-foreground">
-            <Settings className="w-8 h-8" />
+        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-muted/40 text-muted-foreground">
+            <Settings className="h-6 w-6" />
           </div>
-          <p className="text-sm text-muted-foreground px-4">
-            Select any field on the canvas to edit its specific properties, validation rules, and smart connections.
+          <h4 className="text-sm font-semibold text-foreground">No field selected</h4>
+          <p className="mt-1.5 max-w-[220px] text-[12px] leading-relaxed text-muted-foreground">
+            Select any field on the canvas to edit its properties, validation rules, and smart
+            connections.
           </p>
         </div>
       </div>
@@ -276,17 +281,54 @@ export default function FieldInspector({
   // Show When (Field Visibility) state
   const showWhen = field.showWhen;
 
+  const HeaderIcon = FIELD_ICONS[field.type] || Settings;
+
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg">Field Properties</h3>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Field context header */}
+      <div className="border-b border-border px-4 py-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
+            <HeaderIcon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <label htmlFor="inspector-label" className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Label
+            </label>
+            <Input
+              id="inspector-label"
+              value={field.label}
+              onChange={(e) => onUpdate({ label: e.target.value })}
+              placeholder="Field label"
+              className="mt-1 h-8 px-2 text-[13px] font-semibold"
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="rounded border border-border bg-muted/40 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {getFieldTypeLabel(field.type)}
+              </span>
+              <label className="flex cursor-pointer items-center gap-1.5 rounded border border-border bg-muted/40 px-1.5 py-px text-[10px] font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  checked={field.required}
+                  onChange={(e) => {
+                    const required = e.target.checked;
+                    onUpdate({ required, unique: required ? field.unique : false });
+                  }}
+                  className="h-3 w-3 accent-primary"
+                />
+                Required
+              </label>
+            </div>
+          </div>
+          {onClose && (
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close inspector">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 scrollbar-subtle">
       <Accordion>
         {/* Basic Properties */}
         <AccordionItem
@@ -1489,6 +1531,7 @@ export default function FieldInspector({
           </AccordionItem>
         )}
       </Accordion>
+      </div>
 
       {/* AI Prompt Dialog */}
       <Dialog open={showAIModal} onOpenChange={setShowAIModal}>

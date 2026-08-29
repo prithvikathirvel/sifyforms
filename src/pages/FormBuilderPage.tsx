@@ -25,14 +25,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import api from '../lib/api';
 import { replaceSchema, setAISessionId } from '../store/builderSlice';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 import FieldPalette from '../components/builder/FieldPalette';
 import SortableField from '../components/builder/SortableField';
 import FieldInspector from '../components/builder/FieldInspector';
 import LayoutModal from '../components/builder/LayoutModal';
 import SettingsModal from '../components/builder/SettingsModal';
-import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, PenLine, MousePointerClick, CircleDot } from 'lucide-react';
 import type { FormField } from '../types';
+import { cn } from '../lib/utils';
 
 // Droppable canvas component
 function DroppableCanvas({ children }: { children: React.ReactNode }) {
@@ -52,7 +52,11 @@ function DroppableCanvas({ children }: { children: React.ReactNode }) {
 }
 
 // Helper component to render fields by width with step information
-function FieldsByWidth({ fields }: { fields: FormField[] }) {
+function FieldsByWidth({ fields, onDuplicateField, readOnly }: {
+  fields: FormField[];
+  onDuplicateField?: (fieldId: string) => void;
+  readOnly?: boolean;
+}) {
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
   const isMultiStep = builder.layout.mode === 'multiStep';
@@ -86,6 +90,8 @@ function FieldsByWidth({ fields }: { fields: FormField[] }) {
       isSelected={field.id === builder.selectedFieldId}
       onSelect={() => dispatch(selectField(field.id))}
       onDelete={() => dispatch(removeField(field.id))}
+      onDuplicate={onDuplicateField}
+      readOnly={readOnly}
     />
   );
 
@@ -191,6 +197,22 @@ export default function FormBuilderPage() {
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAISubmitting, setIsAISubmitting] = useState(false);
+
+  // Canvas presentation mode (pure UI — does not affect logic or data)
+  const [canvasMode, setCanvasMode] = useState<'edit' | 'preview'>('edit');
+
+  const handleDuplicateField = (fieldId: string) => {
+    const source = builder.schema.fields.find((f) => f.id === fieldId);
+    if (!source) return;
+    const clone: FormField = {
+      ...source,
+      id: `field_${Date.now()}`,
+      label: `${source.label} (copy)`,
+    };
+    // Reuse existing reducer + selection; pure UI convenience, no backend impact.
+    dispatch(addField(clone));
+    dispatch(selectField(clone.id));
+  };
 
   useEffect(() => {
     if (formId) {
@@ -766,34 +788,39 @@ export default function FormBuilderPage() {
   const selectedField = builder.schema.fields.find((f) => f.id === builder.selectedFieldId);
 
   return (
-    <div className="app-shell min-h-screen bg-workspace">
+    <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
       {/* Header */}
-      <header className="bg-background border-b sticky top-0 z-10">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+      <header className="z-20 border-b border-border bg-background/95 backdrop-blur">
+        <div className="flex h-14 items-center justify-between gap-4 px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} aria-label="Back to dashboard">
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div>
+            <div className="h-5 w-px bg-border" />
+            <div className="min-w-0">
               <div className="flex items-center gap-2 group/name relative">
                 <Input
                   value={builder.formName}
                   onChange={(e) => dispatch(setFormName(e.target.value))}
-                  className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 p-0 h-auto bg-transparent min-w-[200px]"
+                  className="h-7 min-w-[200px] max-w-[360px] border-none bg-transparent p-0 text-[15px] font-semibold shadow-none focus-visible:ring-0"
                   placeholder="Form Name"
                 />
-                <Edit2 className="h-3 w-3 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                <Edit2 className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100" />
+              </div>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">Editor</span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-[11px] text-muted-foreground">{builder.schema.fields.length} field{builder.schema.fields.length !== 1 ? 's' : ''}</span>
+                {builder.unsavedChanges && (
+                  <span className="rounded-full bg-amber-500/10 px-1.5 py-px text-[10px] font-medium text-amber-700">Unsaved</span>
+                )}
+                {currentForm.isPublished && (
+                  <span className="rounded-full bg-emerald-500/10 px-1.5 py-px text-[10px] font-medium text-emerald-700">Published</span>
+                )}
               </div>
             </div>
-            {builder.unsavedChanges && (
-              <Badge variant="secondary">Unsaved changes</Badge>
-            )}
-            {currentForm.isPublished && (
-              <Badge variant="success">Published</Badge>
-            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               variant="ghost"
               size="sm"
@@ -1034,55 +1061,117 @@ export default function FormBuilderPage() {
       )}
 
       {/* Main Content */}
-      <div className="flex h-[calc(100vh-57px)]">
+      <div className="flex min-h-0 flex-1">
         {/* Field Palette */}
-        <div className="w-64 bg-background border-r overflow-y-auto">
+        <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-background">
           <FieldPalette onAddField={handleAddField} />
-        </div>
+        </aside>
 
         {/* Canvas */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-4xl mx-auto">
-            {/* Form Description */}
-            <div className="mb-6">
-              <Textarea
-                value={builder.formDescription}
-                onChange={(e) => dispatch(setFormDescription(e.target.value))}
-                placeholder="Add a description for your form (optional)"
-                className="resize-none"
-              />
-            </div>
-
-            {/* Fields */}
-            <DndContext
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <DroppableCanvas>
-                <SortableContext
-                  items={builder.schema.fields.map((f) => f.id)}
-                  strategy={verticalListSortingStrategy}
+        <main className="flex min-w-0 flex-1 flex-col">
+          {/* Canvas toolbar */}
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-2">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
+              {(['edit', 'preview'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setCanvasMode(mode)}
+                  aria-pressed={canvasMode === mode}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors',
+                    canvasMode === mode
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
                 >
-                  <div className="space-y-3">
-                    {builder.schema.fields.length === 0 ? (
-                      <Card className="border-dashed">
-                        <CardContent className="py-12 text-center text-muted-foreground">
-                          <p>Drag fields from the left panel to build your form</p>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <FieldsByWidth fields={builder.schema.fields} />
-                    )}
-                  </div>
-                </SortableContext>
-              </DroppableCanvas>
-            </DndContext>
+                  {mode === 'edit' ? <PenLine className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {mode === 'edit' ? 'Edit' : 'Preview'}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+                {builder.layout.mode === 'multiStep'
+                  ? `${builder.layout.steps?.length ?? 0} step${(builder.layout.steps?.length ?? 0) !== 1 ? 's' : ''}`
+                  : 'Single page'}
+              </span>
+              <span className="text-muted-foreground/40">·</span>
+              <span>{builder.schema.fields.length} field{builder.schema.fields.length !== 1 ? 's' : ''}</span>
+            </div>
           </div>
-        </div>
+
+          {/* Scrollable canvas */}
+          <div className="flex-1 overflow-y-auto scrollbar-subtle">
+            <div className="mx-auto max-w-3xl px-6 py-8">
+              {/* Form header preview */}
+              <div className="mb-5">
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                  {builder.formName || 'Untitled form'}
+                </h1>
+                {canvasMode === 'edit' ? (
+                  <Textarea
+                    value={builder.formDescription}
+                    onChange={(e) => dispatch(setFormDescription(e.target.value))}
+                    placeholder="Add a description for your form (optional)"
+                    className="mt-2 min-h-[56px] resize-none text-[13px]"
+                  />
+                ) : (
+                  builder.formDescription && (
+                    <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-muted-foreground">
+                      {builder.formDescription}
+                    </p>
+                  )
+                )}
+              </div>
+
+              {canvasMode === 'preview' && (
+                <div className="mb-5 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50/40 px-3 py-2 text-[12px] text-brand-800">
+                  <Eye className="h-4 w-4 shrink-0" />
+                  Preview — this is how respondents will see your form. Switch back to Edit to make changes.
+                </div>
+              )}
+
+              {/* Fields */}
+              <DndContext
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <DroppableCanvas>
+                  <SortableContext
+                    items={builder.schema.fields.map((f) => f.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3">
+                      {builder.schema.fields.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border bg-card/60 py-16 text-center">
+                          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground">
+                            <MousePointerClick className="h-6 w-6" />
+                          </div>
+                          <p className="text-[13px] font-medium text-foreground">Build your form</p>
+                          <p className="mt-1 text-[12px] text-muted-foreground">
+                            Click a field on the left to add it, or drag it here.
+                          </p>
+                        </div>
+                      ) : (
+                        <FieldsByWidth
+                          fields={builder.schema.fields}
+                          onDuplicateField={handleDuplicateField}
+                          readOnly={canvasMode === 'preview'}
+                        />
+                      )}
+                    </div>
+                  </SortableContext>
+                </DroppableCanvas>
+              </DndContext>
+            </div>
+          </div>
+        </main>
 
         {/* Inspector Panel */}
-        <div className="w-80 bg-background border-l flex flex-col overflow-hidden overflow-y-auto">
+        <aside className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-border bg-background">
           <FieldInspector
             key={selectedField?.id || 'form-actions'}
             field={selectedField}
@@ -1093,8 +1182,30 @@ export default function FormBuilderPage() {
             onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
             onClose={() => dispatch(selectField(null))}
           />
-        </div>
+        </aside>
       </div>
+
+      {/* Status bar */}
+      <footer className="flex items-center justify-between border-t border-border bg-background px-4 py-1.5 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-3">
+          <span>{builder.schema.fields.length} field{builder.schema.fields.length !== 1 ? 's' : ''}</span>
+          <span className="text-muted-foreground/40">·</span>
+          <span>{builder.schema.fields.filter((f) => f.required).length} required</span>
+          <span className="text-muted-foreground/40">·</span>
+          <span>{builder.schema.fields.filter((f) => f.unique).length} unique</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {builder.unsavedChanges ? (
+            <span className="flex items-center gap-1 text-amber-700">
+              <CircleDot className="h-3 w-3" /> Unsaved changes
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-emerald-700">
+              <Check className="h-3 w-3" /> Saved
+            </span>
+          )}
+        </div>
+      </footer>
 
       {/* Layout Modal */}
       <LayoutModal open={showLayout} onClose={() => setShowLayout(false)} />
