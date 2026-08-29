@@ -6,7 +6,12 @@ const defaultLayout: FormLayout = {
   steps: [],
   allowBackNavigation: true,
   orientation: 'vertical',
+  stepperStyle: 'progress',
 };
+
+let stepIdCounter = 0;
+/** Collision-free step id: timestamp + monotonic counter + random suffix. */
+const generateStepId = () => `step_${Date.now()}_${++stepIdCounter}_${Math.random().toString(36).slice(2, 7)}`;
 
 const initialState: BuilderState & { aiSessionId?: string | null } = {
   schema: { fields: [], variables: [] },
@@ -135,13 +140,13 @@ const builderSlice = createSlice({
       if (action.payload === 'multiStep' && (!state.layout.steps || state.layout.steps.length === 0)) {
         state.layout.steps = state.schema.fields.length > 0
           ? [{
-            id: `step_${Date.now()}`,
+            id: generateStepId(),
             title: 'Step 1',
             description: '',
             fieldIds: state.schema.fields.map((f) => f.id),
             order: 0,
           }]
-          : [{ id: `step_${Date.now()}`, title: 'Step 1', description: '', fieldIds: [], order: 0 }];
+          : [{ id: generateStepId(), title: 'Step 1', description: '', fieldIds: [], order: 0 }];
       } else if (action.payload === 'singlePage') {
         state.layout.steps = [];
       }
@@ -150,7 +155,7 @@ const builderSlice = createSlice({
     addStep: (state) => {
       const steps = state.layout.steps || [];
       const newStep: FormStep = {
-        id: `step_${Date.now()}`,
+        id: generateStepId(),
         title: `Step ${steps.length + 1}`,
         description: '',
         fieldIds: [],

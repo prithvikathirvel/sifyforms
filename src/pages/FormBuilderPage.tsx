@@ -1175,6 +1175,7 @@ export default function FormBuilderPage() {
             name={builder.formName}
             description={builder.formDescription}
             orientation={builder.layout.orientation}
+            layout={builder.layout}
           />
         </div>
       ) : (

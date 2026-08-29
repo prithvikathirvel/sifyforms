@@ -18,6 +18,7 @@ import FileUpload from '../components/ui/FileUpload';
 import DmsFileUpload from '../components/ui/DmsFileUpload';
 import SignaturePad from '../components/ui/SignaturePad';
 import { MultiSelectField } from '../components/builder/MultiSelectField';
+import FormStepper from '../components/builder/FormStepper';
 import TableField from '../components/ui/TableField';
 import TurnstileWidget from '../components/security/TurnstileWidget';
 import { getPublicDownloadUrl, resolveFilesForSubmission, resolveSignatureForSubmission, triggerBrowserDownload } from '../lib/dms';
@@ -733,6 +734,11 @@ export default function PublicFormPage() {
 
   const layout: FormLayout = form?.schema?.layout || { mode: 'singlePage', steps: [] };
   const isMultiStep = layout.mode === 'multiStep' && layout.steps && layout.steps.length > 0;
+  const sortedSteps = useMemo(
+    () => [...(layout.steps || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [layout.steps]
+  );
+  const stepperStyle = layout.stepperStyle || 'progress';
 
   const { fieldsToShow, currentStep, totalSteps } = useMemo(() => {
     if (!form) return { fieldsToShow: [], currentStep: null, totalSteps: 0 };
@@ -2934,20 +2940,12 @@ export default function PublicFormPage() {
               </div>
             )}
             {isMultiStep && totalSteps > 1 && (
-              <div className="mb-6">
-                <div className="flex gap-1">
-                  {Array.from({ length: totalSteps }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`h-1.5 flex-1 rounded-full ${i <= currentStepIndex ? 'bg-primary' : 'bg-muted'
-                        }`}
-                    />
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Step {currentStepIndex + 1} of {totalSteps}
-                </p>
-              </div>
+              <FormStepper
+                steps={sortedSteps.map((s) => ({ id: s.id, title: s.title }))}
+                currentIndex={currentStepIndex}
+                style={stepperStyle}
+                onStepClick={allowBack && !isCurrentStepLocked ? (i) => setCurrentStepIndex(i) : undefined}
+              />
             )}
 
 

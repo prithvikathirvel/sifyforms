@@ -117,7 +117,7 @@ export default function DashboardPage() {
   const { currentOrg } = useAppSelector((state) => state.org);
   const { forms, isLoading } = useAppSelector((state) => state.forms);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [recentView, setRecentView] = useState<CollectionViewMode>('grid');
+  const [recentView, setRecentView] = useState<CollectionViewMode>('list');
   const { can } = usePermissions();
   const canCreateForm = can(ACTIONS.CREATE_FORM);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);

@@ -35,19 +35,27 @@ function formatDate(dateString: string) {
 }
 
 export function FormWorkspaceTable({ forms, orgSlug, getTeamName }: FormWorkspaceTableProps) {
+  const navigate = useNavigate();
   const columns: DataTableColumn<Form>[] = [
     {
       id: 'form',
       header: 'Form',
-      headerClassName: 'min-w-40 sm:min-w-52',
-      cellClassName: 'min-w-40 sm:min-w-52',
+      headerClassName: 'w-[42%]',
+      cellClassName: 'w-[42%]',
       cell: (form) => (
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.05] text-primary">
             <FileText className="h-3.5 w-3.5" strokeWidth={1.8} />
           </span>
           <div className="min-w-0">
-            <p className="max-w-64 truncate text-[12px] font-semibold text-foreground" title={form.name}>{form.name}</p>
+            <button
+              type="button"
+              onClick={() => navigate(`/forms/${form.id}/edit`)}
+              className="block max-w-full truncate text-left text-[12px] font-semibold text-foreground transition-colors hover:text-primary"
+              title={`Edit ${form.name}`}
+            >
+              {form.name}
+            </button>
             <p className="mt-0.5 flex items-center gap-1 truncate text-[9px] font-medium text-muted-foreground md:hidden">
               <Users className="h-2.5 w-2.5 shrink-0" />
               <span className="truncate">{getTeamName(form)}</span>
@@ -122,7 +130,7 @@ export function FormWorkspaceTable({ forms, orgSlug, getTeamName }: FormWorkspac
       columns={columns}
       getRowId={(form) => form.id}
       ariaLabel="Forms"
-      tableClassName="table-fixed sm:table-auto"
+      tableClassName="w-full table-fixed"
     />
   );
 }

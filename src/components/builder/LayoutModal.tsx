@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { X } from 'lucide-react';
 import LayoutConfigPanel from './LayoutConfigPanel';
@@ -10,6 +10,7 @@ import {
   removeStep,
   updateStep,
   assignFieldsToStep,
+  reorderSteps,
 } from '../../store/builderSlice';
 
 interface LayoutModalProps {
@@ -23,16 +24,21 @@ export default function LayoutModal({ open, onClose }: LayoutModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] flex flex-col max-h-[90vh] overflow-hidden p-0">
-        <DialogHeader className="px-4 sm:px-6 py-4 border-b shrink-0">
+      <DialogContent className="flex max-h-[92vh] w-[calc(100vw-2rem)] max-w-3xl flex-col overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b px-5 py-4 sm:px-6">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">Layout Settings</DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+            <div>
+              <DialogTitle className="text-lg font-semibold">Layout settings</DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs">
+                Control how your form is structured and how respondents move through it.
+              </DialogDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 shrink-0 p-0" aria-label="Close layout settings">
               <X className="h-4 w-4" />
             </Button>
           </div>
         </DialogHeader>
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-6">
+        <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
           <LayoutConfigPanel
             layout={builder.layout}
             fields={builder.schema.fields}
@@ -44,6 +50,7 @@ export default function LayoutModal({ open, onClose }: LayoutModalProps) {
             onAssignFieldsToStep={(stepId, fieldIds) =>
               dispatch(assignFieldsToStep({ stepId, fieldIds }))
             }
+            onReorderStep={(oldIndex, newIndex) => dispatch(reorderSteps({ oldIndex, newIndex }))}
           />
         </div>
       </DialogContent>

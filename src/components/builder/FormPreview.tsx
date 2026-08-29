@@ -3,17 +3,19 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
-import { Star, FileText, ExternalLink } from 'lucide-react';
+import { Star, FileText, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MultiSelectField } from './MultiSelectField';
 import { DisplayField } from './DisplayField';
 import TableField from '../ui/TableField';
 import FileUpload from '../ui/FileUpload';
 import DmsFileUpload from '../ui/DmsFileUpload';
 import SignaturePad from '../ui/SignaturePad';
+import FormStepper from './FormStepper';
+import { Button } from '../ui/button';
 import { evaluateShowWhen, evaluateLinkingConditions } from '../../lib/ruleEngine';
 import { CalculationEngine } from '../../lib/calculationEngine';
 import { getPublicDownloadUrl } from '../../lib/dms';
-import type { FormField, FormSchema, FormSettings, FormBrandingSection } from '../../types';
+import type { FormField, FormSchema, FormSettings, FormBrandingSection, FormLayout } from '../../types';
 import { cn } from '../../lib/utils';
 
 interface FormPreviewProps {
@@ -23,6 +25,7 @@ interface FormPreviewProps {
   name?: string;
   description?: string;
   orientation?: 'vertical' | 'horizontal';
+  layout?: FormLayout;
 }
 
 const JUSTIFY: Record<string, string> = {
@@ -448,11 +451,33 @@ function renderSupportDocuments(field: FormField) {
   );
 }
 
-export default function FormPreview({ schema, settings, formId, name, description, orientation = 'vertical' }: FormPreviewProps) {
+export default function FormPreview({
+  schema,
+  settings,
+  formId,
+  name,
+  description,
+  orientation = 'vertical',
+  layout,
+}: FormPreviewProps) {
   const fields = schema.fields ?? [];
   const variables = schema.variables ?? [];
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+  const steps = useMemo(
+    () => [...(layout?.steps || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [layout?.steps]
+  );
+  const isMultiStep = layout?.mode === 'multiStep' && steps.length > 0;
+  const stepperStyle = layout?.stepperStyle || 'progress';
+  const allowBack = layout?.allowBackNavigation !== false;
+
+  // Clamp the step index whenever the step list shrinks.
+  useEffect(() => {
+    setCurrentStepIndex((i) => (steps.length ? Math.min(i, steps.length - 1) : 0));
+  }, [steps.length]);
 
   // Initialize defaults once
   useEffect(() => {
@@ -470,6 +495,14 @@ export default function FormPreview({ schema, settings, formId, name, descriptio
     () => fields.filter((f) => evaluateShowWhen(f.showWhen, values as Record<string, unknown>, f)),
     [fields, values]
   );
+
+  const currentStep = isMultiStep ? steps[currentStepIndex] ?? steps[0] : undefined;
+
+  const stepFields = useMemo(() => {
+    if (!isMultiStep || !currentStep) return visibleFields;
+    const ids = new Set(currentStep.fieldIds);
+    return visibleFields.filter((f) => ids.has(f.id));
+  }, [isMultiStep, currentStep, visibleFields]);
 
   const calculated = useMemo(() => {
     if (variables.length === 0) return {};
@@ -499,22 +532,7 @@ export default function FormPreview({ schema, settings, formId, name, descriptio
   const setValue = (id: string, v: unknown) => setValues((prev) => ({ ...prev, [id]: v }));
   const setTouchedField = (id: string) => setTouched((prev) => ({ ...prev, [id]: true }));
 
-  const grouped = useMemo(() => {
-    const groups: { width: 'full' | 'half' | 'third'; items: FormField[] }[] = [];
-    let current: typeof groups[0] | null = null;
-    visibleFields.forEach((f) => {
-      const width = (f.width || 'full') as 'full' | 'half' | 'third';
-      if (!current || current.width !== width) {
-        current = { width, items: [] };
-        groups.push(current);
-      }
-      current.items.push(f);
-    });
-    return groups;
-  }, [visibleFields]);
-
-  const gridClass = (w: string) =>
-    w === 'half' ? 'grid grid-cols-2 gap-4' : w === 'third' ? 'grid grid-cols-3 gap-4' : 'space-y-6';
+  const isHorizontal = orientation === 'horizontal';
 
   const spanClass = (f: FormField) =>
     f.width === 'half'
@@ -523,7 +541,84 @@ export default function FormPreview({ schema, settings, formId, name, descriptio
         ? 'col-span-1 sm:col-span-2'
         : 'col-span-1 sm:col-span-6';
 
-  const isHorizontal = orientation === 'horizontal';
+  const renderFieldBlock = (field: FormField) => {
+    if (field.type === 'display') {
+      return (
+        <div key={field.id} className={cn('space-y-2', isHorizontal && spanClass(field))}>
+          <DisplayField field={field} variables={variables} />
+        </div>
+      );
+    }
+    const error = touched[field.id] ? validateField(field, values[field.id]) : null;
+    return (
+      <div key={field.id} className={cn('space-y-2', isHorizontal && spanClass(field))}>
+        <Label>
+          {field.label}
+          {field.required && <span className="ml-1 text-destructive">*</span>}
+        </Label>
+        <FieldControl
+          field={field}
+          value={values[field.id]}
+          values={values as Record<string, unknown>}
+          onChange={(v) => setValue(field.id, v)}
+          onBlur={() => setTouchedField(field.id)}
+          formId={formId}
+          dmsEnabled={settings.dms?.enabled === true}
+        />
+        {field.helpText && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
+        {error && <p className="text-[13px] text-destructive">{error}</p>}
+        {renderSupportDocuments(field)}
+      </div>
+    );
+  };
+
+  const renderFieldList = (list: FormField[]) => {
+    if (isHorizontal) {
+      return <div className="grid grid-cols-1 gap-4 sm:grid-cols-6">{list.map(renderFieldBlock)}</div>;
+    }
+    // Group consecutive same-width fields so they sit side by side.
+    const groups: { width: 'full' | 'half' | 'third'; items: FormField[] }[] = [];
+    let current: typeof groups[0] | null = null;
+    list.forEach((f) => {
+      const width = (f.width || 'full') as 'full' | 'half' | 'third';
+      if (!current || current.width !== width) {
+        current = { width, items: [] };
+        groups.push(current);
+      }
+      current.items.push(f);
+    });
+    return groups.map((group, gi) => {
+      const gridClass =
+        group.width === 'half'
+          ? 'grid grid-cols-2 gap-4'
+          : group.width === 'third'
+            ? 'grid grid-cols-3 gap-4'
+            : 'space-y-6';
+      return (
+        <div key={gi} className={gridClass}>
+          {group.items.map(renderFieldBlock)}
+        </div>
+      );
+    });
+  };
+
+  const handleNext = () => {
+    if (!isMultiStep) return;
+    // Validate the current step before advancing.
+    let hasError = false;
+    const nextTouched = { ...touched };
+    stepFields.forEach((f) => {
+      if (f.type === 'display' || f.type === 'html') return;
+      nextTouched[f.id] = true;
+      if (validateField(f, values[f.id])) hasError = true;
+    });
+    setTouched(nextTouched);
+    if (hasError) return;
+    setCurrentStepIndex((i) => Math.min(i + 1, steps.length - 1));
+  };
+
+  const isLastStep = !isMultiStep || currentStepIndex >= steps.length - 1;
+  const isFirstStep = currentStepIndex === 0;
 
   return (
     <div className="min-h-full bg-muted/30" data-theme={settings.theme || 'default'}>
@@ -536,81 +631,32 @@ export default function FormPreview({ schema, settings, formId, name, descriptio
               {description && <p className="mt-1 break-words text-sm text-muted-foreground">{description}</p>}
             </div>
 
-            {visibleFields.length === 0 ? (
-              <p className="py-10 text-center text-[13px] text-muted-foreground">
-                Nothing to preview yet — add fields to your form.
-              </p>
-            ) : isHorizontal ? (
-              <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
-                {visibleFields.map((field) => {
-                  if (field.type === 'display') {
-                    return (
-                      <div key={field.id} className={cn('space-y-2', spanClass(field))}>
-                        <DisplayField field={field} variables={variables} />
-                      </div>
-                    );
-                  }
-                  const error = touched[field.id] ? validateField(field, values[field.id]) : null;
-                  return (
-                    <div key={field.id} className={cn('space-y-2', spanClass(field))}>
-                      <Label>
-                        {field.label}
-                        {field.required && <span className="ml-1 text-destructive">*</span>}
-                      </Label>
-                      <FieldControl
-                        field={field}
-                        value={values[field.id]}
-                        values={values as Record<string, unknown>}
-                        onChange={(v) => setValue(field.id, v)}
-                        onBlur={() => setTouchedField(field.id)}
-                        formId={formId}
-                        dmsEnabled={settings.dms?.enabled === true}
-                      />
-                      {field.helpText && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
-                      {error && <p className="text-[13px] text-destructive">{error}</p>}
-                      {renderSupportDocuments(field)}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              grouped.map((group, gi) => (
-                <div key={gi} className={gridClass(group.width)}>
-                  {group.items.map((field) => {
-                    if (field.type === 'display') {
-                      return (
-                        <div key={field.id} className="space-y-2">
-                          <DisplayField field={field} variables={variables} />
-                        </div>
-                      );
-                    }
-                    const error = touched[field.id] ? validateField(field, values[field.id]) : null;
-                    return (
-                      <div key={field.id} className="space-y-2">
-                        <Label>
-                          {field.label}
-                          {field.required && <span className="ml-1 text-destructive">*</span>}
-                        </Label>
-                        <FieldControl
-                          field={field}
-                          value={values[field.id]}
-                          values={values as Record<string, unknown>}
-                          onChange={(v) => setValue(field.id, v)}
-                          onBlur={() => setTouchedField(field.id)}
-                          formId={formId}
-                          dmsEnabled={settings.dms?.enabled === true}
-                        />
-                        {field.helpText && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
-                        {error && <p className="text-[13px] text-destructive">{error}</p>}
-                        {renderSupportDocuments(field)}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))
+            {isMultiStep && (
+              <>
+                <FormStepper
+                  steps={steps.map((s) => ({ id: s.id, title: s.title }))}
+                  currentIndex={currentStepIndex}
+                  style={stepperStyle}
+                  onStepClick={allowBack ? (i) => setCurrentStepIndex(i) : undefined}
+                />
+                {currentStep?.title && (
+                  <h3 className="mb-1 text-lg font-semibold text-foreground">{currentStep.title}</h3>
+                )}
+                {currentStep?.description && (
+                  <p className="mb-5 text-sm text-muted-foreground">{currentStep.description}</p>
+                )}
+              </>
             )}
 
-            {variables.length > 0 && (
+            {stepFields.length === 0 ? (
+              <p className="py-10 text-center text-[13px] text-muted-foreground">
+                {isMultiStep ? 'No fields in this step yet.' : 'Nothing to preview yet — add fields to your form.'}
+              </p>
+            ) : (
+              renderFieldList(stepFields)
+            )}
+
+            {variables.length > 0 && isLastStep && (
               <div className="mt-6 border-t border-border/70 pt-4">
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Calculated Values</p>
                 <div className="mt-2 space-y-1.5">
@@ -621,6 +667,23 @@ export default function FormPreview({ schema, settings, formId, name, descriptio
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {isMultiStep && (
+              <div className="mt-6 flex gap-2 border-t border-border/70 pt-4">
+                {!isFirstStep && allowBack && (
+                  <Button type="button" variant="outline" onClick={() => setCurrentStepIndex((i) => Math.max(0, i - 1))}>
+                    <ChevronLeft className="mr-2 h-4 w-4" />
+                    Previous
+                  </Button>
+                )}
+                {!isLastStep && (
+                  <Button type="button" className="ml-auto" onClick={handleNext}>
+                    Next
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                )}
               </div>
             )}
           </div>

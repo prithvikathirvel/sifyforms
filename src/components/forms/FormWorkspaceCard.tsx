@@ -81,7 +81,14 @@ export function FormWorkspaceCard({ form, orgSlug, teamName }: FormWorkspaceCard
 
           <div className="min-w-0 flex-1 pt-0.5">
             <CardTitle className="line-clamp-1 font-display text-[15px] font-bold leading-5 text-foreground">
-              {form.name}
+              <button
+                type="button"
+                onClick={() => navigate(`/forms/${form.id}/edit`)}
+                className="max-w-full truncate text-left transition-colors hover:text-primary"
+                title={`Edit ${form.name}`}
+              >
+                {form.name}
+              </button>
             </CardTitle>
             <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
               <Users className="h-3.5 w-3.5 shrink-0" strokeWidth={1.7} />

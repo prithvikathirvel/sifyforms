@@ -442,6 +442,13 @@ export interface FormLayout {
    * by their width (full/half/third) and wrap onto new rows.
    */
   orientation?: 'vertical' | 'horizontal';
+  /**
+   * Visual style of the multi-step progress indicator.
+   * 'progress' = segmented progress bar (default);
+   * 'circles'  = numbered circle stepper with connecting lines and labels;
+   * 'minimal'  = subtle "Step X of Y" text only.
+   */
+  stepperStyle?: 'progress' | 'circles' | 'minimal';
 }
 
 /** Variable interface for calculations and form data */
