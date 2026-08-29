@@ -71,7 +71,7 @@ function DraggableFieldType({ type, label, icon: Icon, onAddField }: {
       {...listeners}
       {...attributes}
       className={cn(
-        'group flex cursor-grab select-none items-center gap-2.5 rounded-lg border border-transparent bg-card px-2.5 py-2 transition-colors',
+        'group flex cursor-grab select-none items-center gap-2 rounded-lg border border-transparent bg-card px-2 py-1.5 transition-colors',
         'hover:border-border hover:bg-muted/60 active:cursor-grabbing active:border-primary/40 active:bg-accent',
         isDragging && 'opacity-50'
       )}
@@ -85,13 +85,13 @@ function DraggableFieldType({ type, label, icon: Icon, onAddField }: {
         }
       }}
     >
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted/60 text-muted-foreground transition-colors group-hover:border-primary/30 group-hover:bg-accent group-hover:text-primary">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted/60 text-muted-foreground transition-colors group-hover:border-primary/30 group-hover:bg-accent group-hover:text-primary">
         <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
       </span>
-      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+      <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-foreground">
         {label}
       </span>
-      <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-opacity group-hover:opacity-100 md:opacity-0" />
+      <GripVertical className="h-3 w-3 shrink-0 text-muted-foreground/40 transition-opacity group-hover:opacity-100 md:opacity-0" />
     </div>
   );
 }
@@ -99,14 +99,14 @@ function DraggableFieldType({ type, label, icon: Icon, onAddField }: {
 export default function FieldPalette({ onAddField }: FieldPaletteProps) {
   return (
     <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-border/70 px-4 py-3.5">
-        <h2 className="text-[13px] font-semibold text-foreground">Form Fields</h2>
-        <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+      <div className="shrink-0 border-b border-border/70 px-3.5 py-3">
+        <h2 className="text-[12px] font-semibold text-foreground">Form Fields</h2>
+        <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">
           Drag fields to the canvas or click to add
         </p>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
-        <div className="space-y-1">
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div className="space-y-0.5">
           {fieldTypes.map(({ type, label, icon: Icon }) => (
             <DraggableFieldType
               key={type}

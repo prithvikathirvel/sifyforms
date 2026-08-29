@@ -18,21 +18,21 @@ export function AccordionItem({ title, subtitle, icon, defaultOpen = false, chil
     <div className={cn("border rounded-lg overflow-hidden", className)}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 bg-white hover:bg-muted transition-colors flex items-center justify-between text-left"
+        className="w-full px-3.5 py-2.5 bg-white hover:bg-muted transition-colors flex items-center justify-between text-left"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {icon && <div className="text-muted-foreground">{icon}</div>}
           <div>
-            <div className="font-medium text-foreground">{title}</div>
-            {subtitle && <div className="text-sm text-muted-foreground">{subtitle}</div>}
+            <div className="text-[13px] font-medium text-foreground">{title}</div>
+            {subtitle && <div className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</div>}
           </div>
         </div>
         <div className="text-muted-foreground transition-transform duration-200">
-          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </div>
       </button>
       {isOpen && (
-        <div className="px-4 py-3 bg-muted border-t">
+        <div className="px-3.5 py-3 bg-muted border-t">
           {children}
         </div>
       )}

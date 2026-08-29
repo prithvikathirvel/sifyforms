@@ -346,13 +346,19 @@
 }
 
 /*
- * Laptop-density pass. A 15px rem between 1024px and 1599px gives dense
- * enterprise workspaces more usable room at browser 100%, while mobile keeps
- * accessible 16px sizing and large monitors retain the full-size scale.
+ * Laptop-density pass. A 14px rem between 1024px and 1599px (and 15px on
+ * large monitors) gives dense enterprise workspaces more usable room at
+ * browser 100%, while mobile keeps accessible 16px sizing.
  */
-@media (min-width: 1024px) and (max-width: 1599px) {
+@media (min-width: 1600px) {
   html {
     font-size: 15px;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1599px) {
+  html {
+    font-size: 14px;
   }
 }
 

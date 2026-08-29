@@ -185,18 +185,18 @@ export default function FieldInspector({
   if (!field) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-3.5">
-          <h3 className="text-[13px] font-semibold text-foreground">Field Inspector</h3>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}>
-            <X className="h-4 w-4" />
+        <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-3.5 py-3">
+          <h3 className="text-[12px] font-semibold text-foreground">Field Inspector</h3>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-6 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <Settings className="h-6 w-6" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <Settings className="h-5 w-5" />
           </div>
-          <p className="text-[13px] leading-5 text-muted-foreground">
+          <p className="text-[12px] leading-5 text-muted-foreground">
             Select any field on the canvas to edit its properties, validation rules, and smart connections.
           </p>
         </div>
@@ -278,16 +278,16 @@ export default function FieldInspector({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-3.5">
-        <h3 className="text-[13px] font-semibold text-foreground">Field Inspector</h3>
+      <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-3.5 py-3">
+        <h3 className="text-[12px] font-semibold text-foreground">Field Inspector</h3>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}>
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onClose}>
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
       <Accordion>
         {/* Basic Properties */}
         <AccordionItem
