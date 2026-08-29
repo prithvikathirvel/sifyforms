@@ -612,10 +612,11 @@ export default function FieldInspector({
                     ))}
                     <Button
                       variant="outline"
+                      size="sm"
                       onClick={addOption}
-                      className="w-full"
+                      className="h-8 w-full text-[12px]"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
                       Add Option
                     </Button>
                   </div>
@@ -652,10 +653,11 @@ export default function FieldInspector({
             <div className="space-y-3">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => setShowTableConfigModal(true)}
-                className="w-full bg-plum-50 hover:bg-plum-100 text-plum-700 border-plum-200"
+                className="h-8 w-full bg-plum-50 text-[12px] hover:bg-plum-100 text-plum-700 border-plum-200"
               >
-                <Database className="h-4 w-4 mr-2" />
+                <Database className="h-3.5 w-3.5 mr-1.5" />
                 Configure Table Columns &amp; Settings
               </Button>
 
@@ -801,8 +803,8 @@ export default function FieldInspector({
                     : 'Currently disabled.'}
                 </p>
               </div>
-              <Button size="sm" className="shrink-0" variant={field.externalValidation?.enabled ? "default" : "outline"} onClick={() => setIsExtValidationModalOpen(true)}>
-                <Globe className="h-4 w-4 mr-2" />
+              <Button size="sm" className="h-8 shrink-0 text-[12px]" variant={field.externalValidation?.enabled ? "default" : "outline"} onClick={() => setIsExtValidationModalOpen(true)}>
+                <Globe className="h-3.5 w-3.5 mr-1.5" />
                 Configure
               </Button>
             </div>
@@ -823,13 +825,14 @@ export default function FieldInspector({
           <div className="space-y-4">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => {
                 console.log('Opening Advanced Linking Modal');
                 setShowAdvancedLinkingModal(true);
               }}
-              className="w-full"
+              className="h-8 w-full text-[12px]"
             >
-              <Settings className="h-4 w-4 mr-2" />
+              <Settings className="h-3.5 w-3.5 mr-1.5" />
               Configure Smart Connections
             </Button>
 
@@ -938,14 +941,15 @@ export default function FieldInspector({
           <div className="space-y-4">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => {
                 console.log('Opening Variable Manager');
                 console.log('Current variables:', variables);
                 setShowVariableManager(true);
               }}
-              className="w-full"
+              className="h-8 w-full text-[12px]"
             >
-              <Calculator className="h-4 w-4 mr-2" />
+              <Calculator className="h-3.5 w-3.5 mr-1.5" />
               Manage Data Calculations
             </Button>
             {variables.length > 0 && (
@@ -970,10 +974,11 @@ export default function FieldInspector({
           <div className="space-y-4">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => setShowVisibilityModal(true)}
-              className="w-full bg-brand-50 hover:bg-brand-100 text-brand-700 border-brand-200"
+              className="h-8 w-full bg-brand-50 text-[12px] hover:bg-brand-100 text-brand-700 border-brand-200"
             >
-              <Eye className="h-4 w-4 mr-2" />
+              <Eye className="h-3.5 w-3.5 mr-1.5" />
               Manage Conditional Visibility
             </Button>
             {showWhen && showWhen.conditions && showWhen.conditions.length > 0 && (
@@ -1025,10 +1030,11 @@ export default function FieldInspector({
             <div className="space-y-4">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => setShowValidationModal(true)}
-                className="w-full bg-brand-50 hover:bg-brand-100 text-brand-700 border-brand-200"
+                className="h-8 w-full bg-brand-50 text-[12px] hover:bg-brand-100 text-brand-700 border-brand-200"
               >
-                <Shield className="h-4 w-4 mr-2" />
+                <Shield className="h-3.5 w-3.5 mr-1.5" />
                 Manage Validation Rules
               </Button>
 
@@ -1330,10 +1336,11 @@ export default function FieldInspector({
           <div className="space-y-4">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => setShowAlertModal(true)}
-              className="w-full"
+              className="h-8 w-full text-[12px]"
             >
-              <AlertCircle className="h-4 w-4 mr-2" />
+              <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
               Manage Field Alerts
             </Button>
             {field.alerts && field.alerts.length > 0 && (
@@ -1365,10 +1372,11 @@ export default function FieldInspector({
           <div className="space-y-4">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => setShowDocsModal(true)}
-              className="w-full"
+              className="h-8 w-full text-[12px]"
             >
-              <FileText className="h-4 w-4 mr-2" />
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
               Manage Reference Documents
             </Button>
             {field.supportDocuments && field.supportDocuments.length > 0 && (

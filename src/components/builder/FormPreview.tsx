@@ -21,6 +21,7 @@ interface FormPreviewProps {
   formId?: string;
   name?: string;
   description?: string;
+  orientation?: 'vertical' | 'horizontal';
 }
 
 const JUSTIFY: Record<string, string> = {
@@ -446,7 +447,7 @@ function renderSupportDocuments(field: FormField) {
   );
 }
 
-export default function FormPreview({ schema, settings, formId, name, description }: FormPreviewProps) {
+export default function FormPreview({ schema, settings, formId, name, description, orientation = 'vertical' }: FormPreviewProps) {
   const fields = schema.fields ?? [];
   const variables = schema.variables ?? [];
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -541,6 +542,34 @@ export default function FormPreview({ schema, settings, formId, name, descriptio
                       );
                     }
                     const error = touched[field.id] ? validateField(field, values[field.id]) : null;
+                    if (orientation === 'horizontal') {
+                      return (
+                        <div key={field.id} className="space-y-2">
+                          <div className="flex items-start gap-4">
+                            <div className="flex w-[34%] min-w-[110px] justify-end pt-2">
+                              <Label className="text-right">
+                                {field.label}
+                                {field.required && <span className="ml-1 text-destructive">*</span>}
+                              </Label>
+                            </div>
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <FieldControl
+                                field={field}
+                                value={values[field.id]}
+                                values={values as Record<string, unknown>}
+                                onChange={(v) => setValue(field.id, v)}
+                                onBlur={() => setTouchedField(field.id)}
+                                formId={formId}
+                                dmsEnabled={settings.dms?.enabled === true}
+                              />
+                              {field.helpText && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
+                              {error && <p className="text-[13px] text-destructive">{error}</p>}
+                              {renderSupportDocuments(field)}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
                     return (
                       <div key={field.id} className="space-y-2">
                         <Label>

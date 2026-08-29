@@ -5,6 +5,7 @@ const defaultLayout: FormLayout = {
   mode: 'singlePage',
   steps: [],
   allowBackNavigation: true,
+  orientation: 'vertical',
 };
 
 const initialState: BuilderState & { aiSessionId?: string | null } = {

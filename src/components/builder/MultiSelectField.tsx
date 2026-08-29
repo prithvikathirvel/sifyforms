@@ -242,10 +242,11 @@ export function MultiSelectConfig({ field, onUpdate, onBulkImport }: {
           <Button
             type="button"
             variant="outline"
+            size="sm"
             onClick={handleAddOption}
-            className="w-full"
+            className="h-8 w-full text-[12px]"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
             Add Option
           </Button>
         </div>

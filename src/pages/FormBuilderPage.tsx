@@ -94,6 +94,7 @@ function FieldsByWidth({ fields }: { fields: FormField[] }) {
       key={field.id}
       field={field}
       isSelected={field.id === builder.selectedFieldId}
+      orientation={builder.layout.orientation}
       onSelect={() => dispatch(selectField(field.id))}
       onDelete={() => dispatch(removeField(field.id))}
     />
@@ -1157,6 +1158,7 @@ export default function FormBuilderPage() {
             formId={formId}
             name={builder.formName}
             description={builder.formDescription}
+            orientation={builder.layout.orientation}
           />
         </div>
       ) : (

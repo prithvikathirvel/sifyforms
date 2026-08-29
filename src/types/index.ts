@@ -436,6 +436,8 @@ export interface FormLayout {
   steps?: FormStep[];
   /** Allow going back to previous steps (multi-step only). Default: true */
   allowBackNavigation?: boolean;
+  /** Label/field arrangement. 'vertical' (label above input) is the default. */
+  orientation?: 'vertical' | 'horizontal';
 }
 
 /** Variable interface for calculations and form data */

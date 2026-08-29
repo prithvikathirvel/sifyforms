@@ -2,7 +2,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
-import { Plus, Trash2, FileText, Layers, Lock } from 'lucide-react';
+import { Plus, Trash2, FileText, Layers, Lock, AlignLeft, AlignHorizontalSpaceBetween } from 'lucide-react';
 import type { FormLayout, FormStep, FormField } from '../../types';
 
 interface LayoutConfigPanelProps {
@@ -63,6 +63,45 @@ export default function LayoutConfigPanel({
               <span className="text-sm font-medium">Multi-Step</span>
               <span className="text-xs text-muted-foreground">Split into steps</span>
               {layout.mode === 'multiStep' && (
+                <div className="absolute top-2 right-2">
+                  <div className="w-2 h-2 bg-primary rounded-full"></div>
+                </div>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Orientation */}
+      <div className="space-y-4">
+        <div>
+          <Label className="text-sm font-semibold text-foreground mb-3 block">Label Orientation</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant={(layout.orientation || 'vertical') === 'vertical' ? 'default' : 'outline'}
+              size="sm"
+              className="flex-col h-auto py-4 px-3 gap-2 relative"
+              onClick={() => onUpdateLayout({ orientation: 'vertical' })}
+            >
+              <AlignLeft className="h-5 w-5" />
+              <span className="text-sm font-medium">Vertical</span>
+              <span className="text-xs text-muted-foreground">Label above the field</span>
+              {(layout.orientation || 'vertical') === 'vertical' && (
+                <div className="absolute top-2 right-2">
+                  <div className="w-2 h-2 bg-primary rounded-full"></div>
+                </div>
+              )}
+            </Button>
+            <Button
+              variant={(layout.orientation || 'vertical') === 'horizontal' ? 'default' : 'outline'}
+              size="sm"
+              className="flex-col h-auto py-4 px-3 gap-2 relative"
+              onClick={() => onUpdateLayout({ orientation: 'horizontal' })}
+            >
+              <AlignHorizontalSpaceBetween className="h-5 w-5" />
+              <span className="text-sm font-medium">Horizontal</span>
+              <span className="text-xs text-muted-foreground">Label beside the field</span>
+              {(layout.orientation || 'vertical') === 'horizontal' && (
                 <div className="absolute top-2 right-2">
                   <div className="w-2 h-2 bg-primary rounded-full"></div>
                 </div>

@@ -125,6 +125,7 @@ function FieldsByWidth({
   externalValidationSuccess,
   externalValidationLoading,
   formId,
+  orientation = 'vertical',
 }: {
   fields: FormField[];
   errors: any;
@@ -137,6 +138,7 @@ function FieldsByWidth({
   externalValidationSuccess: Record<string, string>;
   externalValidationLoading: Record<string, boolean>;
   formId?: string;
+  orientation?: 'vertical' | 'horizontal';
 }) {
   // Group consecutive fields by width to maintain order
   const groupFieldsByWidthConsecutive = () => {
@@ -272,14 +274,18 @@ function FieldsByWidth({
 
   const renderFieldItem = (field: FormField) => {
     const opts = validationOpts(field, formValues);
-    return (
-      <div key={field.id} id={`field-${field.id}`} className="space-y-2">
-        <Label>
-          {field.label}
-          {(field.required || opts.required) && (
-            <span className="text-destructive ml-1">*</span>
-          )}
-        </Label>
+
+    const labelEl = (
+      <Label className={orientation === 'horizontal' ? 'text-right' : undefined}>
+        {field.label}
+        {(field.required || opts.required) && (
+          <span className="text-destructive ml-1">*</span>
+        )}
+      </Label>
+    );
+
+    const controlEl = (
+      <>
         {renderField(field)}
         {field.helpText && (
           <p className="text-sm text-muted-foreground">{field.helpText}</p>
@@ -319,6 +325,28 @@ function FieldsByWidth({
             ✓ {externalValidationSuccess[field.id]}
           </p>
         )}
+      </>
+    );
+
+    if (orientation === 'horizontal') {
+      return (
+        <div key={field.id} id={`field-${field.id}`} className="space-y-2">
+          <div className="flex items-start gap-4">
+            <div className="w-[34%] min-w-[110px] pt-2">
+              {labelEl}
+            </div>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              {controlEl}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.id} id={`field-${field.id}`} className="space-y-2">
+        {labelEl}
+        {controlEl}
       </div>
     );
   };
@@ -2939,6 +2967,7 @@ export default function PublicFormPage() {
                   externalValidationSuccess={externalValidationSuccess}
                   externalValidationLoading={externalValidationLoading}
                   formId={form.id}
+                  orientation={layout.orientation}
                 />
               </fieldset>
 
