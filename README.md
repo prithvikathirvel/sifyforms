@@ -10,9 +10,11 @@ This repository includes a detailed static review of the current implementation:
 - [Security Issues Register](docs/SECURITY_ISSUES.md) — consolidated severity-ordered issue list, including the focused 2026-08-28 findings and prior DMS work.
 - [Production Readiness and Scale Plan](docs/PRODUCTION_READINESS_AND_SCALE.md) — target architecture, database/caching/queue design, rate limits, CDN/WAF, observability, capacity formulas, load testing, resilience, and launch gates for approximately 1,000,000 members and 300,000 concurrent users/submissions.
 - [Edit, Preview, and Premium Form Guide](docs/EDIT_PREVIEW_AND_PREMIUM_FORM_GUIDE.md) — recommended Edit and draft Preview workflows plus a rich, accessible, high-trust exam-registration experience.
-- [Editor UI Redesign Plan](docs/EDITOR_UI_REDESIGN_PLAN.md) — enterprise SaaS information architecture, field-inspector layout, responsive behavior, technology guidance, and UI-only acceptance criteria.
+- [Editor UI Redesign Plan](docs/EDITOR_UI_REDESIGN_PLAN.md) — enterprise SaaS information architecture, field-inspector layout, responsive behavior, technology guidance, and current canvas/Preview implementation status.
 
 > **Current release status:** not production-ready for hostile public traffic or the stated peak workload. The documentation is a static source review; no live exploit or load test was performed. Address all Critical/High blockers and run the documented authorization, security, resilience, and capacity tests before launch.
+>
+> **Editor Preview:** `/form-builder` opens a client-only respondent simulation for temporary field/validation testing. It is deliberately separate from publishing and does not save, submit, upload, pay, or call external integrations.
 
 ## Development commands
 

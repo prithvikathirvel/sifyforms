@@ -579,7 +579,7 @@ Any form author may supply regex/response-check patterns. Use a safe engine and 
 
 - `FormBuilderPage` sends a complete schema/settings object on save and then performs a separate save-then-publish sequence.
 - `getSchemaWithLayout()` preserves sensitive/advanced settings such as answer keys, formulas, external validation, DMS references, and payment properties.
-- The editor has no reliable unpublished draft preview: the Preview button is shown only when `currentForm.isPublished` is true and opens the public URL.
+- The editor now has a reliable unpublished local Preview modal: it exercises respondent controls, configured defaults, validation, conditional visibility, multi-step navigation, and local file/signature/rating/table interactions without using the public URL. It intentionally does not test real connectors; a signed, revision-bound server preview remains required for connector-aware scenarios.
 - The browser runs a backend health check using an absolute `VITE_API_URL` with a `localhost` fallback. A production build with a missing variable can call the user's own machine rather than the deployed backend. Browser-facing calls should use same-origin relative URLs or a configured reverse proxy, and the app should not block save on an extra health request.
 - AI prompt/request/response data is logged by both the editor and backend AI service. This can expose form PII, integration data, and model output in browser/server logs.
 - JSON export downloads the complete local schema/settings, including any persisted secret/answer-key data. Export should have explicit “include private assessment configuration” and “include secrets: never” semantics.
@@ -593,7 +593,7 @@ Any form author may supply regex/response-check patterns. Use a safe engine and 
 3. Split private configuration from published configuration. Display an answer-key/private-data warning and never hydrate secrets into ordinary React state.
 4. Add save revisions, ETags/conflict dialogs, atomic publish, draft/published comparison, rollback, and an audit timeline.
 5. Add a server preflight endpoint that returns bounded field-path errors, privacy warnings, unreachable references, unsafe URLs, unsupported file policies, and estimated public payload size.
-6. Make “Preview draft” work before publish through a short-lived preview token. Preview must not trigger real payment, email, external validation, production webhooks, or permanent uploads.
+6. Keep the current client-only “Preview draft” safe for field/validation checks, then add a short-lived, signed, revision-bound server preview for connector-aware scenarios. Neither mode may trigger real payment, email, external validation, production webhooks, or permanent uploads.
 
 **P1 — builder usability**
 

@@ -191,6 +191,13 @@
     background-color: hsl(var(--primary) / 0.06);
     border-color: hsl(var(--primary) / 0.18);
   }
+
+  /* Functional canvas texture: a low-contrast dot grid keeps orientation without decoration. */
+  .editor-canvas-grid {
+    background-color: hsl(var(--muted) / 0.45);
+    background-image: radial-gradient(hsl(var(--border) / 0.72) 0.7px, transparent 0.7px);
+    background-size: 16px 16px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

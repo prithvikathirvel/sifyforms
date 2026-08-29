@@ -5,6 +5,7 @@ import {
   Calendar,
   CheckSquare,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Circle,
   Clock,
@@ -28,6 +29,7 @@ import { cn } from '../../lib/utils';
 
 interface FieldPaletteProps {
   onAddField: (type: FormField['type']) => void;
+  onClose?: () => void;
 }
 
 type PaletteItem = {
@@ -132,7 +134,7 @@ function DraggableFieldType({ item, onAddField }: {
   );
 }
 
-export default function FieldPalette({ onAddField }: FieldPaletteProps) {
+export default function FieldPalette({ onAddField, onClose }: FieldPaletteProps) {
   const [query, setQuery] = useState('');
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(paletteGroups.map((group) => [group.label, true]))
@@ -164,9 +166,16 @@ export default function FieldPalette({ onAddField }: FieldPaletteProps) {
             <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Build</p>
             <h2 className="mt-1 text-sm font-bold tracking-tight text-foreground">Field library</h2>
           </div>
-          <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">
-            {paletteGroups.reduce((count, group) => count + group.items.length, 0)} types
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">
+              {paletteGroups.reduce((count, group) => count + group.items.length, 0)} types
+            </span>
+            {onClose && (
+              <button type="button" onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close field library" title="Close field library">
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </div>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">Click to add or drag a field onto your form.</p>
         <div className="relative mt-3">

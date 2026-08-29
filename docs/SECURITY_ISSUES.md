@@ -1,6 +1,6 @@
 # Security Issues Analysis
 
-This review covers the SifyForms frontend and backend as of 2026-08-26. Issues are ordered by severity. Each item describes the current risk, how it can be exploited, the recommended fix, and the impact if it is left unfixed.
+This review covers the SifyForms frontend and backend as of 2026-08-26. The canvas-editor and client-only Preview UI follow-up was verified on 2026-08-29; it does not alter the backend findings or public-form trust boundary. Issues are ordered by severity. Each item describes the current risk, how it can be exploited, the recommended fix, and the impact if it is left unfixed.
 
 ---
 

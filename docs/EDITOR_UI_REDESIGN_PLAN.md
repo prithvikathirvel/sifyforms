@@ -1,13 +1,17 @@
 # Form Builder editor UI redesign plan
 ## Enterprise SaaS workspace for 2026
 
-**Status:** UI-only implementation plan and acceptance criteria; first editor UI pass implemented
+**Status:** UI-only implementation plan and acceptance criteria; first canvas editor pass and client-only Preview implemented
 **Scope:** `/form-builder` editor surface, field canvas, field inspector, and draft preview entry point.
 **Non-goal:** No API contracts, Redux business rules, validation semantics, persistence, permissions, scoring, DMS, payment, or published-form behavior should change as part of the visual redesign.
 
 ### First pass delivered
 
-The first UI pass now includes the enterprise workspace header/status bar, grouped and searchable field library, responsive canvas sizing controls, richer field-node previews and state badges, a contextual inspector header with quick toggles, compact accordion treatment, responsive panel toggles, and improved empty/published states. Existing Redux actions, DnD IDs, API calls, and modal callbacks remain in place. The richer side-effect-safe Preview shell remains a planned follow-up and is intentionally not coupled to backend changes.
+The first UI pass now includes the enterprise workspace header/status bar, grouped and searchable field library, responsive canvas sizing controls, richer field-node previews and state badges, a contextual inspector header with quick toggles, compact accordion treatment, closable responsive panels, improved empty/published states, and a local client-only Preview modal. Existing Redux actions, DnD IDs, API calls, and modal callbacks remain in place. The Preview modal validates local values and never saves, uploads, pays, calls integrations, or creates a submission; a richer standalone preview route remains a future phase.
+
+The header is intentionally one compact row: back context, editable form name, local draft/published marker, saved state, Build/Layout/Settings workspace navigation, undo/redo affordances, AI, Preview, Save, Publish, and a guarded More menu. At narrower widths, Layout and Settings remain available from the floating canvas toolbar and both side panels become explicit slide-over panels.
+
+The `v1` marker in the current header is a UI context marker only. It is not a server revision identifier; authoritative revision/ETag support remains a backend/product follow-up.
 
 ## 1. Product direction
 
@@ -23,14 +27,14 @@ SifyForms should feel like a serious enterprise configuration tool rather than a
 
 ## 2. Current problems to solve
 
-- The page is a basic three-column layout with no persistent editor context, form outline, search, or clear work status.
-- The palette is a long ungrouped list of buttons; field discovery becomes slow as the catalog grows.
-- The canvas cards show only a label and type, so authors cannot scan required/logic/validation/file/assessment states quickly.
-- The inspector is a very long accordion list. It contains powerful controls, but the user has to scan every section and the section hierarchy is not obvious.
-- Settings and layout actions are icon-only in the header, and actions are not organized by frequency or risk.
-- Preview opens the live public form only when the current form is published. There is no clearly labeled draft preview flow.
-- Save state, publish state, field count, and warnings do not have a dedicated status area.
-- The current shell does not provide a robust small-screen fallback; side panels compete with the canvas.
+- The editor now has a canvas-oriented shell, but it still needs a persistent outline/steps workspace and a publish-readiness diagnostic surface.
+- The palette is grouped and searchable, but favorites/recent fields and keyboard-first drag/reorder affordances remain future enhancements.
+- Canvas nodes expose more state, yet large forms still need sticky step navigation, focus-to-field search, and stronger broken-reference summaries.
+- The inspector still contains a long accordion list. It contains powerful controls, but the section hierarchy and advanced-warning summaries can be improved further.
+- Build/Layout/Settings are available in the compact workspace navigation and canvas toolbar; Logic, Data & privacy, and Publish checks still need dedicated workspaces.
+- The editor Preview action now opens a clearly labeled client-only draft simulation. A signed, server-backed preview route is still a future phase for mocked connector scenarios; the current modal deliberately cannot exercise real integrations.
+- Save/publish state is visible in the shell, but server-authoritative revision numbers, ETags, conflict resolution, autosave, and a full validation/preflight status model are not yet implemented.
+- The responsive shell provides explicit open/close controls on desktop and mobile; mobile authoring remains intentionally limited and should receive a formal keyboard/focus audit.
 
 ## 3. Target information architecture
 
@@ -38,15 +42,14 @@ SifyForms should feel like a serious enterprise configuration tool rather than a
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ Global breadcrumb | Form name | Draft status | Undo/Redo | Preview | Save    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ Workspace tabs: Build | Logic | Data & privacy | Settings | Publish checks   │
+│ Back | Form name | Draft · v1 | Saved | Build/Layout/Settings | … | Preview │
+│                                                           Save | Publish     │
 ├───────────────┬───────────────────────────────────────┬─────────────────────┤
-│ Structure      │ Canvas / form document                │ Inspector            │
-│ + Add field    │ toolbar: device, zoom, steps, search  │ selected node header  │
-│ outline        │                                        │ quick properties      │
-│ field palette  │ form identity / description            │ grouped controls     │
-│                │ selected field cards                   │ sticky footer        │
+│ Field library  │ Dotted canvas / form document         │ Field inspector      │
+│ search/groups  │ floating toolbar: panes, device,      │ selected node header  │
+│ click + drag   │ layout, settings, fit, help            │ quick properties      │
+│                │ form identity / description            │ grouped controls      │
+│                │ selected field cards                   │ explicit close        │
 └────────────────┴───────────────────────────────────────┴─────────────────────┘
 ```
 
@@ -61,10 +64,10 @@ SifyForms should feel like a serious enterprise configuration tool rather than a
 
 ### Header
 
-- Breadcrumb: `Forms / [Form name]` with a back button.
-- Editable form name with a clear edit affordance and a short description below.
-- Status pill: `Draft`, `Unsaved changes`, `Published`, `Published · changes pending`.
-- Last saved copy: `Saved just now`, `Saving…`, `Offline`, or `Save failed`.
+- Compact single-row context: back button, form identity, and an editable form name.
+- Draft/published status plus a visible local `v1` context marker; authoritative server revision/ETag must be added when the API supports it.
+- Saved/unsaved state is always visible; future states should include `Saving…`, `Offline`, `Conflict`, and `Save failed`.
+- Compact Build/Layout/Settings workspace navigation, with Layout and Settings mirrored in the floating toolbar at narrower widths.
 - Undo/redo controls with keyboard shortcuts and disabled states.
 - Primary actions ordered by frequency: `Preview`, `Save`, `Publish`.
 - Secondary actions in a labeled `More` menu: duplicate, template, export, activity.
@@ -287,8 +290,9 @@ Do not add a large component library or animation system merely for visual novel
 
 ### Phase 4 — preview shell
 
-- draft/published labeling and viewport controls;
-- sample-state presentation;
+- **Delivered:** full-screen, clearly labeled client-only Preview modal with local values/defaults, required/type/text/option/file checks, conditional visibility, multi-step navigation, file/signature/rating/table interactions, reset, and no-save messaging;
+- draft/published labeling and viewport controls for a future standalone preview route;
+- sample-state presentation and richer branch testing;
 - side-effect-safe preview UX;
 - avoid changing the public form's data/business behavior.
 

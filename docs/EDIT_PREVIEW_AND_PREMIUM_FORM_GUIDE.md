@@ -6,6 +6,8 @@
 
 This guide turns the security review into a product plan. The goal is a powerful editor and a polished respondent experience without allowing the browser, a form author, or a high-traffic deadline to become a security or reliability boundary.
 
+**Implementation status (2026-08-29):** the `/form-builder` Preview action currently opens a full-screen, client-only respondent simulation. It supports temporary values, configured defaults, required/type/text/option/file checks, conditional visibility, multi-step navigation, local file/signature/rating/table interactions, reset, and an explicit no-save message. It does not call save, submit, publish, upload, payment, DMS, OTP, webhooks, or external validation. The signed, server-backed preview route described below remains the production follow-up for safely mocking connector behavior.
+
 ## 1. Product principles
 
 1. **Author once, publish an immutable contract.** Draft changes are safe to experiment with; a published revision is the exact contract used to validate, score, charge, and display a submission.
@@ -145,7 +147,9 @@ The editor should explain that browser MIME and extension are hints only. The se
 
 ### Modes
 
-Preview should be a first-class route available for an unpublished draft through a short-lived, signed preview token. It should support:
+The current local editor Preview is intentionally an in-place simulation and is safe for day-to-day field/validation checks. It is not a public route, does not persist values, and treats files, signatures, integrations, and completion as local placeholders.
+
+For connector-aware testing, Preview should become a first-class route available for an unpublished draft through a short-lived, signed preview token. It should support:
 
 - desktop, tablet, and mobile viewport previews;
 - light/dark/contrast themes and organization branding;
@@ -281,9 +285,11 @@ Set explicit budgets for the public page:
 
 ### Preview
 
-- [ ] Draft preview is signed, short-lived, clearly labeled, and side-effect isolated.
-- [ ] All branches, validation boundaries, locales, viewports, failures, files, payment states, and accessibility paths are testable.
-- [ ] Preview never calls production payment/OTP/email/webhooks or stores permanent files by accident.
+- [x] Editor Preview is clearly labeled, local, temporary, and side-effect isolated.
+- [x] Editor Preview exercises configured defaults, common field controls, required/type/text/option/file validation, conditional visibility, and multi-step navigation.
+- [x] Editor Preview never calls production payment/OTP/email/webhooks/DMS/external validation or stores permanent files.
+- [ ] Connector-aware draft preview is signed, short-lived, revision-bound, and isolated from production services.
+- [ ] All branches, validation boundaries, locales, viewports, failures, files, payment states, and accessibility paths are testable in the production-grade preview route.
 
 ### Published respondent page
 

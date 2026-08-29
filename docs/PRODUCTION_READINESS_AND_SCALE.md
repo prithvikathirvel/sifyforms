@@ -352,6 +352,8 @@ Run the staged load/abuse/failure plan, tune based on actual p95/p99 and cost, p
 
 ## 12. Current verification limitations
 
+**Verification update: 2026-08-29.** The frontend build passes after the canvas-editor and client-only Preview changes. The local Preview does not exercise backend traffic, so the security and scale gates below remain required.
+
 - The root frontend build passes but emits a large JavaScript chunk warning; bundle splitting is needed for the public page and builder.
 - Root lint is not currently a clean release gate: the existing run reports 1,039 problems, including a parsing error in `src/pages/fix.js`, explicit `any`, unused variables, hook issues, and backend files included in the root scope.
 - Backend dependency installation is blocked in this environment by `better-sqlite3` native setup and Node 22/network certificate/header-download issues. `npm ci --ignore-scripts` is diagnostic only and skips native/Prisma generation.

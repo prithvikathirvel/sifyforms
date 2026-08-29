@@ -29,6 +29,7 @@ import { Badge } from '../components/ui/badge';
 import FieldPalette from '../components/builder/FieldPalette';
 import SortableField from '../components/builder/SortableField';
 import FieldInspector from '../components/builder/FieldInspector';
+import BuilderPreviewModal from '../components/builder/BuilderPreviewModal';
 import LayoutModal from '../components/builder/LayoutModal';
 import SettingsModal from '../components/builder/SettingsModal';
 import {
@@ -36,9 +37,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
-  ChevronRight,
   CircleHelp,
-  Clock3,
   Copy,
   Download,
   Edit2,
@@ -81,9 +80,10 @@ function DroppableCanvas({ children }: { children: React.ReactNode }) {
 }
 
 // Helper component to render fields by width with step information
-function FieldsByWidth({ fields, canvasView = 'desktop' }: {
+function FieldsByWidth({ fields, canvasView = 'desktop', onFieldSelect }: {
   fields: FormField[];
   canvasView?: 'desktop' | 'tablet' | 'mobile';
+  onFieldSelect?: () => void;
 }) {
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
@@ -115,7 +115,10 @@ function FieldsByWidth({ fields, canvasView = 'desktop' }: {
       key={field.id}
       field={field}
       isSelected={field.id === builder.selectedFieldId}
-      onSelect={() => dispatch(selectField(field.id))}
+      onSelect={() => {
+        dispatch(selectField(field.id));
+        onFieldSelect?.();
+      }}
       onDelete={() => dispatch(removeField(field.id))}
     />
   );
@@ -226,6 +229,7 @@ export default function FormBuilderPage() {
   const [isPaletteOpen, setIsPaletteOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 1100);
   const [isInspectorOpen, setIsInspectorOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 1280);
   const [canvasView, setCanvasView] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [showPreview, setShowPreview] = useState(false);
 
   // AI modal state for global form editing
   const [showAIModal, setShowAIModal] = useState(false);
@@ -808,9 +812,6 @@ export default function FormBuilderPage() {
 
   const fieldCount = builder.schema.fields.length;
   const requiredCount = builder.schema.fields.filter((field) => field.required).length;
-  const attentionCount = builder.schema.fields.filter((field) =>
-    ['select', 'radio', 'checkbox', 'multiselect'].includes(field.type) && !(field.options?.length)
-  ).length;
   const canvasModes: Array<{ id: 'desktop' | 'tablet' | 'mobile'; label: string; icon: typeof Monitor }> = [
     { id: 'desktop', label: 'Desktop', icon: Monitor },
     { id: 'tablet', label: 'Tablet', icon: Tablet },
@@ -819,171 +820,91 @@ export default function FormBuilderPage() {
 
   return (
     <div className="flex h-screen min-h-[640px] flex-col overflow-hidden bg-muted/30">
-      {/* Workspace header */}
+      {/* Slim workspace header */}
       <header className="z-30 shrink-0 border-b border-border/80 bg-card/95 shadow-sm backdrop-blur">
-        <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-2.5 lg:px-6">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4 lg:px-6">
+          <div className="flex min-w-0 items-center gap-2.5">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate('/dashboard')}
               aria-label="Back to dashboard"
-              className="shrink-0"
+              title="Back to dashboard"
+              className="h-8 w-8 shrink-0"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
-            <div className="hidden items-center gap-1.5 text-[11px] font-semibold text-muted-foreground md:flex">
-              <span>Forms</span>
-              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Editor</span>
-            </div>
-            <div className="hidden h-7 w-px bg-border md:block" />
+            <div className="hidden h-6 w-px bg-border md:block" />
+            <span className="hidden items-center gap-1 text-[11px] font-semibold text-muted-foreground md:inline-flex" aria-label="Forms breadcrumb">Forms <span aria-hidden="true">/</span></span>
+            <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/15 bg-primary/5 text-primary sm:flex" aria-hidden="true">
+              <ListTree className="h-4 w-4" />
+            </span>
             <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-2">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <Input
                   value={builder.formName}
                   onChange={(e) => dispatch(setFormName(e.target.value))}
-                  className="h-8 min-w-0 max-w-[min(42vw,420px)] border-none bg-transparent px-0 text-base font-bold tracking-tight shadow-none focus-visible:ring-0"
+                  className="h-7 min-w-0 max-w-[clamp(150px,28vw,340px)] border-none bg-transparent px-0 text-sm font-bold tracking-tight shadow-none focus-visible:ring-0 sm:text-[15px]"
                   placeholder="Untitled form"
                   aria-label="Form name"
                 />
                 <Edit2 className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
               </div>
-              <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span>{fieldCount} {fieldCount === 1 ? 'field' : 'fields'}</span>
+              <div className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground sm:text-[11px]">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${builder.unsavedChanges ? 'bg-amber-500' : 'bg-emerald-500'}`} aria-hidden="true" />
+                  <span className="hidden sm:inline">{builder.unsavedChanges ? 'Unsaved changes' : 'Saved'}</span>
+                </span>
                 <span aria-hidden="true">·</span>
-                <span>{builder.layout.mode === 'multiStep' ? `${builder.layout.steps?.length || 0} steps` : 'Single page'}</span>
+                <span className="hidden rounded border border-border/70 bg-muted/35 px-1.5 py-0.5 sm:inline-flex">{currentForm.isPublished ? 'Published' : 'Draft'} · v1</span>
+                <span className="hidden sm:inline">{fieldCount} {fieldCount === 1 ? 'field' : 'fields'}</span>
+                <span className="sm:hidden">{fieldCount} {fieldCount === 1 ? 'field' : 'fields'}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <div className="hidden items-center gap-2 border-r border-border/80 pr-3 xl:flex">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
-                <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className={`h-1.5 w-1.5 rounded-full ${builder.unsavedChanges ? 'bg-amber-500' : 'bg-emerald-500'}`} aria-hidden="true" />
-                {builder.unsavedChanges ? 'Changes not saved' : 'All changes saved'}
-              </span>
-              {currentForm.isPublished && (
-                <Badge variant="outline" className="h-6 border-emerald-200 bg-emerald-50 px-2 text-[10px] font-bold text-emerald-700">
-                  <Globe className="mr-1 h-3 w-3" aria-hidden="true" /> Live
-                </Badge>
-              )}
-            </div>
-            <Button variant="ghost" size="icon" disabled aria-label="Undo last change" title="Undo">
+          <nav className="hidden items-center rounded-lg border border-border/80 bg-muted/35 p-0.5 xl:flex" aria-label="Editor workspace">
+            <button type="button" className="inline-flex h-7 items-center gap-1.5 rounded-md bg-card px-3 text-[11px] font-bold text-foreground shadow-sm" aria-current="page">
+              <ListTree className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> Build
+            </button>
+            <button type="button" onClick={() => setShowLayout(true)} className="inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-card hover:text-foreground">
+              <Layout className="h-3.5 w-3.5" aria-hidden="true" /> Layout
+            </button>
+            <button type="button" onClick={() => setShowSettings(true)} className="inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-card hover:text-foreground">
+              <Settings className="h-3.5 w-3.5" aria-hidden="true" /> Settings
+            </button>
+          </nav>
+
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+            <Button variant="ghost" size="icon" disabled aria-label="Undo last change" title="Undo" className="h-8 w-8">
               <Undo2 className="h-4 w-4" aria-hidden="true" />
             </Button>
-            <Button variant="ghost" size="icon" disabled aria-label="Redo last change" title="Redo">
+            <Button variant="ghost" size="icon" disabled aria-label="Redo last change" title="Redo" className="hidden h-8 w-8 sm:inline-flex">
               <Redo2 className="h-4 w-4" aria-hidden="true" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShowAIModal(true)} className="hidden gap-1.5 px-2.5 text-xs font-semibold md:inline-flex">
-              <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
-              AI assist
+            <Button variant="ghost" size="icon" onClick={() => setShowAIModal(true)} aria-label="Open AI assistant" title="AI assistant" className="h-8 w-8">
+              <Wand2 className="h-4 w-4" aria-hidden="true" />
             </Button>
             <div className="group relative hidden sm:block">
-              <Button variant="ghost" size="icon" aria-label="More form actions" title="More actions">
+              <Button variant="ghost" size="icon" aria-label="More form actions" title="More actions" className="h-8 w-8">
                 <MoreVertical className="h-4 w-4" aria-hidden="true" />
               </Button>
               <div className="invisible absolute right-0 top-full z-50 mt-1 w-52 rounded-lg border border-border bg-card p-1.5 opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-                <button
-                  type="button"
-                  onClick={() => { setNewName(`${builder.formName} (Copy)`); setShowNamingDialog('duplicate'); }}
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
-                >
-                  <Copy className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> Duplicate form
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setNewName(builder.formName); setShowNamingDialog('template'); }}
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
-                >
-                  <Layout className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> Save as template
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportJSON}
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"
-                >
-                  <Download className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> Export JSON
-                </button>
+                <button type="button" onClick={() => { setNewName(`${builder.formName} (Copy)`); setShowNamingDialog('duplicate'); }} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"><Copy className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> Duplicate form</button>
+                <button type="button" onClick={() => { setNewName(builder.formName); setShowNamingDialog('template'); }} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"><Layout className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> Save as template</button>
+                <button type="button" onClick={handleExportJSON} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-semibold text-foreground hover:bg-muted"><Download className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> Export JSON</button>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!currentForm.isPublished}
-              title={currentForm.isPublished ? 'Open the live form' : 'Publish the form to open the live preview'}
-              onClick={() => {
-                if (!currentForm.isPublished || !currentOrg) return;
-                const orgSlug = currentOrg.slug || 'default-org';
-                const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-                window.open(`${BASE_URL}/${orgSlug}/${currentForm.slug}`, '_blank', 'noopener,noreferrer');
-              }}
-              className="hidden sm:inline-flex"
-            >
-              <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
-              Preview
+            <Button variant="outline" size="icon" onClick={() => setShowPreview(true)} aria-label="Open local preview" title="Preview without saving" className="h-8 w-8">
+              <Eye className="h-4 w-4" aria-hidden="true" />
             </Button>
-            <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="mr-2 h-4 w-4" aria-hidden="true" />}
+            <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving} title="Save form" className="h-8 px-2.5 sm:px-3">
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="mr-0 h-4 w-4 sm:mr-1.5" aria-hidden="true" />}
               <span className="hidden sm:inline">Save</span>
             </Button>
-            <Button size="sm" onClick={handlePublish} disabled={isPublishing}>
-              {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Globe className="mr-2 h-4 w-4" aria-hidden="true" />}
+            <Button size="sm" onClick={handlePublish} disabled={isPublishing} title="Publish form" className="h-8 px-2.5 sm:px-3">
+              {isPublishing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Globe className="mr-0 h-4 w-4 sm:mr-1.5" aria-hidden="true" />}
               <span className="hidden sm:inline">Publish</span>
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex min-h-10 items-center justify-between gap-3 border-t border-border/60 px-4 lg:px-6">
-          <nav className="flex h-10 items-center gap-1" aria-label="Editor workspace">
-            <button type="button" className="inline-flex h-8 items-center gap-1.5 border-b-2 border-primary px-2.5 text-xs font-bold text-primary">
-              <ListTree className="h-3.5 w-3.5" aria-hidden="true" />
-              Build
-            </button>
-            <button type="button" onClick={() => setShowLayout(true)} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-              <Layout className="h-3.5 w-3.5" aria-hidden="true" />
-              Layout
-            </button>
-            <button type="button" onClick={() => setShowSettings(true)} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-              <Settings className="h-3.5 w-3.5" aria-hidden="true" />
-              Settings
-            </button>
-          </nav>
-          <div className="flex items-center gap-1.5">
-            <span className="hidden text-[11px] font-semibold text-muted-foreground xl:inline">{requiredCount} required</span>
-            {attentionCount > 0 && (
-              <span className="hidden items-center gap-1 text-[11px] font-semibold text-amber-700 md:inline-flex">
-                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                {attentionCount} needs attention
-              </span>
-            )}
-            <div className="ml-1 h-5 w-px bg-border/80" />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setIsPaletteOpen((open) => !open);
-                if (typeof window !== 'undefined' && window.innerWidth < 1024) setIsInspectorOpen(false);
-              }}
-              aria-pressed={isPaletteOpen}
-              className="h-8 gap-1.5 px-2 text-xs"
-            >
-              <PanelLeft className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden md:inline">Fields</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setIsInspectorOpen((open) => !open);
-                if (typeof window !== 'undefined' && window.innerWidth < 1024) setIsPaletteOpen(false);
-              }}
-              aria-pressed={isInspectorOpen}
-              className="h-8 gap-1.5 px-2 text-xs"
-            >
-              <PanelRight className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden md:inline">Inspector</span>
             </Button>
           </div>
         </div>
@@ -1099,7 +1020,7 @@ export default function FormBuilderPage() {
         {(isPaletteOpen || isInspectorOpen) && (
           <button
             type="button"
-            className="fixed inset-0 top-[108px] z-30 bg-foreground/20 backdrop-blur-[1px] lg:hidden"
+            className="fixed inset-0 top-14 z-30 bg-foreground/20 backdrop-blur-[1px] lg:hidden"
             onClick={() => { setIsPaletteOpen(false); setIsInspectorOpen(false); }}
             aria-label="Close editor panels"
           />
@@ -1112,25 +1033,47 @@ export default function FormBuilderPage() {
         >
           {/* Field library */}
           <aside
-            className={`${isPaletteOpen ? 'flex' : 'hidden'} fixed inset-y-0 left-0 top-[108px] z-40 w-[min(88vw,300px)] flex-col border-r border-border/80 bg-card shadow-xl lg:static lg:z-auto lg:top-auto lg:w-[272px] lg:shrink-0 lg:shadow-none`}
+            className={`${isPaletteOpen ? 'flex' : 'hidden'} fixed inset-y-0 left-0 top-14 z-40 w-[min(88vw,300px)] flex-col border-r border-border/80 bg-card shadow-xl lg:static lg:z-auto lg:top-auto lg:w-[272px] lg:shrink-0 lg:shadow-none`}
           >
-            <FieldPalette onAddField={handleAddField} />
+            <FieldPalette onAddField={handleAddField} onClose={() => setIsPaletteOpen(false)} />
           </aside>
 
           {/* Canvas */}
-          <main className="min-w-0 flex-1 overflow-y-auto bg-muted/35" aria-label="Form canvas">
-            <div className="sticky top-0 z-20 flex min-h-12 items-center justify-between gap-3 border-b border-border/70 bg-background/90 px-4 py-2 backdrop-blur lg:px-6">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/8 text-primary">
-                  <ListTree className="h-3.5 w-3.5" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-bold text-foreground">Form canvas</p>
-                  <p className="truncate text-[10px] text-muted-foreground">Arrange fields and select a node to configure it</p>
+          <main className="editor-canvas-grid min-w-0 flex-1 overflow-y-auto" aria-label="Form canvas">
+            <div className="sticky top-0 z-20 flex min-h-14 items-center justify-between gap-3 bg-transparent px-3 py-3 sm:px-5 lg:px-6">
+              <div className="flex items-center gap-1.5">
+                {!isPaletteOpen && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 bg-card/95 shadow-sm"
+                    onClick={() => setIsPaletteOpen(true)}
+                    aria-label="Open field library"
+                    title="Open field library"
+                  >
+                    <PanelLeft className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                )}
+                <div className="hidden items-center gap-2 rounded-lg border border-border/80 bg-card/95 px-3 py-2 shadow-sm sm:flex">
+                  <ListTree className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <span className="text-[11px] font-bold text-foreground">Build canvas</span>
+                  <span className="text-[10px] text-muted-foreground">{fieldCount} {fieldCount === 1 ? 'field' : 'fields'}</span>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <div className="hidden items-center rounded-md border border-border/80 bg-card p-0.5 sm:flex" role="group" aria-label="Canvas preview size">
+              <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border/80 bg-card/95 p-1 shadow-sm">
+                {!isInspectorOpen && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setIsInspectorOpen(true)}
+                    aria-label="Open field inspector"
+                    title="Open field inspector"
+                  >
+                    <PanelRight className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                )}
+                <div className="hidden items-center rounded-md border border-border/70 bg-muted/40 p-0.5 sm:flex" role="group" aria-label="Canvas preview size">
                   {canvasModes.map(({ id, label, icon: Icon }) => (
                     <button
                       key={id}
@@ -1138,13 +1081,19 @@ export default function FormBuilderPage() {
                       onClick={() => setCanvasView(id)}
                       aria-pressed={canvasView === id}
                       title={`${label} canvas`}
-                      className={`flex h-7 items-center gap-1.5 rounded px-2 text-[11px] font-semibold transition-colors ${canvasView === id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                      className={`flex h-7 items-center gap-1.5 rounded px-2 text-[11px] font-semibold transition-colors ${canvasView === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'}`}
                     >
                       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                       <span className="hidden xl:inline">{label}</span>
                     </button>
                   ))}
                 </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowLayout(true)} title="Layout settings" aria-label="Open layout settings">
+                  <Layout className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowSettings(true)} title="Form settings" aria-label="Open form settings">
+                  <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" title="Fit canvas to window" aria-label="Fit canvas to window">
                   <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
@@ -1204,7 +1153,7 @@ export default function FormBuilderPage() {
                             </div>
                           </div>
                         ) : (
-                          <FieldsByWidth fields={builder.schema.fields} canvasView={canvasView} />
+                          <FieldsByWidth fields={builder.schema.fields} canvasView={canvasView} onFieldSelect={() => setIsInspectorOpen(true)} />
                         )}
                       </SortableContext>
                     </DroppableCanvas>
@@ -1221,7 +1170,7 @@ export default function FormBuilderPage() {
 
           {/* Inspector */}
           <aside
-            className={`${isInspectorOpen ? 'flex' : 'hidden'} fixed inset-y-0 right-0 top-[108px] z-40 w-[min(94vw,390px)] flex-col border-l border-border/80 bg-card shadow-xl lg:static lg:z-auto lg:top-auto lg:w-[380px] lg:shrink-0 lg:shadow-none`}
+            className={`${isInspectorOpen ? 'flex' : 'hidden'} fixed inset-y-0 right-0 top-14 z-40 w-[min(94vw,390px)] flex-col border-l border-border/80 bg-card shadow-xl lg:static lg:z-auto lg:top-auto lg:w-[380px] lg:shrink-0 lg:shadow-none`}
           >
             <FieldInspector
               key={selectedField?.id || 'form-actions'}
@@ -1233,13 +1182,24 @@ export default function FormBuilderPage() {
               onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
               onClose={() => {
                 dispatch(selectField(null));
-                if (typeof window !== 'undefined' && window.innerWidth < 1024) setIsInspectorOpen(false);
+                setIsInspectorOpen(false);
               }}
             />
           </aside>
         </DndContext>
       </div>
 
+      {showPreview && (
+        <BuilderPreviewModal
+          open
+          onClose={() => setShowPreview(false)}
+          formName={builder.formName}
+          description={builder.formDescription}
+          schema={builder.schema}
+          settings={builder.settings}
+          layout={builder.layout}
+        />
+      )}
       <LayoutModal open={showLayout} onClose={() => setShowLayout(false)} />
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} formId={formId} />
     </div>
