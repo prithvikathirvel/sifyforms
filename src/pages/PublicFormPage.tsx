@@ -8,7 +8,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Checkbox as UICheckbox } from '../components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
-import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight, ExternalLink, CreditCard, BarChart2, XCircle, Lock } from 'lucide-react';
+import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight, ExternalLink, CreditCard, BarChart2, XCircle, Lock, ShieldCheck } from 'lucide-react';
 import { PoweredBySify } from '../components/ui/SifyWordmark';
 import api from '../lib/api';
 import { getFieldValidation } from '../lib/fieldValidation';
@@ -125,6 +125,7 @@ function FieldsByWidth({
   externalValidationErrors,
   externalValidationSuccess,
   externalValidationLoading,
+  onVerifyField,
   formId,
   orientation = 'vertical',
 }: {
@@ -138,6 +139,7 @@ function FieldsByWidth({
   externalValidationErrors: Record<string, string>;
   externalValidationSuccess: Record<string, string>;
   externalValidationLoading: Record<string, boolean>;
+  onVerifyField: (fieldId: string, value: unknown) => void;
   formId?: string;
   orientation?: 'vertical' | 'horizontal';
 }) {
@@ -303,6 +305,23 @@ function FieldsByWidth({
           )}
         </Label>
         {renderField(field)}
+        {field.externalValidation?.enabled && field.externalValidation.trigger === 'manual' && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!!errors[field.id] || externalValidationLoading[field.id] || field.disabled}
+            onClick={() => onVerifyField(field.id, formValues[field.id])}
+            className="h-8 gap-1.5"
+          >
+            {externalValidationLoading[field.id] ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-3.5 w-3.5" />
+            )}
+            Verify
+          </Button>
+        )}
         {field.helpText && (
           <p className="text-sm text-muted-foreground">{field.helpText}</p>
         )}
@@ -461,6 +480,9 @@ export default function PublicFormPage() {
   const [externalValidationErrors, setExternalValidationErrors] = useState<Record<string, string>>({});
   const [externalValidationSuccess, setExternalValidationSuccess] = useState<Record<string, string>>({});
   const [externalValidationLoading, setExternalValidationLoading] = useState<Record<string, boolean>>({});
+  // Per-field request sequence, so a slower older response can never overwrite a
+  // newer one when the respondent triggers several checks in quick succession.
+  const externalValidationSeq = useRef<Record<string, number>>({});
 
   // Cloudflare Turnstile is mandatory for every public submission. The token is
   // short-lived, single-use, and verified by the backend before any write.
@@ -622,6 +644,31 @@ export default function PublicFormPage() {
     shouldUnregister: false,
   });
   const formValues = watch() || {};
+
+  // Clear a field's external-validation result when its value changes, so a
+  // stale "✓ verified" (or an old error) never lingers after the respondent
+  // edits the field.
+  const prevExternalValuesRef = useRef<Record<string, unknown>>({});
+  useEffect(() => {
+    const prev = prevExternalValuesRef.current;
+    prevExternalValuesRef.current = formValues;
+    setExternalValidationSuccess(prevState => {
+      const nextState = { ...prevState };
+      let dirty = false;
+      for (const id of Object.keys(prevState)) {
+        if (prev[id] !== formValues[id]) { delete nextState[id]; dirty = true; }
+      }
+      return dirty ? nextState : prevState;
+    });
+    setExternalValidationErrors(prevState => {
+      const nextState = { ...prevState };
+      let dirty = false;
+      for (const id of Object.keys(prevState)) {
+        if (prev[id] !== formValues[id]) { delete nextState[id]; dirty = true; }
+      }
+      return dirty ? nextState : prevState;
+    });
+  }, [formValues]);
 
   // Auto-save draft on field change (debounced 3s)
   useEffect(() => {
@@ -1066,6 +1113,7 @@ export default function PublicFormPage() {
       return;
     }
 
+    const seq = (externalValidationSeq.current[fieldId] = (externalValidationSeq.current[fieldId] || 0) + 1);
     try {
       setExternalValidationLoading(prev => ({ ...prev, [fieldId]: true }));
       const response = await api.post('/submissions/check-external', {
@@ -1074,6 +1122,9 @@ export default function PublicFormPage() {
         value,
         formData: getValues()
       });
+
+      // Ignore responses that arrived out of order (a newer check superseded this one).
+      if (externalValidationSeq.current[fieldId] !== seq) return;
 
       if (!response.data.isValid) {
         setExternalValidationErrors(prev => ({
@@ -1099,8 +1150,21 @@ export default function PublicFormPage() {
     } catch (error) {
       console.error('External validation check failed:', error);
     } finally {
-      setExternalValidationLoading(prev => ({ ...prev, [fieldId]: false }));
+      // Only clear the loading flag if this is still the latest request.
+      if (externalValidationSeq.current[fieldId] === seq) {
+        setExternalValidationLoading(prev => ({ ...prev, [fieldId]: false }));
+      }
     }
+  };
+
+  /**
+   * Auto mode: run the external check only after the field's own constraints
+   * (required / format / rules) pass, so the third-party API is never called
+   * with a value the form itself already rejects.
+   */
+  const runAutoExternalValidation = async (fieldId: string, value: unknown) => {
+    const ok = await trigger(fieldId);
+    if (ok) handleExternalValidation(fieldId, value);
   };
 
   // Handle field linking - update dependent fields when source field changes
@@ -2053,7 +2117,9 @@ export default function PublicFormPage() {
             onBlur={(e) => {
               regOnBlur(e);
               if (field.unique) handleUniquenessCheck(field.id, e.target.value);
-              if (field.externalValidation?.enabled) handleExternalValidation(field.id, e.target.value);
+              if (field.externalValidation?.enabled && (field.externalValidation.trigger ?? 'auto') === 'auto') {
+                void runAutoExternalValidation(field.id, e.target.value);
+              }
             }}
           />
         );
@@ -2072,7 +2138,9 @@ export default function PublicFormPage() {
             onBlur={(e) => {
               regOnBlur(e);
               if (field.unique) handleUniquenessCheck(field.id, e.target.value);
-              if (field.externalValidation?.enabled) handleExternalValidation(field.id, e.target.value);
+              if (field.externalValidation?.enabled && (field.externalValidation.trigger ?? 'auto') === 'auto') {
+                void runAutoExternalValidation(field.id, e.target.value);
+              }
             }}
           />
         );
@@ -2090,7 +2158,9 @@ export default function PublicFormPage() {
             onBlur={(e) => {
               regOnBlur(e);
               if (field.unique) handleUniquenessCheck(field.id, e.target.value);
-              if (field.externalValidation?.enabled) handleExternalValidation(field.id, e.target.value);
+              if (field.externalValidation?.enabled && (field.externalValidation.trigger ?? 'auto') === 'auto') {
+                void runAutoExternalValidation(field.id, e.target.value);
+              }
             }}
           />
         );
@@ -2965,6 +3035,7 @@ export default function PublicFormPage() {
                   externalValidationErrors={externalValidationErrors}
                   externalValidationSuccess={externalValidationSuccess}
                   externalValidationLoading={externalValidationLoading}
+                  onVerifyField={handleExternalValidation}
                   formId={form.id}
                   orientation={layout.orientation}
                 />

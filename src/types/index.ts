@@ -363,6 +363,10 @@ export interface FormField {
   /** Configuration for validating field value against external API */
   externalValidation?: {
     enabled: boolean;
+    /** When to run the check: on blur ('auto', the default) or only when the
+     *  respondent clicks the Verify button ('manual'). Existing forms without
+     *  this flag behave as 'auto'. */
+    trigger?: 'auto' | 'manual';
     url: string;
     method?: 'GET' | 'POST';
     headers?: Array<{ key: string; value: string }>;

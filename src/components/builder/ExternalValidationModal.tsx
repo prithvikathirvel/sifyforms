@@ -114,6 +114,38 @@ export function ExternalValidationModal({ isOpen, onClose, field, onUpdate }: Ex
               Enable External Validation for {field.label}
             </Label>
           </div>
+
+          <div className="mt-3 bg-muted/30 p-3 rounded-md border">
+            <Label className="font-semibold">When should validation run?</Label>
+            <div className="mt-2 space-y-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="ev-trigger"
+                  checked={(config.trigger ?? 'auto') === 'auto'}
+                  onChange={() => updateConfig({ trigger: 'auto' })}
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span className="text-sm">
+                  <span className="font-medium">Automatically on blur</span>
+                  <span className="block text-xs text-muted-foreground">Check as soon as the respondent leaves the field (after the field's own rules pass).</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="ev-trigger"
+                  checked={config.trigger === 'manual'}
+                  onChange={() => updateConfig({ trigger: 'manual' })}
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span className="text-sm">
+                  <span className="font-medium">Manually with a "Verify" button</span>
+                  <span className="block text-xs text-muted-foreground">Show a Verify button the respondent clicks to run the check.</span>
+                </span>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 pt-2">
