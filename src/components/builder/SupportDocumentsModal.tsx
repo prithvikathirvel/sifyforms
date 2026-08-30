@@ -19,6 +19,16 @@ interface SupportDocument {
     pendingFile?: File;
 }
 
+const isValidUrl = (value: string): boolean => {
+    if (!value) return false;
+    try {
+        const url = new URL(value);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+};
+
 interface SupportDocumentsModalProps {
     field: FormField;
     isOpen: boolean;
@@ -42,6 +52,7 @@ export function SupportDocumentsModal({
     const [saving, setSaving] = useState(false);
     const [saveProgress, setSaveProgress] = useState(0);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -52,6 +63,7 @@ export function SupportDocumentsModal({
             setSaving(false);
             setSaveProgress(0);
             setUploadError(null);
+            setSaveError(null);
         }
     }, [isOpen, field.supportDocuments]);
 
@@ -90,9 +102,17 @@ export function SupportDocumentsModal({
     const handleSave = async () => {
         const missingLabel = localDocuments.some((doc) => !doc.label.trim());
         if (missingLabel) {
-            alert('Display Label is required for all documents.');
+            setSaveError('Display Label is required for all documents.');
             return;
         }
+
+        const invalidUrl = localDocuments.some((doc) => doc.mode === 'link' && doc.url && !isValidUrl(doc.url));
+        if (invalidUrl) {
+            setSaveError('One or more URLs are invalid. Use a full http(s) link.');
+            return;
+        }
+
+        setSaveError(null);
 
         const pending = localDocuments.filter((doc) => doc.mode === 'dms' && doc.pendingFile);
         if (pending.length > 0) {
@@ -195,7 +215,7 @@ export function SupportDocumentsModal({
                         <div className="text-center py-12 border-2 border-dashed border-border rounded-xl bg-muted">
                             <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
                             <p className="text-sm font-medium text-muted-foreground">No documents configured</p>
-                            <p className="text-xs text-muted-foreground mb-4">Add PDF links or resource URLs to help candidates fill this field.</p>
+                            <p className="text-xs text-muted-foreground mb-4">Add a link or upload a file to give candidates extra context for this field.</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
@@ -203,7 +223,7 @@ export function SupportDocumentsModal({
                                 <div key={doc.id} className="p-4 bg-muted/20 border border-border rounded-lg shadow-md">
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex-1">
-                                            <Label className="text-[11px] font-bold uppercase text-muted-foreground block mb-2">
+                                            <Label className="text-xs font-semibold text-muted-foreground block mb-2">
                                                 Display Label <span className="text-red-500">*</span>
                                             </Label>
                                             <Input
@@ -230,7 +250,7 @@ export function SupportDocumentsModal({
 
                                     <div className="space-y-3">
                                         <div>
-                                            <Label className="text-[11px] font-bold uppercase text-muted-foreground block mb-2">Content Type</Label>
+                                            <Label className="text-xs font-semibold text-muted-foreground block mb-2">Content Type</Label>
                                             <select
                                                 value={doc.mode}
                                                 disabled={saving}
@@ -304,16 +324,19 @@ export function SupportDocumentsModal({
                                                     />
                                                 </label>
                                             </div>
-                                        ) : (
-                                            <div>
-                                                <Label className="text-[11px] font-bold uppercase text-muted-foreground block mb-2">URL</Label>
-                                                <Input
-                                                    value={doc.url || ''}
-                                                    onChange={(e) => updateDocument(index, { url: e.target.value })}
-                                                    placeholder="https://example.com/document.pdf"
-                                                    className="h-9 text-sm"
-                                                    disabled={saving}
-                                                />
+                        ) : (
+                            <div>
+                                <Label className="text-xs font-semibold text-muted-foreground block mb-2">URL</Label>
+                                <Input
+                                    value={doc.url || ''}
+                                    onChange={(e) => updateDocument(index, { url: e.target.value })}
+                                    placeholder="https://example.com/document.pdf"
+                                    className={`h-9 text-sm ${doc.url && !isValidUrl(doc.url) ? 'border-red-400 focus:border-red-500' : ''}`}
+                                    disabled={saving}
+                                />
+                                {doc.url && !isValidUrl(doc.url) && (
+                                    <p className="text-xs text-red-600 font-medium mt-1">Enter a valid http(s) URL.</p>
+                                )}
                                                 {doc.url && (
                                                     <a
                                                         href={doc.url}
@@ -337,9 +360,15 @@ export function SupportDocumentsModal({
                     )}
                 </CardContent>
 
-                <CardFooter className="flex justify-between border-t py-4 bg-muted">
-                    <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={saving} className="bg-brand-600 hover:bg-brand-700 text-white shadow-md">
+                <CardFooter className="flex items-center justify-between border-t py-4 bg-muted">
+                    {saveError ? (
+                        <p className="text-xs text-red-600 font-medium">{saveError}</p>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">Documents are shown to the candidate next to this field.</span>
+                    )}
+                    <div className="flex gap-3">
+                        <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+                        <Button onClick={handleSave} disabled={saving} className="bg-brand-600 hover:bg-brand-700 text-white shadow-md">
                         {saving ? (
                             <>
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -349,6 +378,7 @@ export function SupportDocumentsModal({
                             'Save Documents'
                         )}
                     </Button>
+                    </div>
                 </CardFooter>
             </Card>
         </div>

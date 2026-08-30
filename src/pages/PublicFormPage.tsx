@@ -202,8 +202,6 @@ function FieldsByWidth({
 
     if (docs.length === 0) return null;
 
-    console.debug('[PublicFormPage] supportDocuments for field', field.id, docs);
-
     const handleDownload = (doc: typeof docs[number]) => {
       if (!doc.fileData || !doc.fileName) return;
       const link = document.createElement('a');
@@ -890,7 +888,6 @@ export default function PublicFormPage() {
 
         // Only show if conditions match AND not already dismissed
         if (isVisible && !activeAlert && !dismissedAlerts.has(alertKey)) {
-          console.debug('[PublicFormPage] Auto-showing matching alert:', field.id, alert.id, alertKey);
           setActiveAlert({ id: alert.id, fieldId: field.id, message: alert.message, type: alert.type });
           return; // Only show one alert at a time
         }
@@ -1618,7 +1615,6 @@ export default function PublicFormPage() {
 
       // Handle payment redirect if payment is configured
       const payment = form.settings?.payment;
-      console.log('[Payment] config:', payment);
 
       if (payment?.enabled) {
         try {
@@ -1679,7 +1675,6 @@ export default function PublicFormPage() {
           const contentType = posRes.headers.get('content-type') || '';
           if (contentType.includes('text/html')) {
             const html = await posRes.text();
-            console.log('[Payment] Paytm HTML redirect');
             document.open();
             document.write(html);
             document.close();
@@ -1688,7 +1683,6 @@ export default function PublicFormPage() {
 
           // ── JSON response (Razorpay / PayU) ───────────────────────────────
           const posData = await posRes.json();
-          console.log('[Payment] POS response:', posData);
 
           // ── Razorpay ──────────────────────────────────────────────────────
           if (posData.gateway === 'razorpay' || gateway === 'razorpay') {

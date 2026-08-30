@@ -46,6 +46,16 @@ const getPlaceholderForRuleType = (type: string) => {
     }
 };
 
+const isInvalidRegex = (value: string | number | undefined): boolean => {
+    if (value === undefined || value === '') return false;
+    try {
+        new RegExp(String(value));
+        return false;
+    } catch {
+        return true;
+    }
+};
+
 const getDefaultMessageForRuleType = (type: string) => {
     switch (type) {
         case 'required': return 'This field is required';
@@ -147,7 +157,7 @@ export function ValidationModal({
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type</Label>
+                                            <Label className="text-xs font-semibold text-muted-foreground">Type</Label>
                                             <select
                                                 value={rule.type}
                                                 onChange={(e) => updateRule(rule.id, { type: e.target.value as any, value: '' })}
@@ -162,7 +172,7 @@ export function ValidationModal({
                                         {/* Rule Value Input */}
                                         {!['required', 'email', 'url'].includes(rule.type) && (
                                             <div className="space-y-2">
-                                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                                <Label className="text-xs font-semibold text-muted-foreground">
                                                     {rule.type === 'minLength' || rule.type === 'maxLength' ? 'Length' :
                                                         rule.type === 'min' || rule.type === 'max' ? 'Value' :
                                                             rule.type === 'pattern' ? 'Pattern' :
@@ -181,20 +191,25 @@ export function ValidationModal({
                                                         ))}
                                                     </select>
                                                 ) : (
-                                                    <Input
-                                                        type={rule.type === 'min' || rule.type === 'max' ? 'number' : 'text'}
-                                                        value={rule.value || ''}
-                                                        onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-                                                        placeholder={getPlaceholderForRuleType(rule.type)}
-                                                        className="h-10 text-sm"
-                                                    />
+                                                    <>
+                                                        <Input
+                                                            type={rule.type === 'min' || rule.type === 'max' ? 'number' : 'text'}
+                                                            value={rule.value || ''}
+                                                            onChange={(e) => updateRule(rule.id, { value: e.target.value })}
+                                                            placeholder={getPlaceholderForRuleType(rule.type)}
+                                                            className={`h-10 text-sm ${(rule.type === 'pattern' || rule.type === 'regex') && isInvalidRegex(rule.value) ? 'border-red-400 focus:border-red-500' : ''}`}
+                                                        />
+                                                        {(rule.type === 'pattern' || rule.type === 'regex') && isInvalidRegex(rule.value) && (
+                                                            <p className="text-xs text-red-600 font-medium">This pattern is invalid — the rule won't run until it's fixed.</p>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         )}
 
                                         {/* Custom Message */}
                                         <div className="space-y-2 md:col-span-2">
-                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Custom Error Message (Optional)</Label>
+                                            <Label className="text-xs font-semibold text-muted-foreground">Custom Error Message (Optional)</Label>
                                             <Input
                                                 value={rule.message || ''}
                                                 onChange={(e) => updateRule(rule.id, { message: e.target.value })}

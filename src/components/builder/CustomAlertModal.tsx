@@ -32,16 +32,39 @@ export function CustomAlertModal({
     operators
 }: CustomAlertModalProps) {
     const [localAlerts, setLocalAlerts] = useState<AlertRule[]>([]);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             setLocalAlerts(field.alerts || []);
+            setSaveError(null);
         }
     }, [isOpen, field.alerts]);
 
     if (!isOpen) return null;
 
     const handleSave = () => {
+        // Every alert needs a message
+        const missingMessage = localAlerts.some((a) => !a.message.trim());
+        if (missingMessage) {
+            setSaveError('Every alert needs a message before saving.');
+            return;
+        }
+
+        // Conditions that require a value must have one (prevents false triggers)
+        const missingValue = localAlerts.some((a) =>
+            a.conditions.some((c) => {
+                const opDef = operators.find((op) => op.value === c.operator);
+                if (opDef?.needsValue !== true) return false;
+                return c.value === undefined || c.value === null || c.value === '';
+            })
+        );
+        if (missingValue) {
+            setSaveError('Every condition needs a value (or choose "is empty / is not empty").');
+            return;
+        }
+
+        setSaveError(null);
         onUpdate({ alerts: localAlerts });
         onClose();
     };
@@ -238,11 +261,22 @@ export function CustomAlertModal({
                                                 </div>
 
                                                 <div className="space-y-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Conditions to show this alert</Label>
-                                                        <Button variant="ghost" size="sm" onClick={() => addCondition(alertIndex)} className="h-6 text-[10px] text-brand-600">
-                                                            <Plus className="h-3 w-3 mr-1" /> Add Condition
-                                                        </Button>
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <Label className="text-xs font-semibold text-muted-foreground">Show this alert when…</Label>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[11px] font-medium text-muted-foreground">Match:</span>
+                                                            <select
+                                                                value={alert.logic}
+                                                                onChange={(e) => updateAlert(alertIndex, { logic: e.target.value as 'and' | 'or' })}
+                                                                className="h-7 text-xs rounded-md border border-border bg-white px-2 font-medium focus:border-brand-300 outline-none"
+                                                            >
+                                                                <option value="and">ALL conditions (AND)</option>
+                                                                <option value="or">ANY condition (OR)</option>
+                                                            </select>
+                                                            <Button variant="ghost" size="sm" onClick={() => addCondition(alertIndex)} className="h-7 text-xs text-brand-600">
+                                                                <Plus className="h-3 w-3 mr-1" /> Add Condition
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                     
                                                     <div className="space-y-2">
@@ -288,11 +322,18 @@ export function CustomAlertModal({
                     )}
                 </CardContent>
 
-                <CardFooter className="flex justify-between border-t py-4 bg-muted">
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSave} className="bg-brand-600 hover:bg-brand-700 text-white">
-                        Apply Alerts
-                    </Button>
+                <CardFooter className="flex items-center justify-between border-t py-4 bg-muted">
+                    {saveError ? (
+                        <p className="text-xs text-red-600 font-medium">{saveError}</p>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">Alerts appear as popups while the candidate fills the form.</span>
+                    )}
+                    <div className="flex gap-3">
+                        <Button variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button onClick={handleSave} className="bg-brand-600 hover:bg-brand-700 text-white">
+                            Apply Alerts
+                        </Button>
+                    </div>
                 </CardFooter>
             </Card>
         </div>
