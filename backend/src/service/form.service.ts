@@ -42,12 +42,14 @@ function sanitizePublicSchema(schema: Record<string, unknown>): Record<string, u
       delete safeField.points;
       delete safeField.section;
 
-      // External-validation internals. We keep only `enabled`; everything else
-      // (endpoint, credentials, response checks) is re-read from the DB at
-      // request time, so validation behaviour is unchanged.
+      // External-validation internals. We keep only the UI flags the respondent
+      // renderer needs — `enabled` and `trigger` (auto vs. Verify button). The
+      // endpoint, credentials, params and response checks are re-read from the
+      // DB at request time, so validation behaviour is unchanged.
       if (safeField.externalValidation && typeof safeField.externalValidation === 'object') {
         const ev = safeField.externalValidation as Record<string, unknown>;
-        const safe = { enabled: ev.enabled === true };
+        const safe: Record<string, unknown> = { enabled: ev.enabled === true };
+        if (ev.trigger === 'manual') safe.trigger = 'manual';
         safeField.externalValidation = safe;
       }
 

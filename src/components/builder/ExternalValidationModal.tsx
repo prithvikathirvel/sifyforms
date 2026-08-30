@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { Dialog, DialogContent } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -13,6 +13,10 @@ interface ExternalValidationModalProps {
   onClose: () => void;
   field: FormField;
   onUpdate: (updates: Partial<FormField>) => void;
+}
+
+function isValidUrl(url: string): boolean {
+  return /^https?:\/\/.+/i.test(String(url).trim());
 }
 
 export function ExternalValidationModal({ isOpen, onClose, field, onUpdate }: ExternalValidationModalProps) {
@@ -93,79 +97,46 @@ export function ExternalValidationModal({ isOpen, onClose, field, onUpdate }: Ex
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[700px] h-[80vh] flex flex-col p-0 overflow-hidden">
-        <div className="p-6 pb-2 border-b">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-primary" />
-              External Validation
-            </DialogTitle>
-            <DialogDescription>
-              Validate field input against a third-party API during form submission.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex items-center space-x-2 mt-4 bg-muted/50 p-3 rounded-md border">
+        <div className="flex items-center justify-between gap-3 border-b px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Globe className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">External Validation</h2>
+              <p className="text-xs text-muted-foreground">Check "{field.label}" against a third-party API.</p>
+            </div>
+          </div>
+          <label className="flex shrink-0 cursor-pointer items-center gap-2">
+            <span className={`text-xs font-medium ${config.enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+              {config.enabled ? 'Enabled' : 'Disabled'}
+            </span>
             <UICheckbox
               id="ev-enabled"
               checked={config.enabled}
               onCheckedChange={(checked) => updateConfig({ enabled: !!checked })}
             />
-            <Label htmlFor="ev-enabled" className="font-semibold cursor-pointer">
-              Enable External Validation for {field.label}
-            </Label>
-          </div>
-
-          <div className="mt-3 bg-muted/30 p-3 rounded-md border">
-            <Label className="font-semibold">When should validation run?</Label>
-            <div className="mt-2 space-y-2">
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="ev-trigger"
-                  checked={(config.trigger ?? 'auto') === 'auto'}
-                  onChange={() => updateConfig({ trigger: 'auto' })}
-                  className="mt-0.5 h-4 w-4"
-                />
-                <span className="text-sm">
-                  <span className="font-medium">Automatically on blur</span>
-                  <span className="block text-xs text-muted-foreground">Check as soon as the respondent leaves the field (after the field's own rules pass).</span>
-                </span>
-              </label>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="ev-trigger"
-                  checked={config.trigger === 'manual'}
-                  onChange={() => updateConfig({ trigger: 'manual' })}
-                  className="mt-0.5 h-4 w-4"
-                />
-                <span className="text-sm">
-                  <span className="font-medium">Manually with a "Verify" button</span>
-                  <span className="block text-xs text-muted-foreground">Show a Verify button the respondent clicks to run the check.</span>
-                </span>
-              </label>
-            </div>
-          </div>
+          </label>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 pt-2">
           {config.enabled ? (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5 mb-4">
-                <TabsTrigger value="connection" className="text-xs">
-                  <Globe className="h-3 w-3 mr-2" /> Connection
+              <TabsList className="mb-5 grid w-full grid-cols-5 rounded-lg bg-muted/60 p-1">
+                <TabsTrigger value="connection" className="gap-1.5 text-[11px]">
+                  <Globe className="h-3.5 w-3.5" /> Connection
                 </TabsTrigger>
-                <TabsTrigger value="auth" className="text-xs">
-                  <Lock className="h-3 w-3 mr-2" /> Auth
+                <TabsTrigger value="auth" className="gap-1.5 text-[11px]">
+                  <Lock className="h-3.5 w-3.5" /> Auth
                 </TabsTrigger>
-                <TabsTrigger value="headers" className="text-xs">
-                  <Plus className="h-3 w-3 mr-2" /> Headers
+                <TabsTrigger value="headers" className="gap-1.5 text-[11px]">
+                  <Plus className="h-3.5 w-3.5" /> Headers
                 </TabsTrigger>
-                <TabsTrigger value="params" className="text-xs">
-                  <Code className="h-3 w-3 mr-2" /> Payload
+                <TabsTrigger value="params" className="gap-1.5 text-[11px]">
+                  <Code className="h-3.5 w-3.5" /> Payload
                 </TabsTrigger>
-                <TabsTrigger value="response" className="text-xs">
-                  <CheckCircle className="h-3 w-3 mr-2" /> Response
+                <TabsTrigger value="response" className="gap-1.5 text-[11px]">
+                  <CheckCircle className="h-3.5 w-3.5" /> Response
                 </TabsTrigger>
               </TabsList>
 
@@ -454,31 +425,36 @@ export function ExternalValidationModal({ isOpen, onClose, field, onUpdate }: Ex
               </TabsContent>
             </Tabs>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted-foreground space-y-4">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-                <Globe className="h-8 w-8 opacity-50" />
+            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Globe className="h-6 w-6" />
               </div>
-              <div>
-                <h3 className="text-lg font-medium text-foreground mb-1">External Validation is Disabled</h3>
-                <p className="max-w-sm text-sm">
-                  Enable this feature to send the field's value to a third-party API and validate the response before allowing form submission.
-                </p>
-              </div>
-              <Button onClick={() => updateConfig({ enabled: true })}>
-                Enable Now
+              <h3 className="mt-4 text-sm font-semibold text-foreground">External validation is off</h3>
+              <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                Turn it on to send this field's value to a third-party API and check the response before the form can be submitted.
+              </p>
+              <Button size="sm" className="mt-4" onClick={() => updateConfig({ enabled: true })}>
+                Enable validation
               </Button>
             </div>
           )}
         </div>
 
-        <div className="p-4 border-t bg-muted/30">
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose} type="button">Cancel</Button>
-            <Button onClick={handleSave} disabled={!config.enabled && field.externalValidation?.enabled === false}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Configuration
+        <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
+          <p className="text-[11px] text-muted-foreground">
+            {config.enabled && !isValidUrl(config.url)
+              ? 'Enter a valid endpoint URL to enable.'
+              : 'Credentials are stored securely and never shown to respondents.'}
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" onClick={onClose} type="button" className="h-8 text-xs">
+              Cancel
             </Button>
-          </DialogFooter>
+            <Button onClick={handleSave} disabled={config.enabled && !isValidUrl(config.url)} className="h-8 gap-1.5 text-xs">
+              <Save className="h-3.5 w-3.5" />
+              Save
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

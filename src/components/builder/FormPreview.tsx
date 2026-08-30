@@ -3,7 +3,7 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
-import { Star, FileText, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, FileText, ExternalLink, ChevronLeft, ChevronRight, ShieldCheck, Loader2 } from 'lucide-react';
 import { MultiSelectField } from './MultiSelectField';
 import { DisplayField } from './DisplayField';
 import TableField from '../ui/TableField';
@@ -465,6 +465,7 @@ export default function FormPreview({
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [extValidation, setExtValidation] = useState<Record<string, { loading: boolean; ok?: boolean; message?: string }>>({});
 
   const steps = useMemo(
     () => [...(layout?.steps || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
@@ -529,8 +530,35 @@ export default function FormPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values]);
 
-  const setValue = (id: string, v: unknown) => setValues((prev) => ({ ...prev, [id]: v }));
+  const setValue = (id: string, v: unknown) => {
+    setValues((prev) => ({ ...prev, [id]: v }));
+    // Clear any previous external-validation result when the value changes.
+    setExtValidation((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
   const setTouchedField = (id: string) => setTouched((prev) => ({ ...prev, [id]: true }));
+
+  // Preview simulation of the external check (the published page calls the
+  // backend; here we just replay the UI states for parity).
+  const runExternalCheck = (field: FormField) => {
+    const err = validateField(field, values[field.id]);
+    if (err) return;
+    setExtValidation((prev) => ({ ...prev, [field.id]: { loading: true } }));
+    window.setTimeout(() => {
+      setExtValidation((prev) => ({
+        ...prev,
+        [field.id]: {
+          loading: false,
+          ok: true,
+          message: field.externalValidation?.successMsg || 'Verified',
+        },
+      }));
+    }, 600);
+  };
 
   const isHorizontal = orientation === 'horizontal';
 
@@ -561,12 +589,42 @@ export default function FormPreview({
           value={values[field.id]}
           values={values as Record<string, unknown>}
           onChange={(v) => setValue(field.id, v)}
-          onBlur={() => setTouchedField(field.id)}
+          onBlur={() => {
+            setTouchedField(field.id);
+            if (field.externalValidation?.enabled && (field.externalValidation.trigger ?? 'auto') === 'auto') {
+              runExternalCheck(field);
+            }
+          }}
           formId={formId}
           dmsEnabled={settings.dms?.enabled === true}
         />
         {field.helpText && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
         {error && <p className="text-[13px] text-destructive">{error}</p>}
+        {field.externalValidation?.enabled && field.externalValidation.trigger === 'manual' && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!!error || !!extValidation[field.id]?.loading}
+            onClick={() => runExternalCheck(field)}
+            className="h-8 gap-1.5"
+          >
+            {extValidation[field.id]?.loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-3.5 w-3.5" />
+            )}
+            Verify
+          </Button>
+        )}
+        {extValidation[field.id]?.loading && (
+          <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Validating…
+          </p>
+        )}
+        {extValidation[field.id] && !extValidation[field.id].loading && extValidation[field.id].ok && (
+          <p className="text-[13px] font-medium text-green-600">✓ {extValidation[field.id].message}</p>
+        )}
         {renderSupportDocuments(field)}
       </div>
     );
