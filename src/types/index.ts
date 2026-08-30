@@ -369,6 +369,9 @@ export interface FormField {
     trigger?: 'auto' | 'manual';
     /** Custom label for the Verify button (only used when trigger is 'manual'). */
     buttonLabel?: string;
+    /** IDs of other fields referenced by payload params; populated by the server
+     *  in the public schema so the client can send a minimal formData. */
+    referencedFieldIds?: string[];
     url: string;
     method?: 'GET' | 'POST';
     headers?: Array<{ key: string; value: string }>;

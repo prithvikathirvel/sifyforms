@@ -1116,11 +1116,19 @@ export default function PublicFormPage() {
     const seq = (externalValidationSeq.current[fieldId] = (externalValidationSeq.current[fieldId] || 0) + 1);
     try {
       setExternalValidationLoading(prev => ({ ...prev, [fieldId]: true }));
+      // Send only the fields the config actually references, plus the checked
+      // value, rather than the entire form.
+      const allValues = getValues();
+      const referencedIds = field.externalValidation?.referencedFieldIds ?? [];
+      const minimalFormData: Record<string, unknown> = {};
+      for (const id of referencedIds) {
+        if (id in allValues) minimalFormData[id] = allValues[id];
+      }
       const response = await api.post('/submissions/check-external', {
         formId: form.id,
         fieldId,
         value,
-        formData: getValues()
+        formData: minimalFormData
       });
 
       // Ignore responses that arrived out of order (a newer check superseded this one).

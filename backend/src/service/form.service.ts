@@ -56,6 +56,16 @@ function sanitizePublicSchema(schema: Record<string, unknown>): Record<string, u
             safe.buttonLabel = ev.buttonLabel;
           }
         }
+        // Expose only the ids of OTHER fields referenced by the payload params,
+        // so the client can send a minimal formData instead of the whole form.
+        // The referenced values are read server-side from the DB config.
+        const params = Array.isArray(ev.params) ? ev.params : [];
+        const referencedFieldIds = params
+          .filter((p: any) => p && p.type === 'field' && typeof p.value === 'string' && p.value)
+          .map((p: any) => p.value);
+        if (referencedFieldIds.length > 0) {
+          safe.referencedFieldIds = referencedFieldIds;
+        }
         safeField.externalValidation = safe;
       }
 
