@@ -28,9 +28,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import FieldPalette from '../components/builder/FieldPalette';
 import SortableField from '../components/builder/SortableField';
 import FieldInspector from '../components/builder/FieldInspector';
-import LayoutModal from '../components/builder/LayoutModal';
-import SettingsModal from '../components/builder/SettingsModal';
-import { ArrowLeft, Save, Loader2, Settings, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Plus } from 'lucide-react';
+import SettingsPanel from '../components/builder/SettingsPanel';
+import { ArrowLeft, Save, Loader2, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Plus, Settings } from 'lucide-react';
 import type { FormField } from '../types';
 import { cn } from '../lib/utils';
 import FormPreview from '../components/builder/FormPreview';
@@ -54,7 +53,7 @@ function DroppableCanvas({ children }: { children: React.ReactNode }) {
   );
 }
 
-type EditorMode = 'canvas' | 'preview';
+type EditorMode = 'canvas' | 'preview' | 'settings';
 
 const PANEL_MIN = 200;
 const PANEL_MAX = 480;
@@ -209,8 +208,6 @@ export default function FormBuilderPage() {
   const [showNamingDialog, setShowNamingDialog] = useState<'duplicate' | 'template' | null>(null);
   const [newName, setNewName] = useState('');
   const [isProcessingAction, setIsProcessingAction] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showLayout, setShowLayout] = useState(false);
   const [copied, setCopied] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [mode, setMode] = useState<EditorMode>('canvas');
@@ -893,9 +890,9 @@ export default function FormBuilderPage() {
             </div>
           </div>
 
-          {/* Center — canvas/preview toggle */}
+          {/* Center — canvas/preview/settings toggle */}
           <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center rounded-lg bg-ink-100 p-0.5">
-            {(['canvas', 'preview'] as const).map((value) => (
+            {(['canvas', 'preview', 'settings'] as const).map((value) => (
               <button
                 key={value}
                 type="button"
@@ -910,6 +907,7 @@ export default function FormBuilderPage() {
               >
                 {value === 'preview' && <Eye className="h-3 w-3" strokeWidth={1.8} />}
                 {value === 'canvas' && <Layout className="h-3 w-3" strokeWidth={1.8} />}
+                {value === 'settings' && <Settings className="h-3 w-3" strokeWidth={1.8} />}
                 {value}
               </button>
             ))}
@@ -917,28 +915,6 @@ export default function FormBuilderPage() {
 
           {/* Right — actions */}
           <div className="flex flex-1 items-center justify-end gap-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => setShowSettings(true)}
-              title="Form Settings"
-              aria-label="Form Settings"
-            >
-              <Settings className="h-3.5 w-3.5" strokeWidth={1.8} />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => setShowLayout(true)}
-              title="Layout"
-              aria-label="Layout"
-            >
-              <Layout className="h-3.5 w-3.5" strokeWidth={1.8} />
-            </Button>
-
             <div className="relative group">
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="More actions">
                 <MoreVertical className="h-3.5 w-3.5" strokeWidth={1.8} />
@@ -1178,6 +1154,8 @@ export default function FormBuilderPage() {
             layout={builder.layout}
           />
         </div>
+      ) : mode === 'settings' ? (
+        <SettingsPanel formId={formId} />
       ) : (
         <div className="min-h-0 flex-1 flex">
           {/* Field Palette */}
@@ -1281,12 +1259,6 @@ export default function FormBuilderPage() {
           </aside>
         </div>
       )}
-
-      {/* Layout Modal */}
-      <LayoutModal open={showLayout} onClose={() => setShowLayout(false)} />
-
-      {/* Settings Modal */}
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} formId={formId} />
     </div>
   );
 }

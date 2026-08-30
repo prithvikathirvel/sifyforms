@@ -83,6 +83,38 @@ function SectionLabel({ title, hint }: { title: string; hint?: string }) {
   );
 }
 
+/**
+ * Accessible switch. Uses rem-based sizing and a padded track so the thumb stays
+ * contained at every breakpoint (the app's density scaling shrinks rems on
+ * laptops, so fixed-px offsets previously let the thumb escape the track).
+ */
+function Toggle({
+  checked,
+  onChange,
+  activeClass = 'bg-primary',
+  size = 'md',
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  activeClass?: string;
+  size?: 'md' | 'sm';
+}) {
+  const track = size === 'sm' ? 'h-5 w-9' : 'h-6 w-11';
+  const thumb = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
+  const travel = size === 'sm' ? 'translate-x-4' : 'translate-x-5';
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn('relative shrink-0 rounded-full p-0.5 transition-colors', track, checked ? activeClass : 'bg-muted')}
+    >
+      <span className={cn('block rounded-full bg-white shadow-sm transition-transform', thumb, checked ? travel : 'translate-x-0')} />
+    </button>
+  );
+}
+
 export default function LayoutConfigPanel({
   layout,
   fields,
@@ -199,23 +231,10 @@ export default function LayoutConfigPanel({
               <p className="text-sm font-semibold text-foreground">Allow going back</p>
               <p className="mt-0.5 text-xs text-muted-foreground">Respondents can return to previous steps.</p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={layout.allowBackNavigation !== false}
-              onClick={() => onUpdateLayout({ allowBackNavigation: layout.allowBackNavigation === false })}
-              className={cn(
-                'relative h-6 w-11 shrink-0 rounded-full transition-colors',
-                layout.allowBackNavigation !== false ? 'bg-primary' : 'bg-muted'
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-                  layout.allowBackNavigation !== false ? 'translate-x-[22px]' : 'translate-x-0.5'
-                )}
-              />
-            </button>
+            <Toggle
+              checked={layout.allowBackNavigation !== false}
+              onChange={(next) => onUpdateLayout({ allowBackNavigation: next })}
+            />
           </div>
         </section>
       )}
@@ -303,23 +322,12 @@ export default function LayoutConfigPanel({
                             </p>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={step.lockOnComplete === true}
-                          onClick={() => onUpdateStep(step.id, { lockOnComplete: step.lockOnComplete !== true })}
-                          className={cn(
-                            'relative h-5 w-9 shrink-0 rounded-full transition-colors',
-                            step.lockOnComplete === true ? 'bg-amber-500' : 'bg-muted'
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
-                              step.lockOnComplete === true ? 'translate-x-[18px]' : 'translate-x-0.5'
-                            )}
-                          />
-                        </button>
+                        <Toggle
+                          checked={step.lockOnComplete === true}
+                          onChange={(next) => onUpdateStep(step.id, { lockOnComplete: next })}
+                          activeClass="bg-amber-500"
+                          size="sm"
+                        />
                       </div>
 
                       {/* Field assignment */}
@@ -337,6 +345,25 @@ export default function LayoutConfigPanel({
                               const otherStep = !checked
                                 ? steps.find((s) => s.id !== step.id && s.fieldIds.includes(field.id))
                                 : undefined;
+
+                              // Field already lives in another step — not selectable here.
+                              if (otherStep) {
+                                return (
+                                  <div
+                                    key={field.id}
+                                    className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground"
+                                    title={`Allocated to ${otherStep.title || `Step ${otherStep.order + 1}`}`}
+                                  >
+                                    <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="min-w-0 flex-1 truncate">{field.label || 'Untitled field'}</span>
+                                    <span className="shrink-0 text-[10px] font-medium uppercase text-muted-foreground">{field.type}</span>
+                                    <span className="shrink-0 rounded bg-ink-100 px-1.5 py-0.5 text-[9px] font-semibold text-ink-600">
+                                      In {otherStep.title || `Step ${otherStep.order + 1}`}
+                                    </span>
+                                  </div>
+                                );
+                              }
+
                               return (
                                 <label
                                   key={field.id}
@@ -358,11 +385,6 @@ export default function LayoutConfigPanel({
                                   />
                                   <span className="min-w-0 flex-1 truncate">{field.label || 'Untitled field'}</span>
                                   <span className="shrink-0 text-[10px] font-medium uppercase text-muted-foreground">{field.type}</span>
-                                  {otherStep && (
-                                    <span className="shrink-0 rounded bg-ink-100 px-1.5 py-0.5 text-[9px] font-semibold text-ink-600">
-                                      {otherStep.title || `Step ${otherStep.order + 1}`}
-                                    </span>
-                                  )}
                                 </label>
                               );
                             })

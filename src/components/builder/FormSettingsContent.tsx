@@ -1,4 +1,3 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -15,9 +14,7 @@ const POS_BASE = 'https://apidev.sifymodernization.digital/payment-service';
 import type { PaymentConfig, FormAuthentication, PartialSubmissionConfig, FormBrandingSection, BrandingPosition } from '../../types';
 import { uploadFileAuthenticated, getDownloadUrl } from '../../lib/dms';
 
-interface SettingsModalProps {
-  open: boolean;
-  onClose: () => void;
+interface FormSettingsContentProps {
   formId?: string;
 }
 
@@ -261,7 +258,7 @@ function BrandingSectionEditor({
   );
 }
 
-export default function SettingsModal({ open, onClose, formId }: SettingsModalProps) {
+export default function FormSettingsContent({ formId }: FormSettingsContentProps) {
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
   const currentOrg = useAppSelector((state) => state.org.currentOrg);
@@ -271,20 +268,9 @@ export default function SettingsModal({ open, onClose, formId }: SettingsModalPr
   const paymentCancelUrl = formId ? `${origin}/payment/${formId}/status?cancelled=true` : '';
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">Form Settings</DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </DialogHeader>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col md:flex-row">
-            <div className="w-full md:w-48 border-b md:border-b-0 md:border-r bg-muted/20">
-              <TabsList className="flex flex-row md:flex-col h-auto w-full justify-start p-2 bg-transparent gap-1">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex w-full flex-col md:flex-row">
+      <div className="w-full shrink-0 border-b bg-muted/20 md:w-52 md:border-b-0 md:border-r">
+        <TabsList className="flex h-auto w-full flex-row justify-start gap-1 bg-transparent p-2 md:flex-col">
                 <TabsTrigger value="general" className="w-full justify-start data-[state=active]:bg-background">
                   <Settings className="h-4 w-4 mr-2" />
                   General
@@ -320,7 +306,7 @@ export default function SettingsModal({ open, onClose, formId }: SettingsModalPr
               </TabsList>
             </div>
             
-            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+            <div className="min-w-0 flex-1 p-6">
               <TabsContent value="general" className="mt-0 space-y-6">
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Thank You Message</Label>
@@ -1161,8 +1147,5 @@ export default function SettingsModal({ open, onClose, formId }: SettingsModalPr
               </TabsContent>
             </div>
           </Tabs>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
