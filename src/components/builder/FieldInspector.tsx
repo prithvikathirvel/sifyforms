@@ -205,6 +205,11 @@ export default function FieldInspector({
 
   const hasOptions = ['select', 'multiselect', 'radio', 'checkbox'].includes(field.type);
   const otherFields = allFields.filter(f => f.id !== field.id);
+  // True when the Input Validation modal also defines a min/max/length rule,
+  // which overlaps with the Constraints & Defaults fields below.
+  const hasConflictingValidationRule = (field.rules || []).some((r) =>
+    ['minLength', 'maxLength', 'min', 'max'].includes(r.type)
+  );
   // TODO: Task List
   // - [x] Fix template visibility (protected routes & backend logic) [/]
   // - [x] Move form actions to a dropdown menu in FormBuilderPage header [/]
@@ -331,13 +336,7 @@ export default function FieldInspector({
                 type="checkbox"
                 id="required"
                 checked={field.required}
-                onChange={(e) => {
-                  const required = e.target.checked;
-                  onUpdate({
-                    required,
-                    unique: required ? field.unique : false
-                  });
-                }}
+                onChange={(e) => onUpdate({ required: e.target.checked })}
                 className="h-4 w-4 rounded border-border"
               />
               <Label htmlFor="required">Required field</Label>
@@ -345,21 +344,22 @@ export default function FieldInspector({
 
             {/* Unique — not applicable for table fields */}
             {field.type !== 'table' && (
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="unique"
-                  checked={field.unique || false}
-                  disabled={!field.required}
-                  onChange={(e) => onUpdate({ unique: e.target.checked })}
-                  className="h-4 w-4 rounded border-border disabled:opacity-50"
-                />
-                <Label
-                  htmlFor="unique"
-                  className={!field.required ? 'text-muted-foreground' : ''}
-                >
-                  Unique submission value
-                </Label>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="unique"
+                    checked={field.unique || false}
+                    onChange={(e) => onUpdate({ unique: e.target.checked })}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  <Label htmlFor="unique">Unique submission value</Label>
+                </div>
+                {!field.required && field.unique && (
+                  <p className="text-[10px] text-muted-foreground">
+                    This field is optional — uniqueness is only checked when a value is entered.
+                  </p>
+                )}
               </div>
             )}
 
@@ -550,6 +550,14 @@ export default function FieldInspector({
                   <strong>Note:</strong> These defaults apply when Smart Connections are not enabled. Smart Connection settings will override these values.
                 </p>
               </div>
+
+              {hasConflictingValidationRule && (
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="text-[10px] text-amber-800">
+                    <strong>Note:</strong> This field also has a minimum/maximum or length rule in Input Validation. Both are enforced — the stricter of the two applies.
+                  </p>
+                </div>
+              )}
             </div>
           </AccordionItem>
         )}
