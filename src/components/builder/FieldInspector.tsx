@@ -812,41 +812,60 @@ export default function FieldInspector({
               </div>
               <Button
                 size="sm"
-                variant="outline"
-                className="h-8 shrink-0 gap-1.5 text-[11px]"
+                className="h-8 shrink-0 text-[12px]"
+                variant={field.externalValidation?.enabled ? "default" : "outline"}
                 onClick={() => setIsExtValidationModalOpen(true)}
               >
-                <Globe className="h-3.5 w-3.5" />
+                <Globe className="h-3.5 w-3.5 mr-1.5" />
                 Configure
               </Button>
             </div>
 
             {field.externalValidation?.enabled && (
-              <div className="rounded-lg border p-3">
+              <div className="space-y-3 rounded-lg border p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Run validation
                 </p>
-                <div className="mt-2 inline-flex rounded-lg bg-muted/60 p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => onUpdate({ externalValidation: { ...field.externalValidation!, trigger: 'auto' } })}
-                    className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${(field.externalValidation.trigger ?? 'auto') === 'auto' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Automatic
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onUpdate({ externalValidation: { ...field.externalValidation!, trigger: 'manual' } })}
-                    className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${field.externalValidation.trigger === 'manual' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    Verify button
-                  </button>
+                <div className="space-y-2.5">
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="radio"
+                      name={`ev-trigger-${field.id}`}
+                      checked={(field.externalValidation.trigger ?? 'auto') === 'auto'}
+                      onChange={() => onUpdate({ externalValidation: { ...field.externalValidation!, trigger: 'auto' } })}
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                    />
+                    <span className="text-xs">
+                      <span className="font-medium text-foreground">Automatic</span>
+                      <span className="block text-[10px] text-muted-foreground">Runs when the respondent leaves the field.</span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="radio"
+                      name={`ev-trigger-${field.id}`}
+                      checked={field.externalValidation.trigger === 'manual'}
+                      onChange={() => onUpdate({ externalValidation: { ...field.externalValidation!, trigger: 'manual' } })}
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                    />
+                    <span className="text-xs">
+                      <span className="font-medium text-foreground">Verify button</span>
+                      <span className="block text-[10px] text-muted-foreground">The respondent clicks a button to run the check.</span>
+                    </span>
+                  </label>
                 </div>
-                <p className="mt-2 text-[10px] text-muted-foreground">
-                  {field.externalValidation.trigger === 'manual'
-                    ? 'The respondent clicks a "Verify" button to run the check.'
-                    : 'Runs automatically when the respondent leaves the field.'}
-                </p>
+
+                {field.externalValidation.trigger === 'manual' && (
+                  <div className="space-y-2 border-t pt-3">
+                    <Label>Button name</Label>
+                    <Input
+                      value={field.externalValidation.buttonLabel || ''}
+                      onChange={(e) => onUpdate({ externalValidation: { ...field.externalValidation!, buttonLabel: e.target.value } })}
+                      placeholder="Verify"
+                    />
+                    <p className="text-[10px] text-muted-foreground">The label shown on the button (defaults to "Verify").</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

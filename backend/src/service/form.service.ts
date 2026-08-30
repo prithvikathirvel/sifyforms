@@ -49,7 +49,13 @@ function sanitizePublicSchema(schema: Record<string, unknown>): Record<string, u
       if (safeField.externalValidation && typeof safeField.externalValidation === 'object') {
         const ev = safeField.externalValidation as Record<string, unknown>;
         const safe: Record<string, unknown> = { enabled: ev.enabled === true };
-        if (ev.trigger === 'manual') safe.trigger = 'manual';
+        if (ev.trigger === 'manual') {
+          safe.trigger = 'manual';
+          // The Verify button's custom label is UI-only and must reach the browser.
+          if (typeof ev.buttonLabel === 'string' && ev.buttonLabel.trim() !== '') {
+            safe.buttonLabel = ev.buttonLabel;
+          }
+        }
         safeField.externalValidation = safe;
       }
 

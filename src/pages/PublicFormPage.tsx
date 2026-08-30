@@ -319,7 +319,7 @@ function FieldsByWidth({
             ) : (
               <ShieldCheck className="h-3.5 w-3.5" />
             )}
-            Verify
+            {field.externalValidation.buttonLabel || 'Verify'}
           </Button>
         )}
         {field.helpText && (

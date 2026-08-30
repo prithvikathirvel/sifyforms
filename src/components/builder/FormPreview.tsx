@@ -614,7 +614,7 @@ export default function FormPreview({
             ) : (
               <ShieldCheck className="h-3.5 w-3.5" />
             )}
-            Verify
+            {field.externalValidation.buttonLabel || 'Verify'}
           </Button>
         )}
         {extValidation[field.id]?.loading && (

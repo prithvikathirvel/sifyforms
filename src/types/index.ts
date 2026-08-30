@@ -367,6 +367,8 @@ export interface FormField {
      *  respondent clicks the Verify button ('manual'). Existing forms without
      *  this flag behave as 'auto'. */
     trigger?: 'auto' | 'manual';
+    /** Custom label for the Verify button (only used when trigger is 'manual'). */
+    buttonLabel?: string;
     url: string;
     method?: 'GET' | 'POST';
     headers?: Array<{ key: string; value: string }>;
