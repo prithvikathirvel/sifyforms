@@ -2,6 +2,22 @@ import xss from 'xss';
 import axios from 'axios';
 import { CalculationEngine } from './calculationEngine';
 
+/**
+ * Header keys that may carry credentials. Values for these keys are masked
+ * before anything is written to logs, so bearer tokens, basic-auth strings,
+ * API keys and cookies never end up in log aggregation.
+ */
+const SECRET_HEADER_KEY_PATTERN = /authorization|cookie|token|api[-_]?key|x-api-key/i;
+
+/** Return a copy of `headers` with sensitive values masked. */
+export function redactSecrets(headers: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    out[key] = SECRET_HEADER_KEY_PATTERN.test(key) ? '[REDACTED]' : value;
+  }
+  return out;
+}
+
 export function normalizeValue(val: any): any {
   if (val === undefined || val === null) return val;
   if (typeof val === 'string') {
@@ -331,7 +347,7 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
         console.log('--- External Validation (Submission) Request ---');
         console.log(`URL: ${config.url}`);
         console.log(`Method: ${config.method || 'POST'}`);
-        console.log(`Headers:`, JSON.stringify(headers, null, 2));
+        console.log(`Headers:`, JSON.stringify(redactSecrets(headers), null, 2));
         console.log(isGet ? `Query Parameters:` : `Body Payload:`, JSON.stringify(payload, null, 2));
         console.log('--------------------------------------------');
 
@@ -346,7 +362,7 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
         console.log('--- External Validation (Submission) Response ---');
         console.log(`Status: ${response.status} ${response.statusText}`);
         console.log(`Final URL: ${response.config.url}${isGet && response.config.params ? '?' + new URLSearchParams(response.config.params as any).toString() : ''}`);
-        console.log(`Response Data:`, JSON.stringify(response.data, null, 2));
+        console.log(`Response Data:`, '[redacted]');
         console.log('-----------------------------------------------');
 
         let isValid = true;
@@ -405,7 +421,7 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
         console.log('--- External Validation (Submission) Error Response ---');
         if (error.response) {
           console.log(`Status: ${error.response.status} ${error.response.statusText}`);
-          console.log(`Response Data:`, JSON.stringify(error.response.data, null, 2));
+          console.log(`Response Data:`, '[redacted]');
         } else {
           console.log(`Error Message:`, error.message);
         }

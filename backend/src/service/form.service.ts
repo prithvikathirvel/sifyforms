@@ -21,7 +21,15 @@ function parseForm<T extends { schema: string; settings: string }>(form: T) {
   };
 }
 
-/** Remove assessment secrets before a published schema leaves the server. */
+/**
+ * Secrets that must never leave the server inside a field's external-validation
+ * config. The public form only needs `enabled` (to drive the live check UI) and
+ * the user-facing messages; the actual credentials and request construction are
+ * re-read from the database by `checkExternalValidation` at request time.
+ */
+const EXTERNAL_VALIDATION_SECRET_KEYS = ['auth', 'headers', 'params'] as const;
+
+/** Remove assessment and external-validation secrets before a published schema leaves the server. */
 function sanitizePublicSchema(schema: Record<string, unknown>): Record<string, unknown> {
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
   return {
@@ -29,9 +37,24 @@ function sanitizePublicSchema(schema: Record<string, unknown>): Record<string, u
     fields: fields.map((field) => {
       if (!field || typeof field !== 'object' || Array.isArray(field)) return field;
       const safeField = { ...(field as Record<string, unknown>) };
+
+      // Assessment scoring secrets
       delete safeField.correctAnswer;
       delete safeField.points;
       delete safeField.section;
+
+      // External-validation credentials (bearer/basic tokens, custom auth header,
+      // and any static secret values carried in extra headers or params). We keep
+      // `enabled` and the message strings so the respondent UI still behaves the
+      // same; the live check re-reads the full config server-side from the DB.
+      if (safeField.externalValidation && typeof safeField.externalValidation === 'object') {
+        const ev = { ...(safeField.externalValidation as Record<string, unknown>) };
+        for (const key of EXTERNAL_VALIDATION_SECRET_KEYS) {
+          delete ev[key];
+        }
+        safeField.externalValidation = ev;
+      }
+
       return safeField;
     }),
   };
