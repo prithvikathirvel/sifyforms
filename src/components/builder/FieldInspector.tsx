@@ -174,11 +174,10 @@ export default function FieldInspector({
   const [isAISubmitting, setIsAISubmitting] = useState(false);
 
   const handleUpdateVariables = (newVariables: FormVariable[]) => {
-    console.log('🔄 handleUpdateVariables called with:', newVariables.length, 'variables');
     if (onUpdateVariables) {
       onUpdateVariables(newVariables);
     } else {
-      console.error('❌ onUpdateVariables is undefined');
+      console.error('onUpdateVariables is undefined');
     }
   };
 
@@ -251,11 +250,9 @@ export default function FieldInspector({
     }
 
     console.log('🔗 AI edit request url:', url);
-    console.log('📤 AI edit payload:', payload);
 
     try {
       const response = await api.post(url, payload);
-      console.log('📥 AI edit response data:', response.data);
       const { schema: newSchema, sessionId: newSession } = response.data;
       if (newSchema) {
         dispatch(replaceSchema(newSchema));
@@ -826,10 +823,7 @@ export default function FieldInspector({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                console.log('Opening Advanced Linking Modal');
-                setShowAdvancedLinkingModal(true);
-              }}
+              onClick={() => setShowAdvancedLinkingModal(true)}
               className="h-8 w-full text-[12px]"
             >
               <Settings className="h-3.5 w-3.5 mr-1.5" />
@@ -942,11 +936,7 @@ export default function FieldInspector({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                console.log('Opening Variable Manager');
-                console.log('Current variables:', variables);
-                setShowVariableManager(true);
-              }}
+              onClick={() => setShowVariableManager(true)}
               className="h-8 w-full text-[12px]"
             >
               <Calculator className="h-3.5 w-3.5 mr-1.5" />

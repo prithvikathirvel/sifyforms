@@ -57,10 +57,19 @@ export default function CSVImportModal({ open, onClose, onImport }: CSVImportMod
   const handleImport = () => {
     if (!csvData || !mapping.label || !mapping.value) return;
 
-    const options = csvData.rows.map(row => ({
-      label: String(row[mapping.label] || ''),
-      value: String(row[mapping.value] || '')
-    })).filter(opt => opt.label.trim() !== '');
+    const seenValues = new Set<string>();
+    const options: { label: string; value: string }[] = [];
+    for (const row of csvData.rows) {
+      const label = String(row[mapping.label] ?? '').trim();
+      const value = String(row[mapping.value] ?? '').trim();
+      // Skip rows missing a label or value, and de-duplicate by value so option
+      // values stay unique (empty/duplicate values previously broke React keys
+      // and made assessment scoring ambiguous).
+      if (!label || !value) continue;
+      if (seenValues.has(value)) continue;
+      seenValues.add(value);
+      options.push({ label, value });
+    }
 
     onImport(options);
     onClose();

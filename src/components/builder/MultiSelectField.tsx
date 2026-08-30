@@ -181,7 +181,7 @@ export function MultiSelectConfig({ field, onUpdate, onBulkImport }: {
   onBulkImport?: () => void;
 }) {
   const handleAddOption = () => {
-    const newOption = { label: `Option ${field.options?.length || 0 + 1}`, value: `option_${Date.now()}` };
+    const newOption = { label: `Option ${(field.options?.length || 0) + 1}`, value: `option_${Date.now()}` };
     const updatedOptions = [...(field.options || []), newOption];
     onUpdate({ options: updatedOptions });
   };
