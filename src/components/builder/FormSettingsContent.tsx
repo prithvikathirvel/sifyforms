@@ -269,8 +269,11 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex w-full flex-col md:flex-row">
-      <div className="w-full shrink-0 border-b bg-muted/20 md:w-52 md:border-b-0 md:border-r">
-        <TabsList className="flex h-auto w-full flex-row justify-start gap-1 bg-transparent p-2 md:flex-col">
+      <div className="w-full shrink-0 border-b bg-muted/20 md:w-56 md:border-b-0 md:border-r">
+        <p className="hidden px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">
+          Sections
+        </p>
+        <TabsList className="flex h-auto w-full flex-row justify-start gap-1 bg-transparent p-2 md:flex-col md:p-3">
                 <TabsTrigger value="general" className="w-full justify-start data-[state=active]:bg-background">
                   <Settings className="h-4 w-4 mr-2" />
                   General
@@ -306,7 +309,7 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
               </TabsList>
             </div>
             
-            <div className="min-w-0 flex-1 p-6">
+            <div className="min-w-0 flex-1 p-5 sm:p-7 lg:p-8">
               <TabsContent value="general" className="mt-0 space-y-6">
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Thank You Message</Label>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { buttonVariants } from '../components/ui/button';
 import { Logo } from '../components/ui/Logo';
+import { PoweredBySify } from '../components/ui/SifyWordmark';
 import { cn } from '../lib/utils';
 import {
   ArrowRight,
@@ -329,6 +330,9 @@ export default function LandingPage() {
             </nav>
             <p className="text-[11px] font-medium text-muted-foreground">© 2026 SifyForms.AI. All rights reserved.</p>
           </div>
+        </div>
+        <div className="mx-auto mt-6 flex max-w-7xl items-center justify-center border-t border-border/60 pt-5">
+          <PoweredBySify />
         </div>
       </footer>
     </div>

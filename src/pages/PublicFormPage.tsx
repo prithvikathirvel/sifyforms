@@ -9,7 +9,7 @@ import { Checkbox as UICheckbox } from '../components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight, ExternalLink, CreditCard, BarChart2, XCircle, Lock } from 'lucide-react';
-import { Logo } from '../components/ui/Logo';
+import { PoweredBySify } from '../components/ui/SifyWordmark';
 import api from '../lib/api';
 import { getFieldValidation } from '../lib/fieldValidation';
 import { evaluateShowWhen, evaluateLinkingConditions } from '../lib/ruleEngine';
@@ -3057,9 +3057,9 @@ export default function PublicFormPage() {
 
         <FormBranding section={form.settings?.footer} variant="footer" formId={form.id} />
 
-        <p className="flex items-center justify-center gap-1.5 text-center text-sm text-muted-foreground mt-4">
-          Powered by <Logo variant="icon" size="sm" withWordmark />
-        </p>
+        <div className="mt-4 flex items-center justify-center">
+          <PoweredBySify />
+        </div>
       </div>
       </div>
 
