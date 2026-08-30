@@ -22,12 +22,11 @@ function parseForm<T extends { schema: string; settings: string }>(form: T) {
 }
 
 /**
- * Secrets that must never leave the server inside a field's external-validation
- * config. The public form only needs `enabled` (to drive the live check UI) and
- * the user-facing messages; the actual credentials and request construction are
- * re-read from the database by `checkExternalValidation` at request time.
+ * The published schema must not expose any external-validation internals. The
+ * respondent's browser only needs `enabled` (to trigger the live check); the
+ * URL, method, auth, headers, params, response-check logic and messages are all
+ * re-read server-side from the database by `checkExternalValidation`.
  */
-const EXTERNAL_VALIDATION_SECRET_KEYS = ['auth', 'headers', 'params'] as const;
 
 /** Remove assessment and external-validation secrets before a published schema leaves the server. */
 function sanitizePublicSchema(schema: Record<string, unknown>): Record<string, unknown> {
@@ -43,16 +42,13 @@ function sanitizePublicSchema(schema: Record<string, unknown>): Record<string, u
       delete safeField.points;
       delete safeField.section;
 
-      // External-validation credentials (bearer/basic tokens, custom auth header,
-      // and any static secret values carried in extra headers or params). We keep
-      // `enabled` and the message strings so the respondent UI still behaves the
-      // same; the live check re-reads the full config server-side from the DB.
+      // External-validation internals. We keep only `enabled`; everything else
+      // (endpoint, credentials, response checks) is re-read from the DB at
+      // request time, so validation behaviour is unchanged.
       if (safeField.externalValidation && typeof safeField.externalValidation === 'object') {
-        const ev = { ...(safeField.externalValidation as Record<string, unknown>) };
-        for (const key of EXTERNAL_VALIDATION_SECRET_KEYS) {
-          delete ev[key];
-        }
-        safeField.externalValidation = ev;
+        const ev = safeField.externalValidation as Record<string, unknown>;
+        const safe = { enabled: ev.enabled === true };
+        safeField.externalValidation = safe;
       }
 
       return safeField;

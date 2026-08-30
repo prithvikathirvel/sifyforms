@@ -348,7 +348,8 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
         console.log(`URL: ${config.url}`);
         console.log(`Method: ${config.method || 'POST'}`);
         console.log(`Headers:`, JSON.stringify(redactSecrets(headers), null, 2));
-        console.log(isGet ? `Query Parameters:` : `Body Payload:`, JSON.stringify(payload, null, 2));
+        // Log only the keys (not the respondent's value) so PII never reaches logs.
+        console.log(isGet ? `Query Parameter Keys:` : `Body Payload Keys:`, JSON.stringify(Object.keys(payload)));
         console.log('--------------------------------------------');
 
         const response = await axios({
@@ -361,7 +362,9 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
 
         console.log('--- External Validation (Submission) Response ---');
         console.log(`Status: ${response.status} ${response.statusText}`);
-        console.log(`Final URL: ${response.config.url}${isGet && response.config.params ? '?' + new URLSearchParams(response.config.params as any).toString() : ''}`);
+        // Query params (GET) can contain the respondent's value, so log only the
+        // final path, never the query string.
+        console.log(`Final URL: ${response.config.url}`);
         console.log(`Response Data:`, '[redacted]');
         console.log('-----------------------------------------------');
 
