@@ -178,9 +178,13 @@ export function getVisibleFields(
 // ---------------------------------------------------------------------------
 
 /**
- * Evaluate a single Smart Connection condition. Preserves the linking-specific
- * empty-value semantics: an unanswered field only matches `equals` when the
- * target value is also empty, and always satisfies `notContains`.
+ * Evaluate a single Smart Connection condition.
+ *
+ * A condition whose target value is blank (`''`, `undefined`, or `null`) is
+ * treated as incomplete and never matches — this prevents an accidentally
+ * left-blank condition from triggering auto-fill or restriction rules. An
+ * unanswered source field satisfies `notEquals` / `notContains` and never
+ * satisfies `equals` / `contains`.
  */
 export function evaluateLinkingCondition(
   condition: LinkingCondition,
@@ -189,10 +193,15 @@ export function evaluateLinkingCondition(
   const currentVal = values[condition.fieldId];
   const targetVal = condition.value;
 
+  // Incomplete condition (no comparison value set) — never matches.
+  if (targetVal === undefined || targetVal === null || targetVal === '') {
+    return false;
+  }
+
   if (currentVal === undefined || currentVal === null || currentVal === '') {
     switch (condition.operator) {
-      case 'equals': return targetVal === '' || targetVal === undefined || targetVal === null;
-      case 'notEquals': return targetVal !== '' && targetVal !== undefined && targetVal !== null;
+      case 'equals': return false;
+      case 'notEquals': return true;
       case 'contains': return false;
       case 'notContains': return true;
       default: return false;
@@ -205,8 +214,16 @@ export function evaluateLinkingCondition(
   switch (condition.operator) {
     case 'equals': return currentStr === targetStr;
     case 'notEquals': return currentStr !== targetStr;
-    case 'greaterThan': return Number(currentVal) > Number(targetVal);
-    case 'lessThan': return Number(currentVal) < Number(targetVal);
+    case 'greaterThan': {
+      const c = Number(currentVal);
+      const t = Number(targetVal);
+      return !Number.isNaN(c) && !Number.isNaN(t) && c > t;
+    }
+    case 'lessThan': {
+      const c = Number(currentVal);
+      const t = Number(targetVal);
+      return !Number.isNaN(c) && !Number.isNaN(t) && c < t;
+    }
     case 'contains': return currentStr.includes(targetStr);
     case 'notContains': return !currentStr.includes(targetStr);
     default: return false;

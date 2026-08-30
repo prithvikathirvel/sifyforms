@@ -2027,53 +2027,6 @@ export default function PublicFormPage() {
           }
         }
       }
-
-
-
-      // 5. Apply manual defaults and constraints (fallback when smart connections not enabled)
-      // These apply when smart connections are disabled or don't provide values
-      if (!linking?.enabled) {
-        // Apply manual default value
-        if (field.defaultValue !== undefined && field.defaultValue !== null && field.defaultValue !== '') {
-          props.defaultValue = field.defaultValue;
-        }
-
-        // Apply manual min/max constraints based on field type
-        if (['text', 'email', 'phone', 'textarea'].includes(field.type)) {
-          // Text-based constraints
-          if (field.validation?.minLength !== undefined) {
-            props.minLength = field.validation.minLength;
-          }
-          if (field.validation?.maxLength !== undefined) {
-            props.maxLength = field.validation.maxLength;
-          }
-        } else if (field.type === 'number') {
-          // Number constraints
-          if (field.minValue !== undefined || field.validation?.min !== undefined) {
-            props.min = field.minValue !== undefined ? field.minValue : field.validation?.min;
-          }
-          if (field.maxValue !== undefined || field.validation?.max !== undefined) {
-            props.max = field.maxValue !== undefined ? field.maxValue : field.validation?.max;
-          }
-        } else if (field.type === 'date') {
-          // Date constraints
-          if (field.minValue !== undefined) {
-            props.min = field.minValue;
-          }
-          if (field.maxValue !== undefined) {
-            props.max = field.maxValue;
-          }
-        } else if (field.type === 'time') {
-          // Time constraints
-          if (field.minValue !== undefined) {
-            props.min = field.minValue;
-          }
-          if (field.maxValue !== undefined) {
-            props.max = field.maxValue;
-          }
-        }
-      }
-
       return props;
     };
 

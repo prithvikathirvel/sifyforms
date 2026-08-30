@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -81,7 +81,7 @@ function LinkingConditionTree({
             <div key={node.id || index} className={`p-3 rounded-xl border-2 ${a.groupBorder} ${a.groupBg} space-y-2`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${a.badge}`}>Group</span>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${a.badge}`}>Group</span>
                   <select
                     className={`h-7 text-xs rounded-md border-2 border-border bg-white px-2 font-bold ${a.focus} outline-none`}
                     value={node.logic || 'and'}
@@ -144,23 +144,23 @@ function LinkingConditionTree({
               value={cond.fieldId}
               onChange={(e) => updateNode(index, { ...cond, fieldId: e.target.value })}
             >
-              <option value="">Field...</option>
+              <option value="">Select field...</option>
               {otherFields.map(f => (
-                <option key={f.id} value={f.id}>{f.label}</option>
+                <option key={f.id} value={f.id}>{f.label} ({f.type})</option>
               ))}
             </select>
 
             <select
-              className={`w-[100px] rounded-lg border-2 border-border h-8 text-xs font-bold px-2 ${a.focus} outline-none bg-muted`}
+              className={`w-[140px] rounded-lg border-2 border-border h-8 text-xs font-medium px-2 ${a.focus} outline-none bg-muted`}
               value={cond.operator}
               onChange={(e) => updateNode(index, { ...cond, operator: e.target.value })}
             >
-              <option value="equals">==</option>
-              <option value="notEquals">!=</option>
-              <option value="contains">~</option>
-              <option value="notContains">!~</option>
-              <option value="greaterThan">&gt;</option>
-              <option value="lessThan">&lt;</option>
+              <option value="equals">equals</option>
+              <option value="notEquals">not equals</option>
+              <option value="contains">contains</option>
+              <option value="notContains">does not contain</option>
+              <option value="greaterThan">greater than</option>
+              <option value="lessThan">less than</option>
             </select>
 
             <div className="flex-[1.5] min-w-[120px]">
@@ -219,23 +219,14 @@ export function AdvancedLinkingModal({
   // Separate restriction rules from regular rules on initial load
   const initialRules = field.fieldLinking?.rules || [];
   const initialRestrictionRules = field.fieldLinking?.restrictionRules || [];
-  
-  console.log('🔍 [AdvancedLinkingModal] Initial field linking:', field.fieldLinking);
-  console.log('🔍 [AdvancedLinkingModal] Initial rules:', initialRules);
-  console.log('🔍 [AdvancedLinkingModal] Initial restrictionRules:', initialRestrictionRules);
-  
+
   // Check if any rules in the 'rules' array are actually restriction rules (have 'action' property)
   const restrictionRulesInRulesArray = initialRules.filter((rule: any) => rule && (rule.action === 'required' || rule.action === 'disabled'));
   const regularRules = initialRules.filter((rule: any) => !rule || !(rule.action === 'required' || rule.action === 'disabled'));
-  
-  console.log('🔍 [AdvancedLinkingModal] Restriction rules found in rules array:', restrictionRulesInRulesArray);
-  console.log('🔍 [AdvancedLinkingModal] Regular rules:', regularRules);
-  
+
   // Combine restriction rules from both arrays
   const allRestrictionRules = [...initialRestrictionRules, ...restrictionRulesInRulesArray];
-  
-  console.log('🔍 [AdvancedLinkingModal] All restriction rules:', allRestrictionRules);
-  
+
   const [linkingRules, setLinkingRules] = useState(regularRules as any[]);
   const [restrictionRules, setRestrictionRules] = useState(allRestrictionRules as any[]);
   // track whether each auto-fill rule is in "value" or "copy" mode
@@ -253,21 +244,26 @@ export function AdvancedLinkingModal({
     });
   }, [linkingRules.length]);
 
-  // If we found restriction rules in the wrong place, update the field linking
-  if (restrictionRulesInRulesArray.length > 0) {
-    console.log('🔄 [AdvancedLinkingModal] Moving restriction rules from rules array to restrictionRules array');
-    onUpdate({
-      fieldLinking: {
-        enabled: true,
-        sourceFieldId: selectedSourceField,
-        ...field.fieldLinking,
-        rules: regularRules as any,
-        restrictionRules: allRestrictionRules as any,
-      }
-    });
-  } else {
-    console.log('✅ [AdvancedLinkingModal] Restriction rules are already in correct place');
-  }
+  // Migrate restriction rules that were stored in the wrong array into
+  // `restrictionRules`. Runs once on mount (inside an effect) instead of during
+  // render, so the store is never updated while React is rendering.
+  const migrationRanRef = useRef(false);
+  useEffect(() => {
+    if (migrationRanRef.current) return;
+    migrationRanRef.current = true;
+    if (restrictionRulesInRulesArray.length > 0) {
+      onUpdate({
+        fieldLinking: {
+          enabled: true,
+          sourceFieldId: selectedSourceField,
+          ...field.fieldLinking,
+          rules: regularRules as any,
+          restrictionRules: allRestrictionRules as any,
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
 
@@ -290,20 +286,9 @@ export function AdvancedLinkingModal({
     // validate before closing
     if (linkingMode === 'advanced') {
       if (!validateRules()) {
-        console.warn('Validation failed, not saving');
         return;
       }
     }
-
-    // Ensure all current state is saved before closing
-    console.log('💾 [AdvancedLinkingModal] Saving final field linking state:', {
-      enabled: true,
-      sourceFieldId: selectedSourceField,
-      mode: linkingMode,
-      rulesCount: linkingRules.length,
-      restrictionRulesCount: restrictionRules.length,
-      hasDynamicConfig: !!(dynamicOptionsEnabled || defaultDateRange || dateMappings)
-    });
 
     // Construct dynamicConfig from state variables
     const dynamicConfig = {
@@ -325,7 +310,6 @@ export function AdvancedLinkingModal({
       ...(Object.keys(dynamicConfig).length > 0 && { dynamicConfig })
     };
 
-    console.log('🔗 [AdvancedLinkingModal] Final field linking to save:', fieldLinking);
     onUpdate({ fieldLinking });
     onClose();
   };
@@ -352,7 +336,6 @@ export function AdvancedLinkingModal({
       ...updates
     };
 
-    console.log('🔗 Updating field linking:', fieldLinking);
     onUpdate({ fieldLinking });
   };
 
@@ -585,8 +568,8 @@ export function AdvancedLinkingModal({
         <CardContent className="flex-1 overflow-hidden flex flex-col p-6">
           <div className="flex-1 overflow-y-auto space-y-8">
             {/* Modal Header Explanation */}
-            <div className="p-4 bg-muted/50 rounded-lg border border-muted-foreground/10 text-sm leading-relaxed">
-              <span className="font-semibold text-foreground">Rule Priority:</span> Mappings (Cascading/Ranges) restrict what a user can enter, while Rules automatically set a value. If both apply, the Rule's auto-filled value will take precedence.
+            <div className="px-4 py-3 rounded-lg border border-border bg-muted/40 text-sm leading-relaxed text-muted-foreground">
+              Choose a tab to connect this field to others. <span className="font-medium text-foreground">Basic Mappings</span> filter options and date ranges, <span className="font-medium text-foreground">Auto-fill Rules</span> set a value automatically, and <span className="font-medium text-foreground">Restriction Rules</span> make the field required or disabled.
             </div>
 
             {/* Linking Mode Selector */}
@@ -674,7 +657,7 @@ export function AdvancedLinkingModal({
                               <div className="grid grid-cols-1 gap-3">
                                 {otherFields.find(f => f.id === selectedSourceField)?.options?.map(sourceOpt => (
                                   <div key={sourceOpt.value} className="space-y-2 border border-border p-3 rounded-xl bg-muted/30">
-                                    <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">When source is "{sourceOpt.label}":</Label>
+                                    <Label className="text-xs font-semibold text-muted-foreground">When source is "{sourceOpt.label}":</Label>
                                     <div className="flex flex-wrap gap-1.5">
                                       {(field.options || []).map(targetOpt => {
                                         const currentMapping = optionMappings[sourceOpt.value] || [];
@@ -694,7 +677,7 @@ export function AdvancedLinkingModal({
                                               }
                                               handleUpdateDynamicOptions(newMapping);
                                             }}
-                                            className={`cursor-pointer px-3 py-1.5 rounded-lg text-[10px] uppercase font-black border-2 transition-all duration-200 ${isSelected
+                                            className={`cursor-pointer px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 ${isSelected
                                               ? 'bg-brand-600 border-brand-700 text-white shadow-md transform scale-105'
                                               : 'bg-white border-border text-muted-foreground hover:border-brand-200 hover:bg-brand-50/50'
                                               }`}
@@ -718,11 +701,11 @@ export function AdvancedLinkingModal({
                           <Label className="text-sm font-bold text-muted-foreground">2. Date Constraint Mappings</Label>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-3 p-4 border-2 border-orange-100 rounded-xl bg-orange-50/20">
-                              <Label className="text-xs font-black text-orange-800 uppercase tracking-widest">Global Defaults</Label>
+                              <Label className="text-xs font-semibold text-foreground">Global Defaults</Label>
                               <div className="space-y-3">
                                 <DateConstraintPicker
                                   label="Min Default"
-                                  constraint={undefined}
+                                  constraint={defaultDateRange.min}
                                   variables={variables}
                                   dateFields={dateFields}
                                   onChange={(min) => handleUpdateDefaultDateRange({ min })}
@@ -730,7 +713,7 @@ export function AdvancedLinkingModal({
                                 />
                                 <DateConstraintPicker
                                   label="Max Default"
-                                  constraint={undefined}
+                                  constraint={defaultDateRange.max}
                                   variables={variables}
                                   dateFields={dateFields}
                                   onChange={(max) => handleUpdateDefaultDateRange({ max })}
@@ -742,7 +725,7 @@ export function AdvancedLinkingModal({
 
                             {['select', 'radio', 'multiselect', 'checkbox'].includes(otherFields.find(f => f.id === selectedSourceField)?.type || '') && (
                               <div className="space-y-3">
-                                <Label className="text-xs font-black text-muted-foreground uppercase tracking-widest">Option Overrides</Label>
+                                <Label className="text-xs font-semibold text-foreground">Option Overrides</Label>
                                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                                   {otherFields.find(f => f.id === selectedSourceField)?.options?.map(option => (
                                     <div key={option.value} className="p-4 border-2 border-border rounded-xl bg-white space-y-4 shadow-sm hover:border-brand-100 transition-colors">
@@ -830,9 +813,9 @@ export function AdvancedLinkingModal({
                         {/* Conditions Block */}
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Trigger Conditions</Label>
+                            <Label className="text-xs font-semibold text-muted-foreground">Trigger Conditions</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-muted-foreground uppercase">Match Type:</span>
+                              <span className="text-[11px] font-medium text-muted-foreground">Match:</span>
                               <select
                                 className="h-7 text-xs rounded-md border-2 border-border bg-white px-2 font-bold focus:border-brand-300 outline-none"
                                 value={rule.logic || 'and'}
@@ -883,7 +866,7 @@ export function AdvancedLinkingModal({
 
                         {/* Action Block */}
                         <div className="pt-5 border-t border-brand-50 space-y-4">
-                          <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Then...</Label>
+                          <Label className="text-xs font-semibold text-muted-foreground">Then set this field to…</Label>
 
                           {/* Auto-fill Value (for text-based fields only) */}
                           {isTextInput && (
@@ -1030,7 +1013,7 @@ export function AdvancedLinkingModal({
 
                   {linkingRules.length === 0 && (
                     <div className="text-center py-12 border-2 border-dashed border-brand-100 rounded-2xl bg-white/50">
-                      <p className="text-sm text-brand-300 font-bold uppercase tracking-widest">No Custom Rules Active</p>
+                      <p className="text-sm text-muted-foreground font-medium">No auto-fill rules added yet</p>
                     </div>
                   )}
                 </div>
@@ -1081,9 +1064,9 @@ export function AdvancedLinkingModal({
                         {/* Conditions Block */}
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">When Conditions Match</Label>
+                            <Label className="text-xs font-semibold text-muted-foreground">When Conditions Match</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-muted-foreground uppercase">Match Type:</span>
+                              <span className="text-[11px] font-medium text-muted-foreground">Match:</span>
                               <select
                                 className="h-7 text-xs rounded-md border-2 border-border bg-white px-2 font-bold focus:border-orange-300 outline-none"
                                 value={rule.logic || 'and'}
@@ -1134,7 +1117,7 @@ export function AdvancedLinkingModal({
 
                         {/* Action Block */}
                         <div className="pt-5 border-t border-orange-50 space-y-4">
-                          <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Then Apply...</Label>
+                          <Label className="text-xs font-semibold text-muted-foreground">Then apply…</Label>
 
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -1174,7 +1157,7 @@ export function AdvancedLinkingModal({
 
                   {restrictionRules.length === 0 && (
                     <div className="text-center py-12 border-2 border-dashed border-orange-100 rounded-2xl bg-white/50">
-                      <p className="text-sm text-orange-300 font-bold uppercase tracking-widest">No Restriction Rules Active</p>
+                      <p className="text-sm text-muted-foreground font-medium">No restriction rules added yet</p>
                     </div>
                   )}
                 </div>
