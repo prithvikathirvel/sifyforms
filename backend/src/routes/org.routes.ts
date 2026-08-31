@@ -28,7 +28,6 @@ import {
   deleteTeam,
   listMembers,
   addMember,
-  updateMemberRole,
   removeMember,
   getMyPermissions,
   listMyTeams,
@@ -44,7 +43,6 @@ import {
   CreateTeamSchema,
   UpdateTeamSchema,
   AddTeamMemberSchema,
-  UpdateTeamMemberSchema,
 } from '../schemas/team.schema';
 
 const router = Router();
@@ -56,15 +54,15 @@ router.use(authMiddleware);
 router.post('/', validate(CreateOrgSchema), createOrg);
 router.get('/', listOrgs);
 
-router.get('/:orgId', orgMiddleware, requirePermission(ACTIONS.VIEW_ORG, { teamIdFrom: 'none' }), getOrg);
+router.get('/:orgId', orgMiddleware, requirePermission(ACTIONS.VIEW_ORG), getOrg);
 router.put(
   '/:orgId',
   orgMiddleware,
-  requirePermission(ACTIONS.MANAGE_ORG, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.MANAGE_ORG),
   validate(UpdateOrgSchema),
   updateOrg
 );
-router.delete('/:orgId', orgMiddleware, requirePermission(ACTIONS.DELETE_ORG, { teamIdFrom: 'none' }), deleteOrg);
+router.delete('/:orgId', orgMiddleware, requirePermission(ACTIONS.DELETE_ORG), deleteOrg);
 
 // --- the caller's own access ------------------------------------------------
 router.get('/:orgId/me/permissions', orgMiddleware, getMyPermissions);
@@ -74,20 +72,20 @@ router.get('/:orgId/me/teams', orgMiddleware, listMyTeams);
 router.get(
   '/:orgId/users',
   orgMiddleware,
-  requirePermission(ACTIONS.VIEW_MEMBERS, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.VIEW_MEMBERS),
   listOrgUsers
 );
 router.put(
   '/:orgId/users/:userId/role',
   orgMiddleware,
-  requirePermission(ACTIONS.ASSIGN_ORG_ROLE, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.ASSIGN_ORG_ROLE),
   validate(UpdateOrgUserRoleSchema),
   updateOrgUserRole
 );
 router.delete(
   '/:orgId/users/:userId',
   orgMiddleware,
-  requirePermission(ACTIONS.REMOVE_USER, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.REMOVE_USER),
   removeUser
 );
 
@@ -95,20 +93,20 @@ router.delete(
 router.post(
   '/:orgId/invites',
   orgMiddleware,
-  requirePermission(ACTIONS.INVITE_USER, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.INVITE_USER),
   validate(CreateInviteSchema),
   createInvite
 );
 router.get(
   '/:orgId/invites',
   orgMiddleware,
-  requirePermission(ACTIONS.VIEW_MEMBERS, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.VIEW_MEMBERS),
   listOrgInvites
 );
 router.delete(
   '/:orgId/invites/:inviteId',
   orgMiddleware,
-  requirePermission(ACTIONS.INVITE_USER, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.INVITE_USER),
   revokeInvite
 );
 
@@ -119,44 +117,42 @@ router.delete(
 router.get(
   '/:orgId/roles',
   orgMiddleware,
-  requirePermission(ACTIONS.VIEW_MEMBERS, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.VIEW_MEMBERS),
   listRoles
 );
 router.post(
   '/:orgId/roles',
   orgMiddleware,
-  requirePermission(ACTIONS.MANAGE_ROLES, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.MANAGE_ROLES),
   validate(CreateRoleSchema),
   createRole
 );
 router.put(
   '/:orgId/roles/:roleId',
   orgMiddleware,
-  requirePermission(ACTIONS.MANAGE_ROLES, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.MANAGE_ROLES),
   validate(CreateRoleSchema),
   updateRole
 );
 router.patch(
   '/:orgId/roles/:roleId/active',
   orgMiddleware,
-  requirePermission(ACTIONS.MANAGE_ROLES, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.MANAGE_ROLES),
   setRoleActive
 );
 
 // --- teams ------------------------------------------------------------------
-// CREATE_TEAM is checked against `parentId` when nesting, so a lead of the parent
-// team can create sub-teams without needing org-wide rights.
 router.post(
   '/:orgId/teams',
   orgMiddleware,
-  requirePermission(ACTIONS.CREATE_TEAM, { teamIdFrom: 'body', teamIdKey: 'parentId' }),
+  requirePermission(ACTIONS.CREATE_TEAM),
   validate(CreateTeamSchema),
   createTeam
 );
 router.get(
   '/:orgId/teams',
   orgMiddleware,
-  requirePermission(ACTIONS.VIEW_TEAM, { teamIdFrom: 'none' }),
+  requirePermission(ACTIONS.VIEW_TEAM),
   listTeams
 );
 router.get('/:orgId/teams/:teamId', orgMiddleware, requirePermission(ACTIONS.VIEW_TEAM), getTeam);
@@ -182,13 +178,6 @@ router.post(
   requirePermission(ACTIONS.ADD_TEAM_MEMBER),
   validate(AddTeamMemberSchema),
   addMember
-);
-router.put(
-  '/:orgId/teams/:teamId/members/:userId',
-  orgMiddleware,
-  requirePermission(ACTIONS.ASSIGN_TEAM_ROLE),
-  validate(UpdateTeamMemberSchema),
-  updateMemberRole
 );
 router.delete(
   '/:orgId/teams/:teamId/members/:userId',

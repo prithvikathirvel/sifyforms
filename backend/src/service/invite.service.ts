@@ -4,8 +4,6 @@ import { userDao } from '../dao/factory/userDao.factory';
 import { InviteStatus, InviteWithOrg } from '../dao/interfaces/InviteDao';
 import {
   DEFAULT_ORG_MEMBER_ROLE,
-  ORG_SCOPE_ROLES,
-  RoleName,
 } from '../config/rbac.config';
 import { resolveRoleId } from './rbac.client';
 import { assertRoleAssignable } from './role.service';
@@ -28,7 +26,7 @@ function normalizeEmail(email: string): string {
 }
 
 async function assertOrgRole(role: string): Promise<string> {
-  await assertRoleAssignable(role, 'ORG');
+  await assertRoleAssignable(role);
   return role;
 }
 

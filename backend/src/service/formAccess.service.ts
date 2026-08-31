@@ -13,7 +13,7 @@ import {
   maxResponseLevel,
   meetsLevel,
 } from '../config/rbac.config';
-import { getEffectivePermissions, ancestryFromPath } from './permission.service';
+import { getEffectivePermissions } from './permission.service';
 import { createError } from '../utils/errors';
 import logger from '../utils/logger';
 
@@ -22,8 +22,7 @@ import logger from '../utils/logger';
  *
  * Three things combine, and they are deliberately resolved in this order:
  *
- *   1. Roles - organization-wide, plus every team from the form's owning team
- *      up to the root. The strongest wins.
+ *   1. Roles - the organization-wide role. The strongest wins.
  *   2. Shares - an explicit grant on this one form, to the person or to a team
  *      they belong to. Also strongest-wins, so a share can only add access.
  *   3. The form's own response policy - a *ceiling*, applied last. A survey that
@@ -86,8 +85,8 @@ export async function getFormAccess(
   const policy = policyOf(form);
   const reasons: string[] = [];
 
-  // --- 1. roles, evaluated against the form's own team -----------------------
-  const permissions = await getEffectivePermissions(userId, orgId, form.teamId ?? undefined);
+  // --- 1. roles, from the org role alone -------------------------------------
+  const permissions = await getEffectivePermissions(userId, orgId);
   let level = levelFromActions(permissions.actions);
   let canEdit = permissions.actions.includes(ACTIONS.EDIT_FORM);
   let canDelete = permissions.actions.includes(ACTIONS.DELETE_FORM);
@@ -200,19 +199,11 @@ export async function assertFormAction(
 }
 
 /**
- * Every team whose forms this user can reach: the teams they belong to, plus all
- * descendants of those teams, since a role inherits downward.
+ * Every team whose forms this user can reach: the teams they belong to. Teams
+ * are flat and carry no inherited permissions, so membership alone defines the
+ * set.
  */
 export async function reachableTeamIds(orgId: string, userId: string): Promise<string[]> {
-  const [memberships, allTeams] = await Promise.all([
-    teamDao.findTeamsForUser(orgId, userId),
-    teamDao.findTeamsByOrg(orgId),
-  ]);
-  if (memberships.length === 0) return [];
-
-  const held = new Set(memberships.map(m => m.teamId));
-  // A team is reachable when any of its ancestors (or itself) is held.
-  return allTeams
-    .filter(team => ancestryFromPath(team.path).some(id => held.has(id)))
-    .map(team => team.id);
+  const memberships = await teamDao.findTeamsForUser(orgId, userId);
+  return memberships.map(m => m.teamId);
 }

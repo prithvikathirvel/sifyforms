@@ -15,7 +15,6 @@ import { ViewToggle, type CollectionViewMode } from '../components/ui/view-toggl
 import {
   ArrowRight,
   BarChart3,
-  CornerDownRight,
   File,
   FileText,
   Inbox,
@@ -36,9 +35,6 @@ interface FormSummary {
 interface TeamSummary {
   id: string;
   name: string;
-  parentId?: string | null;
-  path?: string;
-  depth: number;
   memberCount: number;
   forms: number;
   submissions: number;
@@ -72,7 +68,6 @@ const EMPTY_STATS: Stats = {
 };
 
 const DASHBOARD_FORM_LIMIT = 4;
-const TEAM_PREVIEW_DEPTH = 1;
 const TEAM_PREVIEW_LIMIT = 4;
 const TOP_FORM_BAR_STYLES = [
   'bg-primary',
@@ -143,14 +138,8 @@ export default function DashboardPage() {
   const topFormMax = Math.max(...topForms.map((form) => form.submissionCount), 1);
   const topFormTotal = topForms.reduce((sum, form) => sum + form.submissionCount, 0);
 
-  const sortedTeams = [...stats.teamBreakdown].sort((a, b) =>
-    a.path && b.path
-      ? a.path.localeCompare(b.path)
-      : a.depth - b.depth || a.name.localeCompare(b.name)
-  );
-  const teamPreview = sortedTeams
-    .filter((team) => team.depth <= TEAM_PREVIEW_DEPTH)
-    .slice(0, TEAM_PREVIEW_LIMIT);
+  const sortedTeams = [...stats.teamBreakdown].sort((a, b) => a.name.localeCompare(b.name));
+  const teamPreview = sortedTeams.slice(0, TEAM_PREVIEW_LIMIT);
   const hiddenTeamCount = Math.max(stats.teamBreakdown.length - teamPreview.length, 0);
 
   return (
@@ -203,7 +192,7 @@ export default function DashboardPage() {
               icon={<Network className="h-[18px] w-[18px]" strokeWidth={1.9} />}
               value={stats.totalTeams}
               label="Teams"
-              detail={stats.totalTeams === 1 ? 'General only' : 'including sub-teams'}
+              detail={stats.totalTeams === 1 ? 'General only' : 'across the organization'}
             />
           </div>
 
@@ -298,7 +287,7 @@ export default function DashboardPage() {
                       Activity by team
                     </CardTitle>
                     <p className="mt-1 text-[11px] font-medium text-muted-foreground">
-                      A compact preview of the first two hierarchy levels
+                      A compact preview of your most active teams
                     </p>
                   </div>
                   <Button
@@ -307,7 +296,7 @@ export default function DashboardPage() {
                     onClick={() => navigate('/teams')}
                     className="h-7 shrink-0 rounded-md px-2 text-[10px] text-primary hover:bg-primary/[0.05] hover:text-primary"
                   >
-                    Full hierarchy
+                    All teams
                     <ArrowRight className="ml-1 h-3 w-3" />
                   </Button>
                 </div>
@@ -326,13 +315,7 @@ export default function DashboardPage() {
                         onClick={() => navigate('/teams')}
                         className="group flex w-full min-w-0 items-center rounded-md py-2 pr-2 text-left transition-colors hover:bg-ink-50"
                       >
-                        <span
-                          className="flex min-w-0 flex-1 items-center gap-2.5"
-                          style={{ paddingLeft: `${8 + team.depth * 18}px` }}
-                        >
-                          {team.depth > 0 && (
-                            <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-ink-300" strokeWidth={1.6} />
-                          )}
+                        <span className="flex min-w-0 flex-1 items-center gap-2.5 px-2">
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-ink-50 text-ink-500">
                             <Network className="h-3.5 w-3.5" strokeWidth={1.7} />
                           </span>

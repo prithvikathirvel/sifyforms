@@ -7,7 +7,6 @@ import { z } from 'zod';
 export const CreateRoleSchema = z.object({
   name: z.string().min(2).max(49),
   description: z.string().max(200).optional(),
-  scopes: z.array(z.enum(['ORG', 'TEAM'])).min(1, 'Choose where this role can be assigned'),
   privilege: z
     .array(
       z.object({

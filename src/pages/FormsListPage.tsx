@@ -4,7 +4,7 @@ import { fetchForms } from '../store/formsSlice';
 import { getSession } from '../store/authSlice';
 import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import { fetchTeams } from '../store/teamsSlice';
-import type { TeamNode } from '../types';
+import type { Team } from '../types';
 import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
 import CreateFormModal from '../components/forms/CreateFormModal';
@@ -54,7 +54,7 @@ export default function FormsListPage() {
   const [viewMode, setViewMode] = useState<CollectionViewMode>('grid');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const teamTree = useAppSelector((state) => state.teams.tree);
+  const teams = useAppSelector((state) => state.teams.teams);
   const { can } = usePermissions();
 
   useEffect(() => {
@@ -66,18 +66,13 @@ export default function FormsListPage() {
     if (currentOrg?.id) dispatch(fetchTeams(currentOrg.id));
   }, [dispatch, currentOrg?.id]);
 
-  // Flat list of every team, so a form can name its owner and the filter can
-  // offer the whole tree.
+  // Map of every team, so a form can name its owner and the filter can offer
+  // the whole list.
   const teamsById = useMemo(() => {
     const map = new Map<string, string>();
-    (function walk(nodes: TeamNode[]) {
-      nodes.forEach((t) => {
-        map.set(t.id, t.name);
-        walk(t.children);
-      });
-    })(teamTree);
+    teams.forEach((t) => map.set(t.id, t.name));
     return map;
-  }, [teamTree]);
+  }, [teams]);
 
   const teamOptions = useMemo<DropdownSelectOption<string>[]>(
     () => [

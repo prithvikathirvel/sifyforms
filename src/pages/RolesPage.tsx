@@ -34,13 +34,10 @@ import { Loader2, Plus, Lock, Pencil, Archive, RotateCcw, ShieldCheck } from 'lu
  * are fully editable.
  */
 
-type ScopeTag = 'ORG' | 'TEAM';
-
 interface Draft {
   id?: string;
   name: string;
   description: string;
-  scopes: ScopeTag[];
   selected: Record<string, Set<string>>;
   isSystem: boolean;
 }
@@ -48,7 +45,6 @@ interface Draft {
 const emptyDraft = (): Draft => ({
   name: '',
   description: '',
-  scopes: ['ORG'],
   selected: {},
   isSystem: false,
 });
@@ -62,25 +58,9 @@ function draftFromRole(role: Role): Draft {
     id: role.id,
     name: role.name,
     description: role.description,
-    scopes: role.scopes.length ? role.scopes : ['ORG'],
     selected,
     isSystem: role.isSystem,
   };
-}
-
-/** Organization-wide administration means nothing on a team-only role. */
-const ORG_ONLY_ACTIONS = new Set([
-  'MANAGE_ORG',
-  'DELETE_ORG',
-  'MANAGE_BILLING',
-  'INVITE_USER',
-  'REMOVE_USER',
-  'ASSIGN_ORG_ROLE',
-  'MANAGE_ROLES',
-]);
-
-function isInert(action: string, scopes: ScopeTag[]): boolean {
-  return ORG_ONLY_ACTIONS.has(action) && !scopes.includes('ORG');
 }
 
 export default function RolesPage() {
@@ -114,27 +94,11 @@ export default function RolesPage() {
   const toggleFeature = (feature: string, actions: string[]) => {
     setDraft((d) => {
       if (!d) return d;
-      const usable = actions.filter((a) => !isInert(a, d.scopes));
       const current = d.selected[feature] ?? new Set<string>();
-      const allOn = usable.every((a) => current.has(a));
+      const allOn = actions.every((a) => current.has(a));
       const next = { ...d.selected };
-      next[feature] = allOn ? new Set<string>() : new Set(usable);
+      next[feature] = allOn ? new Set<string>() : new Set(actions);
       return { ...d, selected: next };
-    });
-  };
-
-  const toggleScope = (scope: ScopeTag) => {
-    setDraft((d) => {
-      if (!d) return d;
-      const has = d.scopes.includes(scope);
-      const scopes = has ? d.scopes.filter((s) => s !== scope) : [...d.scopes, scope];
-      // Dropping organization scope makes org-wide administration inert; clear
-      // it rather than leaving ticks that will be stripped on save.
-      const selected: Record<string, Set<string>> = {};
-      for (const [feature, actions] of Object.entries(d.selected)) {
-        selected[feature] = new Set([...actions].filter((a) => !isInert(a, scopes)));
-      }
-      return { ...d, scopes, selected };
     });
   };
 
@@ -150,7 +114,6 @@ export default function RolesPage() {
       orgId,
       name: draft.name.trim(),
       description: draft.description.trim(),
-      scopes: draft.scopes,
       privilege,
     };
 
@@ -174,7 +137,7 @@ export default function RolesPage() {
       <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
         <PageHeader
           title="Roles"
-          description="Permission sets for organization and team responsibilities"
+          description="Permission sets assigned to members across the organization"
           actions={canManage ? (
             <Button onClick={() => setDraft(emptyDraft())} className="h-9 rounded-lg px-3.5">
               <Plus className="mr-2 h-4 w-4" strokeWidth={1.9} />
@@ -256,11 +219,8 @@ export default function RolesPage() {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <p className="text-muted-foreground">
-                    Given on the{' '}
-                    <span className="font-medium text-foreground">
-                      {role.scopes.map((s) => (s === 'ORG' ? 'Members' : 'Teams')).join(' and ')}
-                    </span>{' '}
-                    page
+                    Given to members on the{' '}
+                    <span className="font-medium text-foreground">Members</span> page
                   </p>
                   <p className="flex items-center gap-1.5 text-muted-foreground">
                     <ShieldCheck className="h-3.5 w-3.5" />
@@ -280,8 +240,8 @@ export default function RolesPage() {
               <DialogTitle>{draft?.id ? `Edit ${draft.name}` : 'New role'}</DialogTitle>
               <DialogDescription>
                 {draft?.isSystem
-                  ? 'This is a built-in role. Its permissions can change; its name and scope cannot.'
-                  : 'Choose where the role can be assigned and what it permits.'}
+                  ? 'This is a built-in role. Its permissions can change; its name cannot.'
+                  : 'Choose what this role permits.'}
               </DialogDescription>
             </DialogHeader>
 
@@ -298,37 +258,6 @@ export default function RolesPage() {
                       value={draft.name}
                       onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Where can this role be given?</Label>
-                    <div className="space-y-2 pt-1">
-                      <label className="flex items-start gap-2 text-sm cursor-pointer">
-                        <UICheckbox
-                          checked={draft.scopes.includes('ORG')}
-                          disabled={draft.isSystem}
-                          onCheckedChange={() => toggleScope('ORG')}
-                        />
-                        <span className="leading-tight">
-                          On the Members page
-                          <span className="block text-xs text-muted-foreground">
-                            Applies across the whole organization
-                          </span>
-                        </span>
-                      </label>
-                      <label className="flex items-start gap-2 text-sm cursor-pointer">
-                        <UICheckbox
-                          checked={draft.scopes.includes('TEAM')}
-                          disabled={draft.isSystem}
-                          onCheckedChange={() => toggleScope('TEAM')}
-                        />
-                        <span className="leading-tight">
-                          On the Teams page
-                          <span className="block text-xs text-muted-foreground">
-                            Applies to one team and everything under it
-                          </span>
-                        </span>
-                      </label>
-                    </div>
                   </div>
                 </div>
 
@@ -362,28 +291,18 @@ export default function RolesPage() {
                           </button>
                         </div>
                         <div className="grid gap-2 p-3 sm:grid-cols-2">
-                          {group.actions.map((action) => {
-                            // Organization-wide administration cannot be granted
-                            // by a team assignment, so offering the tick would
-                            // promise something no check would honour.
-                            const inert = !!action.orgOnly && !draft.scopes.includes('ORG');
-                            return (
-                              <label
-                                key={action.key}
-                                title={inert ? 'Only applies to roles given on the Members page' : undefined}
-                                className={`flex items-start gap-2 text-sm ${
-                                  inert ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'
-                                }`}
-                              >
-                                <UICheckbox
-                                  checked={!inert && current.has(action.key)}
-                                  disabled={inert}
-                                  onCheckedChange={() => toggleAction(group.feature, action.key)}
-                                />
-                                <span className="leading-tight">{action.value}</span>
-                              </label>
-                            );
-                          })}
+                          {group.actions.map((action) => (
+                            <label
+                              key={action.key}
+                              className="flex cursor-pointer items-start gap-2 text-sm"
+                            >
+                              <UICheckbox
+                                checked={current.has(action.key)}
+                                onCheckedChange={() => toggleAction(group.feature, action.key)}
+                              />
+                              <span className="leading-tight">{action.value}</span>
+                            </label>
+                          ))}
                         </div>
                       </div>
                     );

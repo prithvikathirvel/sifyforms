@@ -19,17 +19,8 @@ export class FirestoreTeamDao implements TeamDao {
   async findTeamsByOrg(_orgId: string): Promise<TeamWithCounts[]> {
     throw new Error('FirestoreTeamDao.findTeamsByOrg not implemented');
   }
-  async findSubtree(_orgId: string, _path: string): Promise<TeamRecord[]> {
-    throw new Error('FirestoreTeamDao.findSubtree not implemented');
-  }
-  async findChildren(_parentId: string): Promise<TeamRecord[]> {
-    throw new Error('FirestoreTeamDao.findChildren not implemented');
-  }
   async updateTeam(_id: string, _data: UpdateTeamData): Promise<TeamRecord> {
     throw new Error('FirestoreTeamDao.updateTeam not implemented');
-  }
-  async setTeamPath(_id: string, _path: string, _depth: number): Promise<TeamRecord> {
-    throw new Error('FirestoreTeamDao.setTeamPath not implemented');
   }
   async deleteTeam(_id: string): Promise<void> {
     throw new Error('FirestoreTeamDao.deleteTeam not implemented');

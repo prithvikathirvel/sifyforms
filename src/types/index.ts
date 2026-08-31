@@ -674,12 +674,12 @@ export interface Form {
   createdAt: string;
   updatedAt: string;
   submissionCount?: number;
-  /** Owning team. Its roles, and those of every team above it, govern this form. */
+  /** Owning team (grouping only). Access comes from the org role and shares. */
   teamId?: string | null;
   responsePolicy?: ResponsePolicy;
   /**
    * What the signed-in viewer may do with this form, resolved server-side from
-   * their role on the owning team and its ancestors.
+   * their org role and explicit shares.
    */
   access?: {
     canEdit: boolean;
@@ -753,13 +753,10 @@ export interface OrgState {
 // --- organization membership, invitations and teams -------------------------
 
 /**
- * Roles. OWNER and ADMIN are organization-only (administrative); TEAM_LEAD is
- * team-only; CREATOR, ANALYST and VIEWER apply at both levels, where a team
- * assignment overrides the organization-wide one for that team and below.
- * Mirrors backend rbac.config.ts.
+ * Roles. A role is assigned to the user alone (on their organization
+ * membership). Teams carry no roles. Mirrors backend rbac.config.ts.
  */
 export type OrgRole = 'OWNER' | 'ADMIN' | 'CREATOR' | 'ANALYST' | 'VIEWER';
-export type TeamRole = 'TEAM_LEAD' | 'CREATOR' | 'ANALYST' | 'VIEWER';
 
 /** How much of a response someone may see. Ordinal: each tier includes the last. */
 export type ResponseLevel = 'NONE' | 'AGGREGATE' | 'REDACTED' | 'FULL' | 'EXPORT';
@@ -871,8 +868,6 @@ export interface TeamMember {
   id: string;
   teamId: string;
   userId: string;
-  role: TeamRole | string;
-  roleId: string | null;
   addedBy: string | null;
   createdAt: string;
   user: {
@@ -884,44 +879,34 @@ export interface TeamMember {
   };
 }
 
+/** A flat team (organizational bucket). No hierarchy, no team-level roles. */
 export interface Team {
   id: string;
   orgId: string;
-  parentId: string | null;
   name: string;
   slug: string;
   description: string | null;
-  /** Materialized ancestry of team ids, e.g. "/root/child/self". */
-  path: string;
-  depth: number;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
   /** The organization-created fallback team for forms without an explicit owner. */
   isDefault?: boolean;
-  _count?: { members: number; children: number };
+  _count?: { members: number };
 }
 
-/** A team plus its nested sub-teams, as returned by GET /orgs/:orgId/teams. */
-export interface TeamNode extends Team {
-  children: TeamNode[];
-}
-
+/** A team plus its members, as returned by GET /orgs/:orgId/teams/:teamId. */
 export interface TeamDetail extends Team {
   members: TeamMember[];
-  children: Team[];
 }
 
 /**
- * What the signed-in user may do, resolved server-side from their ORG role plus
- * every TEAM role along the team's ancestry.
+ * What the signed-in user may do, resolved server-side from their organization
+ * role alone.
  */
 export interface EffectivePermissions {
   orgId: string;
-  teamId?: string;
   roles: string[];
   orgRole: string | null;
-  teamRole: string | null;
   actions: string[];
 }
 
@@ -942,9 +927,9 @@ export interface FormSharingState {
 }
 
 export interface TeamsState {
-  tree: TeamNode[];
+  teams: Team[];
   currentTeam: TeamDetail | null;
-  /** Effective permissions keyed by teamId, with '' holding the org-wide set. */
+  /** Effective permissions keyed by organization id. */
   permissions: Record<string, EffectivePermissions>;
   isLoading: boolean;
   error: string | null;

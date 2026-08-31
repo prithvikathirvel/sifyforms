@@ -137,8 +137,8 @@ export async function createForm(input: CreateFormInput, orgId: string, userId: 
  * Forms the caller can reach.
  *
  * `seeAllTeams` is for organization admins; everyone else sees the forms of the
- * teams they belong to and of every team beneath those, because a team role
- * inherits downward.
+ * teams they belong to. Access to a form comes from the org role and explicit
+ * shares, never from the owning team itself.
  */
 export async function listForms(orgId: string, userId: string, seeAllTeams: boolean) {
   const forms = seeAllTeams
@@ -146,20 +146,10 @@ export async function listForms(orgId: string, userId: string, seeAllTeams: bool
     : await formDao.findFormsByTeams(orgId, await reachableTeamIds(orgId, userId), false);
 
   // What the viewer may do with each form, so the client can hide the controls
-  // it would only be refused on. Resolved per team rather than per form -
-  // permissions are identical for every form in a team, and the underlying
-  // lookup is cached per (user, team) anyway.
-  const teamIds = [...new Set(forms.map(f => f.teamId ?? ''))];
-  const byTeam = new Map<string, string[]>();
-  await Promise.all(
-    teamIds.map(async teamId => {
-      const effective = await getEffectivePermissions(userId, orgId, teamId || undefined);
-      byTeam.set(teamId, effective.actions);
-    })
-  );
+  // it would only be refused on. Permissions are org-wide, so resolve once.
+  const actions = (await getEffectivePermissions(userId, orgId)).actions;
 
   return forms.map(form => {
-    const actions = byTeam.get(form.teamId ?? '') ?? [];
     return {
       ...parseForm(form),
       submissionCount: form._count.submissions,
@@ -180,7 +170,7 @@ export async function listForms(orgId: string, userId: string, seeAllTeams: bool
   });
 }
 
-/** Move a form to another team, handing it to that team's roles. */
+/** Move a form to another team (grouping only; access is org-role + shares). */
 export async function moveForm(formId: string, orgId: string, teamId: string | null) {
   await loadForm(formId, orgId);
   const target = await resolveTeamId(orgId, teamId);
@@ -365,15 +355,11 @@ export async function getStats(orgId: string, userId: string, seeAllTeams: boole
     .map(team => ({
       id: team.id,
       name: team.name,
-      parentId: team.parentId,
-      path: team.path,
-      depth: team.depth,
       memberCount: team._count.members,
       forms: byTeam.get(team.id)?.forms ?? 0,
       submissions: byTeam.get(team.id)?.submissions ?? 0,
     }))
-    // Materialized path keeps every parent immediately before its descendants.
-    .sort((a, b) => a.path.localeCompare(b.path));
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return {
     totalForms: visibleForms.length,

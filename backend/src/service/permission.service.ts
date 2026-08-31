@@ -1,4 +1,3 @@
-import { teamDao } from '../dao/factory/teamDao.factory';
 import { orgDao } from '../dao/factory/orgDao.factory';
 import { RBAC_CACHE_TTL_MS, Action } from '../config/rbac.config';
 import { actionsFromPermission, listRoles, RbacRole } from './rbac.client';
@@ -10,30 +9,21 @@ import logger from '../utils/logger';
  *
  * Responsibility is split across the two services:
  *
- *   - the RBAC service owns role *definitions* - what ORG_ADMIN or TEAM_LEAD is
+ *   - the RBAC service owns role *definitions* - what ORG_ADMIN or CREATOR is
  *     allowed to do - read through its existing `/role/:appId` endpoint;
- *   - this backend owns *assignments* - who holds which role, and where - in
- *     `OrgUser.role` and `TeamMember.role`.
+ *   - this backend owns *assignments* - who holds which role - in
+ *     `OrgUser.role`.
  *
- * Keeping assignments here means a membership change is a single local write,
- * with no second write to another service to keep in step.
- *
- * A user's permissions in an organization are the union of:
- *   - the role they hold on the organization, and
- *   - the roles they hold on the team in question and on every team above it.
- *
- * Team roles inherit downward: the lead of a parent team has their lead
- * permissions on every sub-team, without an explicit membership row there.
+ * A user's permissions in an organization come from their organization role
+ * alone. Teams are grouping buckets and carry no permissions, so a membership
+ * change is a single local write with nothing else to keep in step.
  */
 
 export interface EffectivePermissions {
   orgId: string;
-  teamId?: string;
   /** Role names contributing to this decision, most general first. */
   roles: string[];
   orgRole: string | null;
-  /** Team role held directly on `teamId`, ignoring inheritance. */
-  teamRole: string | null;
   actions: string[];
 }
 
@@ -48,8 +38,8 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
-function cacheKey(userId: string, orgId: string, teamId?: string): string {
-  return `${userId}|${orgId}|${teamId ?? ''}`;
+function cacheKey(userId: string, orgId: string): string {
+  return `${userId}|${orgId}`;
 }
 
 /**
@@ -77,16 +67,6 @@ export function invalidatePermissions(userId?: string, orgId?: string): void {
 // ---------------------------------------------------------------------------
 
 /**
- * The chain of team ids from the root down to this team, inclusive.
- *
- * Read straight off the materialized path, so it costs one row read regardless
- * of how deeply the team is nested.
- */
-export function ancestryFromPath(path: string): string[] {
-  return path.split('/').filter(Boolean);
-}
-
-/**
  * Look up a role definition by the name cached on the membership row, falling
  * back to its id. A membership naming a role the RBAC service does not define
  * contributes nothing rather than throwing - one unknown role should not lock a
@@ -106,64 +86,34 @@ function findDefinition(
 
 export async function getEffectivePermissions(
   userId: string,
-  orgId: string,
-  teamId?: string
+  orgId: string
 ): Promise<EffectivePermissions> {
-  const key = cacheKey(userId, orgId, teamId);
+  const key = cacheKey(userId, orgId);
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < RBAC_CACHE_TTL_MS) {
     return hit.value;
   }
 
-  // Which team scopes are in play: the target team and everything above it.
-  let ancestry: string[] = [];
-  if (teamId) {
-    const team = await teamDao.findTeamById(teamId);
-    if (!team) {
-      throw createError(404, 'Team not found');
-    }
-    if (team.orgId !== orgId) {
-      throw createError(403, 'Team does not belong to this organization');
-    }
-    ancestry = ancestryFromPath(team.path);
-  }
-
-  const [orgMember, definitions, teamMemberships] = await Promise.all([
+  const [orgMember, definitions] = await Promise.all([
     orgDao.findOrgMember(orgId, userId),
     listRoles(),
-    ancestry.length ? teamDao.findTeamsForUser(orgId, userId) : Promise.resolve([]),
   ]);
 
   const actions = new Set<string>();
   const roles: string[] = [];
 
-  const collect = (roleName: string, roleId: string | null) => {
-    roles.push(roleName);
-    const definition = findDefinition(definitions, roleName, roleId);
+  if (orgMember) {
+    roles.push(orgMember.role);
+    const definition = findDefinition(definitions, orgMember.role, orgMember.roleId);
     for (const action of actionsFromPermission(definition?.permission)) {
       actions.add(action);
-    }
-  };
-
-  if (orgMember) {
-    collect(orgMember.role, orgMember.roleId);
-  }
-
-  // Walk root -> leaf so `roles` reads in inheritance order.
-  const byTeamId = new Map(teamMemberships.map(m => [m.teamId, m]));
-  for (const ancestorId of ancestry) {
-    const membership = byTeamId.get(ancestorId);
-    if (membership) {
-      collect(membership.role, membership.roleId);
     }
   }
 
   const value: EffectivePermissions = {
     orgId,
-    teamId,
     roles,
     orgRole: orgMember?.role ?? null,
-    teamRole: teamId ? byTeamId.get(teamId)?.role ?? null : null,
     actions: [...actions].sort(),
   };
 
@@ -171,26 +121,15 @@ export async function getEffectivePermissions(
   return value;
 }
 
-export async function hasPermission(
-  userId: string,
-  action: Action | string,
-  orgId: string,
-  teamId?: string
-): Promise<boolean> {
-  const effective = await getEffectivePermissions(userId, orgId, teamId);
-  return effective.actions.includes(action);
-}
-
-/** Throws 403 unless the user holds `action` in the given scope. */
+/** Throws 403 unless the user holds `action` in this organization. */
 export async function assertPermission(
   userId: string,
   action: Action | string,
-  orgId: string,
-  teamId?: string
+  orgId: string
 ): Promise<EffectivePermissions> {
-  const effective = await getEffectivePermissions(userId, orgId, teamId);
+  const effective = await getEffectivePermissions(userId, orgId);
   if (!effective.actions.includes(action)) {
-    logger.warn('Permission denied', { userId, action, orgId, teamId, roles: effective.roles });
+    logger.warn('Permission denied', { userId, action, orgId, roles: effective.roles });
     throw createError(403, `You do not have permission to perform this action (${action})`);
   }
   return effective;

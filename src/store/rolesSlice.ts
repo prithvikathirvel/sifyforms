@@ -18,7 +18,6 @@ export interface Role {
   id: string;
   name: string;
   description: string;
-  scopes: ('ORG' | 'TEAM')[];
   privilege: RolePrivilege[];
   actions: string[];
   isActive: boolean;
@@ -29,8 +28,7 @@ export interface Role {
 
 export interface PermissionCatalogueEntry {
   feature: string;
-  /** `orgOnly` actions do nothing unless the role is granted organization-wide. */
-  actions: { key: string; value: string; orgOnly?: boolean }[];
+  actions: { key: string; value: string }[];
 }
 
 interface RolesState {
@@ -67,7 +65,6 @@ export const fetchRoles = createAsyncThunk(
 export interface RolePayload {
   name: string;
   description?: string;
-  scopes: ('ORG' | 'TEAM')[];
   privilege: RolePrivilege[];
 }
 

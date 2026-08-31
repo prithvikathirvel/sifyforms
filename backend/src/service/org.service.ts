@@ -3,8 +3,6 @@ import { teamDao } from '../dao/factory/teamDao.factory';
 import { CreateOrgInput, UpdateOrgInput } from '../schemas/org.schema';
 import {
   DEFAULT_ORG_OWNER_ROLE,
-  ORG_ADMIN_ROLES,
-  ORG_SCOPE_ROLES,
   ROLES,
   RoleName,
 } from '../config/rbac.config';
@@ -18,7 +16,7 @@ import logger from '../utils/logger';
 // Roles are data now, not a constant, so a role created in the UI is usable
 // immediately rather than after a code change.
 async function assertOrgRole(role: string): Promise<string> {
-  await assertRoleAssignable(role, 'ORG');
+  await assertRoleAssignable(role);
   return role;
 }
 
@@ -99,8 +97,8 @@ export async function deleteOrg(orgId: string, _userId: string) {
     throw createError(404, 'Organization not found');
   }
 
-  // Teams, memberships and their roles all live in this database and cascade
-  // away with the organization row.
+  // Teams and memberships all live in this database and cascade away with the
+  // organization row.
   await orgDao.deleteOrg(orgId);
   invalidatePermissions(undefined, orgId);
 

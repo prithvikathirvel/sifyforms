@@ -8,8 +8,8 @@ import logger from '../utils/logger';
  * Route-level authorization.
  *
  * Replaces the old `org.ownerId !== userId` checks: what a user may do now comes
- * from the roles they hold in the RBAC service at ORG and TEAM scope, rather
- * than from being the org's owner.
+ * from the organization role they hold in the RBAC service, rather than from
+ * being the org's owner. Teams carry no permissions of their own.
  */
 
 export interface PermissionRequest extends AuthRequest {
@@ -21,22 +21,7 @@ function param(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-/** Where the team id sits on the request, when the action is team-scoped. */
-export type TeamIdSource = 'params' | 'body' | 'none';
-
-export interface PermissionOptions {
-  /**
-   * Which request field carries the team id. Defaults to 'params' (`:teamId`).
-   * Use 'none' for org-wide actions.
-   */
-  teamIdFrom?: TeamIdSource;
-  /** Param/body key holding the team id. Defaults to 'teamId'. */
-  teamIdKey?: string;
-}
-
-export function requirePermission(action: Action | string, options: PermissionOptions = {}) {
-  const { teamIdFrom = 'params', teamIdKey = 'teamId' } = options;
-
+export function requirePermission(action: Action | string) {
   return async (req: PermissionRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user?.id;
@@ -51,14 +36,7 @@ export function requirePermission(action: Action | string, options: PermissionOp
         return;
       }
 
-      let teamId: string | undefined;
-      if (teamIdFrom === 'params') {
-        teamId = param(req.params[teamIdKey]);
-      } else if (teamIdFrom === 'body') {
-        teamId = req.body?.[teamIdKey] ?? undefined;
-      }
-
-      req.permissions = await assertPermission(userId, action, orgId, teamId);
+      req.permissions = await assertPermission(userId, action, orgId);
       req.orgId = orgId;
       next();
     } catch (error: any) {

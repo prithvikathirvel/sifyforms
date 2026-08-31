@@ -19,17 +19,8 @@ export class MongoTeamDao implements TeamDao {
   async findTeamsByOrg(_orgId: string): Promise<TeamWithCounts[]> {
     throw new Error('MongoTeamDao.findTeamsByOrg not implemented');
   }
-  async findSubtree(_orgId: string, _path: string): Promise<TeamRecord[]> {
-    throw new Error('MongoTeamDao.findSubtree not implemented');
-  }
-  async findChildren(_parentId: string): Promise<TeamRecord[]> {
-    throw new Error('MongoTeamDao.findChildren not implemented');
-  }
   async updateTeam(_id: string, _data: UpdateTeamData): Promise<TeamRecord> {
     throw new Error('MongoTeamDao.updateTeam not implemented');
-  }
-  async setTeamPath(_id: string, _path: string, _depth: number): Promise<TeamRecord> {
-    throw new Error('MongoTeamDao.setTeamPath not implemented');
   }
   async deleteTeam(_id: string): Promise<void> {
     throw new Error('MongoTeamDao.deleteTeam not implemented');

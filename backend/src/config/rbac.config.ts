@@ -23,13 +23,10 @@ export const RBAC_BASE_URL =
 
 export const RBAC_APP_ID = process.env.RBAC_APP_ID ?? 'Form-Builder';
 
-/** Milliseconds an effective-permission lookup is cached per (user, scope). */
+/** Milliseconds an effective-permission lookup is cached per (user, org). */
 export const RBAC_CACHE_TTL_MS = Number(process.env.RBAC_CACHE_TTL_MS ?? 30_000);
 
 export const RBAC_TIMEOUT_MS = Number(process.env.RBAC_TIMEOUT_MS ?? 5_000);
-
-/** Teams may nest this many levels below a root team. */
-export const MAX_TEAM_DEPTH = Number(process.env.MAX_TEAM_DEPTH ?? 5);
 
 // ---------------------------------------------------------------------------
 // Response access ladder
@@ -126,7 +123,6 @@ export const ACTIONS = {
   DELETE_TEAM: 'DELETE_TEAM',
   ADD_TEAM_MEMBER: 'ADD_TEAM_MEMBER',
   REMOVE_TEAM_MEMBER: 'REMOVE_TEAM_MEMBER',
-  ASSIGN_TEAM_ROLE: 'ASSIGN_TEAM_ROLE',
 
   // Form (the Build plane)
   VIEW_FORM: 'VIEW_FORM',
@@ -146,28 +142,6 @@ export const ACTIONS = {
 } as const;
 
 export type Action = (typeof ACTIONS)[keyof typeof ACTIONS];
-
-/**
- * Actions that only mean anything when granted organization-wide.
- *
- * Permission checks for these never pass a team, so they resolve against the
- * organization role alone - a team assignment carrying them would be inert.
- * Listing them lets the role editor grey them out for team-only roles rather
- * than offering a tick that does nothing.
- *
- * Note what is NOT here: VIEW_ORG and VIEW_MEMBERS. A team lead needs both to
- * do their job - picking someone to add to the team means reading the
- * organization's member list.
- */
-export const ORG_ONLY_ACTIONS: string[] = [
-  ACTIONS.MANAGE_ORG,
-  ACTIONS.DELETE_ORG,
-  ACTIONS.MANAGE_BILLING,
-  ACTIONS.INVITE_USER,
-  ACTIONS.REMOVE_USER,
-  ACTIONS.ASSIGN_ORG_ROLE,
-  ACTIONS.MANAGE_ROLES,
-];
 
 /** Action lists per feature, used by the seed script. */
 export const FEATURE_ACTIONS: Record<string, { key: string; value: string }[]> = {
@@ -189,7 +163,6 @@ export const FEATURE_ACTIONS: Record<string, { key: string; value: string }[]> =
     { key: ACTIONS.DELETE_TEAM, value: 'Delete team' },
     { key: ACTIONS.ADD_TEAM_MEMBER, value: 'Add team member' },
     { key: ACTIONS.REMOVE_TEAM_MEMBER, value: 'Remove team member' },
-    { key: ACTIONS.ASSIGN_TEAM_ROLE, value: 'Change a member team role' },
   ],
   [FEATURES.FORM]: [
     { key: ACTIONS.VIEW_FORM, value: 'View form' },
@@ -224,36 +197,12 @@ export const ACTION_TO_LEVEL: Record<string, ResponseLevel> = {
 export const ROLES = {
   OWNER: 'OWNER',
   ADMIN: 'ADMIN',
-  TEAM_LEAD: 'TEAM_LEAD',
   CREATOR: 'CREATOR',
   ANALYST: 'ANALYST',
   VIEWER: 'VIEWER',
 } as const;
 
 export type RoleName = (typeof ROLES)[keyof typeof ROLES];
-
-/**
- * Where a role may be assigned.
- *
- * The RBAC service has no column for this, but its `roles.template` field is
- * free-form and otherwise unused, so the scope rides there as "ORG", "TEAM" or
- * "ORG,TEAM". That keeps custom roles working without touching that service.
- */
-export type RoleScopeTag = 'ORG' | 'TEAM';
-
-export function parseRoleScopes(template?: string | null): RoleScopeTag[] {
-  const tags = (template ?? '')
-    .split(',')
-    .map(t => t.trim().toUpperCase())
-    .filter((t): t is RoleScopeTag => t === 'ORG' || t === 'TEAM');
-  // A role with nothing recorded is assignable anywhere rather than nowhere;
-  // refusing every assignment would be a worse failure than being permissive.
-  return tags.length ? tags : ['ORG', 'TEAM'];
-}
-
-export function formatRoleScopes(scopes: RoleScopeTag[]): string {
-  return [...new Set(scopes)].join(',');
-}
 
 /**
  * Roles this application depends on. They can have their permissions edited,
@@ -263,7 +212,6 @@ export function formatRoleScopes(scopes: RoleScopeTag[]): string {
 export const SYSTEM_ROLES: string[] = [
   ROLES.OWNER,
   ROLES.ADMIN,
-  ROLES.TEAM_LEAD,
   ROLES.CREATOR,
   ROLES.ANALYST,
   ROLES.VIEWER,
@@ -273,50 +221,10 @@ export function isSystemRole(name: string): boolean {
   return SYSTEM_ROLES.includes(name);
 }
 
-/** Scope tags for the roles this app seeds. */
-export const SYSTEM_ROLE_SCOPES: Record<string, RoleScopeTag[]> = {
-  [ROLES.OWNER]: ['ORG'],
-  [ROLES.ADMIN]: ['ORG'],
-  [ROLES.TEAM_LEAD]: ['TEAM'],
-  [ROLES.CREATOR]: ['ORG', 'TEAM'],
-  [ROLES.ANALYST]: ['ORG', 'TEAM'],
-  [ROLES.VIEWER]: ['ORG', 'TEAM'],
-};
-
-/**
- * Which roles may be assigned at which level.
- *
- * OWNER and ADMIN are administrative, so organization-only. TEAM_LEAD is
- * meaningless without a team. CREATOR, ANALYST and VIEWER work at both: at
- * organization level they set a person's default posture everywhere, and a team
- * assignment overrides it for that team and everything beneath it.
- */
-export const ORG_SCOPE_ROLES: RoleName[] = [
-  ROLES.OWNER,
-  ROLES.ADMIN,
-  ROLES.CREATOR,
-  ROLES.ANALYST,
-  ROLES.VIEWER,
-];
-
-export const TEAM_SCOPE_ROLES: RoleName[] = [
-  ROLES.TEAM_LEAD,
-  ROLES.CREATOR,
-  ROLES.ANALYST,
-  ROLES.VIEWER,
-];
-
-/** Roles that can administer the organization; used for the last-admin guard. */
-export const ORG_ADMIN_ROLES: RoleName[] = [ROLES.OWNER, ROLES.ADMIN];
-
 /** Role given to whoever creates the organization. */
 export const DEFAULT_ORG_OWNER_ROLE: RoleName = ROLES.OWNER;
 /** Role given to an invited user unless the inviter picks another. */
 export const DEFAULT_ORG_MEMBER_ROLE: RoleName = ROLES.CREATOR;
-/** Role given to whoever creates a team. */
-export const DEFAULT_TEAM_ROLE: RoleName = ROLES.TEAM_LEAD;
-/** Role given to someone added to a team without an explicit role. */
-export const DEFAULT_TEAM_MEMBER_ROLE: RoleName = ROLES.CREATOR;
 
 interface RoleDefinition {
   description: string;
@@ -344,15 +252,6 @@ export const ROLE_DEFINITIONS: Record<RoleName, RoleDefinition> = {
           a => a !== ACTIONS.MANAGE_BILLING && a !== ACTIONS.DELETE_ORG
         ),
       },
-      { feature: FEATURES.TEAM, actions: ALL(FEATURES.TEAM) },
-      { feature: FEATURES.FORM, actions: ALL(FEATURES.FORM) },
-      { feature: FEATURES.RESPONSE, actions: ALL(FEATURES.RESPONSE) },
-    ],
-  },
-  [ROLES.TEAM_LEAD]: {
-    description: 'Runs a team: its members, its roles, its sub-teams and its forms',
-    privilege: [
-      { feature: FEATURES.ORGANIZATION, actions: [ACTIONS.VIEW_ORG, ACTIONS.VIEW_MEMBERS] },
       { feature: FEATURES.TEAM, actions: ALL(FEATURES.TEAM) },
       { feature: FEATURES.FORM, actions: ALL(FEATURES.FORM) },
       { feature: FEATURES.RESPONSE, actions: ALL(FEATURES.RESPONSE) },

@@ -12,11 +12,10 @@ import { getCallerToken } from '../utils/requestContext';
 /**
  * Read-only client for the user-management (RBAC) service.
  *
- * This backend reads role *definitions* from that service - what ORG_ADMIN or
- * TEAM_LEAD is permitted to do - and nothing else. Who holds which role, and in
- * which organization or team, is owned here (`OrgUser.role`, `TeamMember.role`),
- * so a membership change stays a single local write with nothing to keep in
- * step across a service boundary.
+ * This backend reads role *definitions* from that service - what ADMIN or
+ * CREATOR is permitted to do - and nothing else. Who holds which role is owned
+ * here (`OrgUser.role`), so a membership change stays a single local write with
+ * nothing to keep in step across a service boundary.
  *
  * That split is what lets the RBAC service stay unmodified: only its existing
  * `GET /role/:appId` endpoint is used.
@@ -29,8 +28,6 @@ export interface RbacRole {
   description?: string;
   permission?: unknown;
   isActive?: boolean;
-  /** Free-form column this app uses to record where a role may be assigned. */
-  template?: string | null;
 }
 
 /** `{ feature, actions[] }` entries, however the service happened to store them. */
@@ -115,7 +112,7 @@ export function invalidateRoleCache(): void {
   roleCache = null;
 }
 
-/** Resolve a role name (ORG_ADMIN, TEAM_LEAD, ...) to its id in the RBAC service. */
+/** Resolve a role name (ADMIN, CREATOR, ...) to its id in the RBAC service. */
 export async function resolveRoleId(roleName: RoleName | string): Promise<string> {
   let roles = await listRoles();
   let match = roles.find(r => r.name === roleName);
@@ -150,8 +147,6 @@ export interface RolePrivilege {
 export interface RoleDefinitionInput {
   roleName: string;
   description: string;
-  /** Scope tags, stored in the service's free-form `template` column. */
-  template: string;
   privilege: RolePrivilege[];
 }
 
@@ -160,7 +155,6 @@ function rolePayload(input: RoleDefinitionInput) {
     roleName: input.roleName,
     appId: RBAC_APP_ID,
     description: input.description,
-    template: input.template,
     // The service validates every feature and action against what the
     // application has registered, so a typo fails here rather than silently
     // creating a role that grants nothing.

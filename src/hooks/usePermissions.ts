@@ -3,8 +3,8 @@ import { useAppDispatch, useAppSelector } from './useAppDispatch';
 import { fetchPermissions } from '../store/teamsSlice';
 
 /**
- * What the signed-in user may do in the current organization, optionally within
- * one team (which folds in roles inherited from that team's ancestors).
+ * What the signed-in user may do in the current organization, from their
+ * organization role alone.
  *
  * This gates what the UI *shows*. The server re-checks every write, so hiding a
  * button is a convenience, never the access control itself.
@@ -12,20 +12,20 @@ import { fetchPermissions } from '../store/teamsSlice';
  *   const { can, isLoading } = usePermissions();
  *   {can('CREATE_TEAM') && <NewTeamButton />}
  */
-export function usePermissions(teamId?: string) {
+export function usePermissions() {
   const dispatch = useAppDispatch();
   const currentOrg = useAppSelector((state) => state.org.currentOrg);
   const permissions = useAppSelector((state) => state.teams.permissions);
 
   const orgId = currentOrg?.id;
-  const key = `${orgId ?? ''}|${teamId ?? ''}`;
+  const key = orgId ?? '';
   const entry = permissions[key];
 
   useEffect(() => {
     if (orgId && !entry) {
-      dispatch(fetchPermissions({ orgId, teamId }));
+      dispatch(fetchPermissions({ orgId }));
     }
-  }, [orgId, teamId, entry, dispatch]);
+  }, [orgId, entry, dispatch]);
 
   const actions = useMemo(() => new Set(entry?.actions ?? []), [entry]);
 
@@ -39,7 +39,6 @@ export function usePermissions(teamId?: string) {
     /** Role names contributing to this decision, most general first. */
     roles: entry?.roles ?? [],
     orgRole: entry?.orgRole ?? null,
-    teamRole: entry?.teamRole ?? null,
     isLoading: !!orgId && !entry,
   };
 }
@@ -62,7 +61,6 @@ export const ACTIONS = {
   DELETE_TEAM: 'DELETE_TEAM',
   ADD_TEAM_MEMBER: 'ADD_TEAM_MEMBER',
   REMOVE_TEAM_MEMBER: 'REMOVE_TEAM_MEMBER',
-  ASSIGN_TEAM_ROLE: 'ASSIGN_TEAM_ROLE',
 
   VIEW_FORM: 'VIEW_FORM',
   CREATE_FORM: 'CREATE_FORM',
@@ -93,7 +91,6 @@ interface RoleOption {
 const BUILTIN_LABELS: Record<string, RoleOption> = {
   OWNER: { value: 'OWNER', label: 'Owner', hint: 'Everything, including billing and deleting the organization' },
   ADMIN: { value: 'ADMIN', label: 'Admin', hint: 'Runs the organization; no billing, cannot delete it' },
-  TEAM_LEAD: { value: 'TEAM_LEAD', label: 'Team Lead', hint: 'Runs this team, its members and its sub-teams' },
   CREATOR: { value: 'CREATOR', label: 'Creator', hint: 'Builds forms; sees results in aggregate, not individual responses' },
   ANALYST: { value: 'ANALYST', label: 'Analyst', hint: 'Reads and exports responses; cannot change the questions' },
   VIEWER: { value: 'VIEWER', label: 'Viewer', hint: 'Sees which forms exist, and nothing submitted to them' },
@@ -110,21 +107,19 @@ export function roleHint(role: string | null | undefined): string {
 }
 
 /**
- * Role options for a picker, built from the live catalogue and filtered to the
- * scope being assigned. Falls back to the built-ins before the fetch lands.
+ * Role options for a picker, built from the live catalogue. Falls back to the
+ * built-ins before the fetch lands.
  */
-export function useRoleOptions(scope: 'ORG' | 'TEAM') {
+export function useRoleOptions() {
   const roles = useAppSelector((state) => state.roles.roles);
 
   if (roles.length === 0) {
-    const fallback = scope === 'ORG'
-      ? ['ADMIN', 'CREATOR', 'ANALYST', 'VIEWER']
-      : ['TEAM_LEAD', 'CREATOR', 'ANALYST', 'VIEWER'];
+    const fallback = ['ADMIN', 'CREATOR', 'ANALYST', 'VIEWER'];
     return fallback.map((v) => ({ value: v, label: roleLabel(v) }));
   }
 
   return roles
-    .filter((r) => r.isActive && r.scopes.includes(scope))
+    .filter((r) => r.isActive)
     // OWNER transfers with the organization rather than being granted.
     .filter((r) => r.name !== 'OWNER')
     .map((r) => ({ value: r.name, label: roleLabel(r.name) }));

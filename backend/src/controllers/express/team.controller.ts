@@ -61,8 +61,7 @@ export async function updateTeam(req: PermissionRequest, res: Response): Promise
 export async function deleteTeam(req: PermissionRequest, res: Response): Promise<void> {
   try {
     const teamId = getParamString(req.params.teamId);
-    const cascade = getParamString(req.query.cascade as any) === 'true';
-    const result = await teamService.deleteTeam(req.orgId!, teamId, cascade);
+    const result = await teamService.deleteTeam(req.orgId!, teamId);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     handleError(res, 'deleteTeam', error);
@@ -84,29 +83,12 @@ export async function listMembers(req: PermissionRequest, res: Response): Promis
 export async function addMember(req: PermissionRequest, res: Response): Promise<void> {
   try {
     const teamId = getParamString(req.params.teamId);
-    const { userId, role } = req.body;
-    logger.info('Express --> addTeamMember --> Request', { teamId, userId, role });
-    const result = await teamService.addMember(req.orgId!, teamId, req.user!.id, userId, role);
+    const { userId } = req.body;
+    logger.info('Express --> addTeamMember --> Request', { teamId, userId });
+    const result = await teamService.addMember(req.orgId!, teamId, req.user!.id, userId);
     res.status(StatusCodes.CREATED).json(result);
   } catch (error: any) {
     handleError(res, 'addTeamMember', error);
-  }
-}
-
-export async function updateMemberRole(req: PermissionRequest, res: Response): Promise<void> {
-  try {
-    const teamId = getParamString(req.params.teamId);
-    const userId = getParamString(req.params.userId);
-    const result = await teamService.updateMemberRole(
-      req.orgId!,
-      teamId,
-      req.user!.id,
-      userId,
-      req.body.role
-    );
-    res.status(StatusCodes.OK).json(result);
-  } catch (error: any) {
-    handleError(res, 'updateTeamMemberRole', error);
   }
 }
 
@@ -122,14 +104,13 @@ export async function removeMember(req: PermissionRequest, res: Response): Promi
 }
 
 /**
- * What the signed-in user may do in this organization, optionally within one
- * team. The frontend reads this to decide what to render, but every write is
+ * What the signed-in user may do in this organization, from their org role
+ * alone. The frontend reads this to decide what to render, but every write is
  * still checked server-side.
  */
 export async function getMyPermissions(req: PermissionRequest, res: Response): Promise<void> {
   try {
-    const teamId = getParamString(req.query.teamId as any) || undefined;
-    const result = await getEffectivePermissions(req.user!.id, req.orgId!, teamId);
+    const result = await getEffectivePermissions(req.user!.id, req.orgId!);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     handleError(res, 'getMyPermissions', error);

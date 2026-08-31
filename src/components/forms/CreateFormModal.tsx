@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,7 +16,7 @@ import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { createForm, duplicateTemplate } from '../../store/formsSlice';
 import { resetBuilder, setFormName } from '../../store/builderSlice';
 import { fetchTeams } from '../../store/teamsSlice';
-import type { FormField, FormLayout, FormSettings, FormVariable, TeamNode } from '../../types';
+import type { FormField, FormLayout, FormSettings, FormVariable } from '../../types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -46,19 +46,7 @@ const STEP_DESCRIPTION: Record<Step, string> = {
 const slateCancelClass = 'border-ink-200 bg-ink-100 text-ink-700 hover:bg-ink-200 hover:text-ink-800';
 const modalFieldFocusClass = 'border-ink-200 focus-visible:border-ink-400 focus-visible:ring-4 focus-visible:ring-primary/[0.06] focus-visible:ring-offset-0';
 
-function flattenTeams(roots: TeamNode[]): TeamNode[] {
-  const result: TeamNode[] = [];
-  const stack = [...roots].reverse();
-  while (stack.length > 0) {
-    const team = stack.pop();
-    if (!team) break;
-    result.push(team);
-    for (let index = team.children.length - 1; index >= 0; index -= 1) {
-      stack.push(team.children[index]);
-    }
-  }
-  return result;
-}
+
 
 function isObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -68,7 +56,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const currentOrg = useAppSelector((state) => state.org.currentOrg);
-  const { tree: teamTree, isLoading: teamsLoading } = useAppSelector((state) => state.teams);
+  const { teams: teamList, isLoading: teamsLoading } = useAppSelector((state) => state.teams);
 
   const [step, setStep] = useState<Step>('choose');
   const [formName, setFormNameLocal] = useState('');
@@ -83,7 +71,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
     if (open && currentOrg?.id) dispatch(fetchTeams(currentOrg.id));
   }, [open, currentOrg?.id, dispatch]);
 
-  const flatTeams = useMemo(() => flattenTeams(teamTree), [teamTree]);
+  const flatTeams = teamList;
   const defaultTeam = flatTeams.find((team) => team.isDefault || team.slug === 'general') ?? flatTeams[0];
   const effectiveTeamId = flatTeams.some((team) => team.id === teamId) ? teamId : defaultTeam?.id ?? null;
   const selectedTeam = flatTeams.find((team) => team.id === effectiveTeamId);
@@ -286,14 +274,14 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
       <Label id="form-team-label" htmlFor="formTeam">Team</Label>
       <div className="mt-2 w-full sm:max-w-xl">
         <TeamTreeSelect
-          teams={teamTree}
+          teams={teamList}
           value={effectiveTeamId}
           onChange={setTeamId}
           isLoading={teamsLoading}
         />
       </div>
       <p className="mt-2.5 text-[11px] font-medium leading-4 text-muted-foreground">
-        This team, and the teams above it, can edit the form and see its responses.
+        Your organization role governs who can edit and see responses; teams group the form.
       </p>
     </section>
   );

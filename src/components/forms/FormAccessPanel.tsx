@@ -19,7 +19,7 @@ import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Select } from '../ui/select';
-import type { TeamNode } from '../../types';
+import type { Team } from '../../types';
 import { Loader2, Lock, ShieldCheck, Trash2, Users, UserPlus } from 'lucide-react';
 
 /**
@@ -34,12 +34,9 @@ interface Props {
   formId: string;
 }
 
-/** Flatten the team tree into indented options for a picker. */
-function flattenTeams(nodes: TeamNode[], depth = 0): { value: string; label: string }[] {
-  return nodes.flatMap((team) => [
-    { value: team.id, label: `${'— '.repeat(depth)}${team.name}` },
-    ...flattenTeams(team.children, depth + 1),
-  ]);
+/** Map the flat team list into options for a picker. */
+function flattenTeams(teams: Team[]): { value: string; label: string }[] {
+  return teams.map((team) => ({ value: team.id, label: team.name }));
 }
 
 export default function FormAccessPanel({ formId }: Props) {
@@ -48,7 +45,7 @@ export default function FormAccessPanel({ formId }: Props) {
   const access = useAppSelector((state) => state.formSharing.access[formId]);
   const shares = useAppSelector((state) => state.formSharing.shares[formId] ?? []);
   const error = useAppSelector((state) => state.formSharing.error);
-  const teamTree = useAppSelector((state) => state.teams.tree);
+  const teams = useAppSelector((state) => state.teams.teams);
   const members = useAppSelector((state) => state.members.members);
 
   const [principalType, setPrincipalType] = useState<'USER' | 'TEAM'>('USER');
@@ -68,7 +65,7 @@ export default function FormAccessPanel({ formId }: Props) {
     }
   }, [dispatch, formId, orgId]);
 
-  const teamOptions = flattenTeams(teamTree);
+  const teamOptions = flattenTeams(teams);
   const policyLocked = access?.policy !== undefined && shares !== undefined;
 
   const onShare = async (event: React.FormEvent) => {
@@ -127,7 +124,7 @@ export default function FormAccessPanel({ formId }: Props) {
           onChange={(e) => dispatch(moveFormToTeam({ formId, teamId: e.target.value }))}
         />
         <p className="text-xs text-muted-foreground">
-          The owning team's roles govern this form. Sub-teams inherit from it.
+          The team groups this form. Who can edit or read it comes from org roles and shares.
         </p>
       </section>
 
@@ -176,7 +173,7 @@ export default function FormAccessPanel({ formId }: Props) {
 
           {shares.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Not shared with anyone beyond the owning team.
+              Not shared with anyone yet.
             </p>
           ) : (
             <div className="space-y-2">

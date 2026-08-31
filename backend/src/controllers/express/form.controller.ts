@@ -29,7 +29,7 @@ export async function listForms(req: AuthRequest, res: Response): Promise<void> 
   try {
     logger.info('Express --> listForms --> Request', { orgId: req.orgId });
     // Organization admins see every team's forms; everyone else sees the
-    // teams they belong to and everything nested beneath them.
+    // forms of the teams they belong to.
     const canSeeAll = (req as PermissionRequest).permissions?.actions.includes(ACTIONS.MANAGE_ORG) ?? false;
     const result = await formService.listForms(req.orgId as string, req.user!.id, canSeeAll);
     res.status(StatusCodes.OK).json(result);

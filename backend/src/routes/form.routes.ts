@@ -39,19 +39,18 @@ router.get('/public/:orgSlug/:formSlug', getPublicForm);
 router.use(authMiddleware);
 router.use(orgMiddleware);
 
-// Creating a form is checked against the team it will land in, so a team lead
-// can create there without needing organization-wide rights.
+// Creating a form is checked against the organization role alone.
 router.post(
   '/',
-  requirePermission(ACTIONS.CREATE_FORM, { teamIdFrom: 'body', teamIdKey: 'teamId' }),
+  requirePermission(ACTIONS.CREATE_FORM),
   validate(CreateFormSchema),
   createForm
 );
 router.post('/ai-generate', generateFormWithAI);
 // edit existing form schema using AI; prompt and optional sessionId in body
 router.post('/:formId/ai-edit', validate(AIEditSchema), editFormWithAI);
-router.get('/', requirePermission(ACTIONS.VIEW_FORM, { teamIdFrom: 'none' }), listForms);
-router.get('/stats', requirePermission(ACTIONS.VIEW_FORM, { teamIdFrom: 'none' }), getStats);
+router.get('/', requirePermission(ACTIONS.VIEW_FORM), listForms);
+router.get('/stats', requirePermission(ACTIONS.VIEW_FORM), getStats);
 router.post('/parse-csv', upload.single('file'), parseCSV);
 router.get('/:formId', getForm);
 router.put('/:formId', validate(UpdateFormSchema), updateForm);

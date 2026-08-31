@@ -32,34 +32,15 @@ export class MySQLTeamDao implements TeamDao {
   }
 
   async findTeamsByOrg(orgId: string): Promise<TeamWithCounts[]> {
-    // Ordering by path means parents always precede their descendants, so the
-    // caller can assemble the tree in a single forward pass.
     return prisma.team.findMany({
       where: { orgId },
-      include: { _count: { select: { members: true, children: true } } },
-      orderBy: { path: 'asc' },
+      include: { _count: { select: { members: true } } },
+      orderBy: { name: 'asc' },
     });
-  }
-
-  async findSubtree(orgId: string, path: string): Promise<TeamRecord[]> {
-    // `path` always ends with the team's own id, so `startsWith(path)` matches
-    // the team plus everything beneath it and nothing else.
-    return prisma.team.findMany({
-      where: { orgId, path: { startsWith: path } },
-      orderBy: { path: 'asc' },
-    });
-  }
-
-  async findChildren(parentId: string): Promise<TeamRecord[]> {
-    return prisma.team.findMany({ where: { parentId }, orderBy: { name: 'asc' } });
   }
 
   async updateTeam(id: string, data: UpdateTeamData): Promise<TeamRecord> {
     return prisma.team.update({ where: { id }, data });
-  }
-
-  async setTeamPath(id: string, path: string, depth: number): Promise<TeamRecord> {
-    return prisma.team.update({ where: { id }, data: { path, depth } });
   }
 
   async deleteTeam(id: string): Promise<void> {
@@ -95,7 +76,7 @@ export class MySQLTeamDao implements TeamDao {
     return prisma.teamMember.upsert({
       where: { teamId_userId: { teamId: data.teamId, userId: data.userId } },
       create: data,
-      update: { roleId: data.roleId, role: data.role },
+      update: {},
     });
   }
 

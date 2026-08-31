@@ -70,7 +70,7 @@ export default function MembersPage() {
   const { members, invites, isLoading, error } = useAppSelector((state) => state.members);
   const { user } = useAppSelector((state) => state.auth);
   const { can } = usePermissions();
-  const orgRoleOptions = useRoleOptions('ORG');
+  const orgRoleOptions = useRoleOptions();
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState('');

@@ -76,25 +76,17 @@ model OrgInvite {
   @@index([orgId, inviteStatus])
 }
 
-/// A team inside an organization. Teams nest: `parentId` points at the enclosing
-/// team, and `path` is the materialized ancestry (`/rootId/childId/ownId`) that
-/// makes subtree and ancestor lookups a single indexed query.
-///
-/// Permissions inherit downward: a role held on an ancestor team applies to every
-/// team beneath it.
+/// A team inside an organization. Teams are flat organizational buckets that
+/// group forms and act as targets for per-form sharing. They carry no
+/// permissions of their own — a user's access is governed by their organization
+/// role alone, plus explicit form shares.
 model Team {
-  id       String  @id @default(cuid())
-  orgId    String
-  parentId String?
+  id     String @id @default(cuid())
+  orgId  String
 
   name        String
   slug        String
   description String?
-
-  /// Materialized ancestry of team ids, e.g. "/ck1/ck2/ck3" (always ends with own id).
-  path  String @db.VarChar(512)
-  /// Number of ancestors above this team; a root team is depth 0.
-  depth Int    @default(0)
 
   createdBy String
   createdAt DateTime @default(now())
@@ -104,31 +96,23 @@ model Team {
   /// Cannot be deleted; forms fall back to it when their own team is removed.
   isDefault Boolean @default(false)
 
-  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  parent   Team?        @relation("TeamTree", fields: [parentId], references: [id], onDelete: Restrict)
-  children Team[]       @relation("TeamTree")
-  members  TeamMember[]
-  forms    Form[]
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members TeamMember[]
+  forms   Form[]
 
   @@unique([orgId, slug])
   @@index([orgId])
-  @@index([parentId])
-  @@index([orgId, path])
 }
 
-/// Membership of a user in one team, carrying exactly one role.
+/// Membership of a user in one team. A pure join carrying no role — a user's
+/// role lives on their organization membership (`OrgUser.role`).
 ///
-/// The `@@unique([teamId, userId])` key enforces "one role per person per team";
-/// the same user may hold a different role in a sibling or parent team.
+/// The `@@unique([teamId, userId])` key enforces one membership per person per
+/// team.
 model TeamMember {
   id     String @id @default(cuid())
   teamId String
   userId String
-
-  /// This row IS the team-level role assignment. `role` holds the role name
-  /// (TEAM_LEAD, TEAM_MEMBER); `roleId` references the definition in the RBAC service.
-  roleId String?
-  role   String  @default("TEAM_MEMBER")
 
   addedBy   String?
   createdAt DateTime @default(now())
@@ -167,8 +151,8 @@ model Form {
   slug        String
   description String?
 
-  /// The team that owns this form. Roles held on this team - and on every team
-  /// above it - govern who may edit it and who may read its responses.
+  /// The team that groups this form. Access is governed by the organization
+  /// role and explicit shares, not by the owning team.
   /// Nullable so pre-existing rows survive the migration; new forms always land
   /// in a team.
   teamId String?
