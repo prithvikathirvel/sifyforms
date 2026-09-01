@@ -4,7 +4,7 @@ import { store } from './store';
 import { useAppDispatch, useAppSelector } from './hooks/useAppDispatch';
 import { useEffect, useState } from 'react';
 import { fetchOrganizations } from './store/orgSlice';
-import { getSession } from './store/authSlice';
+import { getSession, logout } from './store/authSlice';
 import { Loader2 } from 'lucide-react';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -23,27 +23,41 @@ import TeamsPage from './pages/TeamsPage';
 import RolesPage from './pages/RolesPage';
 import RequirePermission from './components/layout/RequirePermission';
 import UpdateProfilePage from './pages/UpdateProfilePage';
+import { ToastProvider } from './components/ui/toast';
 
-// Token only — used for /org/setup
+// Token only ï¿½ used for /org/setup
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAppSelector((state) => state.auth);
   if (!token) return <Navigate to="/auth/login" replace />;
   return <>{children}</>;
 }
 
-// Token + org — used for all pages that need an org
+// Token + org ï¿½ used for all pages that need an org
 function OrgRoute({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
   const { token, user } = useAppSelector((state) => state.auth);
   const { currentOrg, isLoading } = useAppSelector((state) => state.org);
   const [hasFetched, setHasFetched] = useState(false);
+  const [sessionFailed, setSessionFailed] = useState(false);
 
   useEffect(() => {
-    if (token && !user) dispatch(getSession());
-  }, [token]);
+    if (token && !user) {
+      dispatch(getSession())
+        .unwrap()
+        .catch(() => setSessionFailed(true));
+    }
+  }, [token, user, dispatch]);
+
+  // A session that cannot be resolved â€” most notably an account that exists in
+  // Keycloak but not in this system ("User not found") â€” must not be funnelled
+  // into the create-workspace screen. Sign the person out so they land on
+  // login instead of a misleading onboarding flow.
+  useEffect(() => {
+    if (sessionFailed && token) dispatch(logout());
+  }, [sessionFailed, token, dispatch]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || sessionFailed) return;
     if (currentOrg) { setHasFetched(true); return; }
     // Fetch the list, but do not choose. Landing someone in whichever
     // organization happens to sort first is how people end up creating forms
@@ -56,9 +70,14 @@ function OrgRoute({ children }: { children: React.ReactNode }) {
       }
     };
     fetchData();
-  }, [token]);
+  }, [token, sessionFailed]);
 
   if (!token) return <Navigate to="/auth/login" replace />;
+  if (sessionFailed) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
   if (!hasFetched || isLoading) return (
     <div className="min-h-screen flex items-center justify-center">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -70,6 +89,7 @@ function OrgRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <Provider store={store}>
+      <ToastProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           {/* Public routes */}
@@ -77,10 +97,10 @@ function App() {
           <Route path="/auth/login" element={<LoginPage />} />
           <Route path="/auth/signup" element={<SignupPage />} />
 
-          {/* Protected routes — token only */}
+          {/* Protected routes ï¿½ token only */}
           <Route path="/org/setup" element={<ProtectedRoute><OrgSetupPage /></ProtectedRoute>} />
 
-          {/* Org routes — token + org required */}
+          {/* Org routes ï¿½ token + org required */}
           <Route path="/dashboard" element={<OrgRoute><DashboardPage /></OrgRoute>} />
           <Route path="/forms" element={<OrgRoute><FormsListPage /></OrgRoute>} />
           <Route path="/forms/:formId/edit" element={<OrgRoute><FormBuilderPage /></OrgRoute>} />
@@ -106,6 +126,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </ToastProvider>
     </Provider>
   );
 }

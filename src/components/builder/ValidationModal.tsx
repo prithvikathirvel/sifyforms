@@ -1,8 +1,8 @@
-import type { FormField } from '../../types';
+import type { FieldRule, FormField } from '../../types';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
-import { X, Plus, Trash2, Shield } from 'lucide-react';
+import { X, Plus, Trash2, ShieldCheck } from 'lucide-react';
 
 interface ValidationModalProps {
     field: FormField;
@@ -31,8 +31,11 @@ const RULE_TYPES = [
     { value: 'lte', label: 'Less Than or Equal (≤)' },
     { value: 'equals', label: 'Exactly Equals' },
     { value: 'notEquals', label: 'Does Not Equal' },
-    { value: 'custom', label: 'Custom (Must match field)' },
+    { value: 'custom', label: 'Matches Another Field' },
 ];
+
+/** Rule types that never need a value input. */
+const NO_VALUE_TYPES = new Set(['required', 'email', 'url']);
 
 const getPlaceholderForRuleType = (type: string) => {
     switch (type) {
@@ -41,8 +44,8 @@ const getPlaceholderForRuleType = (type: string) => {
         case 'min': return 'e.g. 0';
         case 'max': return 'e.g. 100';
         case 'pattern': return 'e.g. ^[A-Za-z]+$';
-        case 'custom': return 'Select field...';
-        default: return 'Enter value...';
+        case 'custom': return 'Select field…';
+        default: return 'Enter value…';
     }
 };
 
@@ -71,6 +74,9 @@ const getDefaultMessageForRuleType = (type: string) => {
     }
 };
 
+const selectBaseClass =
+    'h-9 w-full appearance-none rounded-lg border border-input bg-background px-3 text-[13px] font-medium shadow-none transition-colors hover:border-ink-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0';
+
 export function ValidationModal({
     field,
     otherFields,
@@ -96,142 +102,153 @@ export function ValidationModal({
         onUpdate({ rules: rules.filter(r => r.id !== ruleId) });
     };
 
-    const updateRule = (ruleId: string, updates: Partial<any>) => {
+    const updateRule = (ruleId: string, updates: Partial<FieldRule>) => {
         onUpdate({ rules: rules.map(r => r.id === ruleId ? { ...r, ...updates } : r) });
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform transition-all">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-brand-100 text-brand-600 rounded-lg">
-                            <Shield className="h-5 w-5" />
-                        </div>
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+                    <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
+                            <ShieldCheck className="h-4 w-4" strokeWidth={1.9} />
+                        </span>
                         <div>
-                            <h2 className="text-xl font-semibold text-foreground">Validation Rules</h2>
-                            <p className="text-sm text-muted-foreground">Configure validation logic for "{field.label}"</p>
+                            <h2 className="font-display text-base font-bold text-foreground">Validation rules</h2>
+                            <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">
+                                Make sure “{field.label}” only accepts the data you expect.
+                            </p>
                         </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-muted">
-                        <X className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                        <X className="h-4 w-4" />
                     </Button>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-muted">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-muted/30 px-5 py-4">
                     {rules.length === 0 ? (
-                        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-border">
-                            <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                            <h3 className="text-lg font-medium text-foreground">No Validation Rules Added</h3>
-                            <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                                Add rules to ensure the data entered in this field meets your requirements.
+                        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-muted/50 text-ink-400">
+                                <ShieldCheck className="h-5 w-5" strokeWidth={1.7} />
+                            </span>
+                            <p className="mt-4 text-sm font-semibold text-foreground">No validation rules</p>
+                            <p className="mt-1 max-w-xs text-xs font-medium leading-5 text-muted-foreground">
+                                Add rules so this field only accepts data that meets your requirements.
                             </p>
-                            <Button onClick={addRule}>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add First Rule
+                            <Button onClick={addRule} className="mt-5 h-9 rounded-lg px-3.5">
+                                <Plus className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                                Add first rule
                             </Button>
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            {rules.map((rule, index) => (
-                                <div key={rule.id} className="p-4 bg-white rounded-xl border shadow-sm relative group">
-                                    <div className="absolute top-4 right-4 flex opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-full"
-                                            onClick={() => removeRule(rule.id)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className="flex items-center justify-center h-6 w-6 rounded-full bg-brand-100 text-brand-700 text-xs font-semibold">
+                        rules.map((rule, index) => (
+                            <div key={rule.id} className="rounded-xl border border-border/80 bg-card shadow-sm">
+                                <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/[0.09] text-[11px] font-bold text-primary">
                                             {index + 1}
                                         </span>
-                                        <h4 className="font-medium text-foreground">Rule Configuration</h4>
+                                        <span className="text-[13px] font-semibold text-foreground">Rule</span>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => removeRule(rule.id)}
+                                        className="h-7 w-7 rounded-md text-muted-foreground hover:bg-destructive/[0.06] hover:text-destructive"
+                                        aria-label="Remove rule"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-3 px-4 py-3">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Type</Label>
+                                        <select
+                                            value={rule.type}
+                                            onChange={(e) => updateRule(rule.id, { type: e.target.value as FieldRule['type'], value: '' })}
+                                            className={selectBaseClass}
+                                        >
+                                            {RULE_TYPES.map(rt => (
+                                                <option key={rt.value} value={rt.value}>{rt.label}</option>
+                                            ))}
+                                        </select>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-xs font-semibold text-muted-foreground">Type</Label>
-                                            <select
-                                                value={rule.type}
-                                                onChange={(e) => updateRule(rule.id, { type: e.target.value as any, value: '' })}
-                                                className="w-full h-10 rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white"
-                                            >
-                                                {RULE_TYPES.map(rt => (
-                                                    <option key={rt.value} value={rt.value}>{rt.label}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                    {/* Rule value input */}
+                                    {!NO_VALUE_TYPES.has(rule.type) && (
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                {rule.type === 'minLength' || rule.type === 'maxLength' ? 'Length' :
+                                                    rule.type === 'min' || rule.type === 'max' ? 'Value' :
+                                                        rule.type === 'pattern' || rule.type === 'regex' ? 'Pattern' :
+                                                            rule.type === 'custom' ? 'Target Field' : 'Value'}
+                                            </Label>
 
-                                        {/* Rule Value Input */}
-                                        {!['required', 'email', 'url'].includes(rule.type) && (
-                                            <div className="space-y-2">
-                                                <Label className="text-xs font-semibold text-muted-foreground">
-                                                    {rule.type === 'minLength' || rule.type === 'maxLength' ? 'Length' :
-                                                        rule.type === 'min' || rule.type === 'max' ? 'Value' :
-                                                            rule.type === 'pattern' ? 'Pattern' :
-                                                                rule.type === 'custom' ? 'Target Field' : 'Value'}
-                                                </Label>
-
-                                                {rule.type === 'custom' ? (
-                                                    <select
+                                            {rule.type === 'custom' ? (
+                                                <select
+                                                    value={rule.value || ''}
+                                                    onChange={(e) => updateRule(rule.id, { value: e.target.value })}
+                                                    className={selectBaseClass}
+                                                >
+                                                    <option value="">Select a field to match…</option>
+                                                    {otherFields.map(f => (
+                                                        <option key={f.id} value={f.id}>{f.label || f.id}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <>
+                                                    <Input
+                                                        type={rule.type === 'min' || rule.type === 'max' ? 'number' : 'text'}
                                                         value={rule.value || ''}
                                                         onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-                                                        className="w-full h-10 rounded-md border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white"
-                                                    >
-                                                        <option value="">Select a field to match...</option>
-                                                        {otherFields.map(f => (
-                                                            <option key={f.id} value={f.id}>{f.label || f.id}</option>
-                                                        ))}
-                                                    </select>
-                                                ) : (
-                                                    <>
-                                                        <Input
-                                                            type={rule.type === 'min' || rule.type === 'max' ? 'number' : 'text'}
-                                                            value={rule.value || ''}
-                                                            onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-                                                            placeholder={getPlaceholderForRuleType(rule.type)}
-                                                            className={`h-10 text-sm ${(rule.type === 'pattern' || rule.type === 'regex') && isInvalidRegex(rule.value) ? 'border-red-400 focus:border-red-500' : ''}`}
-                                                        />
-                                                        {(rule.type === 'pattern' || rule.type === 'regex') && isInvalidRegex(rule.value) && (
-                                                            <p className="text-xs text-red-600 font-medium">This pattern is invalid — the rule won't run until it's fixed.</p>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Custom Message */}
-                                        <div className="space-y-2 md:col-span-2">
-                                            <Label className="text-xs font-semibold text-muted-foreground">Custom Error Message (Optional)</Label>
-                                            <Input
-                                                value={rule.message || ''}
-                                                onChange={(e) => updateRule(rule.id, { message: e.target.value })}
-                                                placeholder={getDefaultMessageForRuleType(rule.type)}
-                                                className="h-10 text-sm"
-                                            />
+                                                        placeholder={getPlaceholderForRuleType(rule.type)}
+                                                    />
+                                                    {(rule.type === 'pattern' || rule.type === 'regex') && isInvalidRegex(rule.value) && (
+                                                        <p className="text-[11px] font-medium text-destructive">
+                                                            This pattern is invalid — the rule won’t run until it’s fixed.
+                                                        </p>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
+                                    )}
+
+                                    {/* Custom message */}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Custom error message (optional)</Label>
+                                        <Input
+                                            value={rule.message || ''}
+                                            onChange={(e) => updateRule(rule.id, { message: e.target.value })}
+                                            placeholder={getDefaultMessageForRuleType(rule.type)}
+                                        />
                                     </div>
                                 </div>
-                            ))}
+                            </div>
+                        ))
+                    )}
 
-                            <Button variant="outline" onClick={addRule} className="w-full mt-4 border-dashed border-border hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50">
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Another Rule
-                            </Button>
-                        </div>
+                    {rules.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={addRule}
+                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.03] hover:text-primary"
+                        >
+                            <Plus className="h-4 w-4" strokeWidth={1.9} />
+                            Add another rule
+                        </button>
                     )}
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t bg-muted/50 flex justify-end">
-                    <Button onClick={onClose} className="bg-brand-600 hover:bg-brand-700 text-white">
+                <div className="flex shrink-0 items-center justify-between border-t border-border/70 bg-muted/20 px-5 py-3.5">
+                    <span className="text-xs font-medium text-muted-foreground">
+                        {rules.length} rule{rules.length === 1 ? '' : 's'}
+                    </span>
+                    <Button onClick={onClose} className="h-9 rounded-lg px-4">
                         Done
                     </Button>
                 </div>

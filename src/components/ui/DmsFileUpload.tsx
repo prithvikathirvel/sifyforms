@@ -3,6 +3,7 @@ import { Button } from './button';
 import { Label } from './label';
 import { Card } from './card';
 import { Upload, X, File, Image, FileText, Download, CheckCircle2 } from 'lucide-react';
+import { toast } from './toast';
 import type { FormField, FormFileValue } from '../../types';
 import {
   getDownloadUrl,
@@ -77,7 +78,7 @@ export default function DmsFileUpload({
 
     const fileArray = Array.from(files);
     if (currentFiles.length + fileArray.length > maxFiles) {
-      alert(`Maximum ${maxFiles} files allowed`);
+      toast.warning(`Maximum ${maxFiles} files allowed`);
       return;
     }
 
@@ -85,7 +86,7 @@ export default function DmsFileUpload({
     for (const file of fileArray) {
       const err = validateFile(file);
       if (err) {
-        alert(`${file.name}: ${err}`);
+        toast.error(`${file.name}: ${err}`);
       } else {
         validFiles.push(file);
       }
@@ -128,7 +129,7 @@ export default function DmsFileUpload({
         : await getDownloadUrl(ref.documentId);
       await triggerBrowserDownload(url, ref.filename);
     } catch {
-      alert('Failed to get download link.');
+      toast.error('Failed to get download link.');
     }
   };
 

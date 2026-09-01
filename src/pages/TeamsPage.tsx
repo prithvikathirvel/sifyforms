@@ -10,6 +10,7 @@ import {
   clearTeamsError,
 } from '../store/teamsSlice';
 import { fetchMembers } from '../store/membersSlice';
+import { toast } from '../components/ui/toast';
 import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
@@ -91,13 +92,23 @@ export default function TeamsPage() {
       })
     );
     setSubmitting(false);
-    if (createTeam.fulfilled.match(result)) setCreateOpen(false);
+    if (createTeam.fulfilled.match(result)) {
+      setCreateOpen(false);
+      toast.success({ title: 'Team created', description: `${name.trim()} is ready.` });
+    } else {
+      toast.error({ title: 'Could not create team', description: result.payload as string });
+    }
   };
 
-  const onDelete = (team: Team) => {
+  const onDelete = async (team: Team) => {
     if (!orgId) return;
     if (!window.confirm(`Delete the team "${team.name}"? Its forms will move to General.`)) return;
-    dispatch(deleteTeam({ orgId, teamId: team.id }));
+    const result = await dispatch(deleteTeam({ orgId, teamId: team.id }));
+    if (deleteTeam.fulfilled.match(result)) {
+      toast.success({ title: 'Team deleted', description: `${team.name} was removed.` });
+    } else {
+      toast.error({ title: 'Could not delete team', description: result.payload as string });
+    }
     if (selectedId === team.id) setSelectedId(null);
   };
 
@@ -112,6 +123,9 @@ export default function TeamsPage() {
     if (addTeamMember.fulfilled.match(result)) {
       setNewMemberId('');
       setAddMemberOpen(false);
+      toast.success({ title: 'Member added', description: 'They can now see this team’s forms.' });
+    } else {
+      toast.error({ title: 'Could not add member', description: result.payload as string });
     }
   };
 
@@ -263,10 +277,17 @@ export default function TeamsPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 rounded-md"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (!orgId) return;
                                     if (!window.confirm(`Remove ${label} from ${currentTeam.name}?`)) return;
-                                    dispatch(removeTeamMember({ orgId, teamId: currentTeam.id, userId: member.userId }));
+                                    const result = await dispatch(
+                                      removeTeamMember({ orgId, teamId: currentTeam.id, userId: member.userId })
+                                    );
+                                    if (removeTeamMember.fulfilled.match(result)) {
+                                      toast.success({ title: 'Member removed', description: `${label} left the team.` });
+                                    } else {
+                                      toast.error({ title: 'Could not remove member', description: result.payload as string });
+                                    }
                                   }}
                                   aria-label={`Remove ${label}`}
                                 >

@@ -189,10 +189,13 @@ const authSlice = createSlice({
           : null;
         state.needsOrgSetup = action.payload.needsOrgSetup ?? false;
       })
-      .addCase(getSession.rejected, (state) => {
+      .addCase(getSession.rejected, (state, action) => {
         state.isLoading = false;
         state.user = null;
-        // Do not clear token on session fetch failure
+        // Keep the token for transient network failures, but remember the
+        // message so the UI can tell a real "user not found" apart from a
+        // blip and respond accordingly (sign out vs. retry).
+        state.error = (action.payload as string) ?? 'Session fetch failed';
       })
       .addCase(logout.fulfilled, (state) => {
         state.user = null;

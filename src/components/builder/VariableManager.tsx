@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Trash2, Plus, Calculator, X, Code2, Play } from 'lucide-react';
 import type { FormField, FormVariable } from '../../types';
 import { CalculationEngine } from '../../lib/calculationEngine';
+import { toast } from '../ui/toast';
 
 interface VariableManagerProps {
   variables: FormVariable[];
@@ -33,7 +34,7 @@ export default function VariableManager({ variables, fields, onUpdateVariables }
 
   const addVariable = () => {
     if (!newVariable.name.trim()) {
-      alert('Please enter a variable name');
+      toast.error('Please enter a variable name');
       return;
     }
 
@@ -41,11 +42,11 @@ export default function VariableManager({ variables, fields, onUpdateVariables }
 
     if (newVariable.mode === 'function') {
       if (!newVariable.functionBody.trim()) {
-        alert('Please enter a function body');
+        toast.error('Please enter a function body');
         return;
       }
       if (newVariable.functionParameters.some(p => !p.fieldId || !p.paramName.trim())) {
-        alert('All parameters must have a field and a parameter name');
+        toast.error('All parameters must have a field and a parameter name');
         return;
       }
       variable = {
@@ -75,13 +76,13 @@ export default function VariableManager({ variables, fields, onUpdateVariables }
       };
     } else {
       if (!newVariable.calculation.trim()) {
-        alert('Please enter a calculation formula');
+        toast.error('Please enter a calculation formula');
         return;
       }
       const engine = new CalculationEngine(variables, {});
       const validation = engine.validateExpression(newVariable.calculation.trim());
       if (!validation.valid) {
-        alert(`Formula error: ${validation.error || 'invalid syntax'}`);
+        toast.error({ title: 'Formula error', description: validation.error || 'invalid syntax' });
         return;
       }
       const storedCalculation = convertLabelsToIds(newVariable.calculation.trim());

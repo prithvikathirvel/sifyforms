@@ -12,6 +12,7 @@ import {
 } from '../store/membersSlice';
 import { usePermissions, ACTIONS, useRoleOptions, roleLabel } from '../hooks/usePermissions';
 import { fetchRoles } from '../store/rolesSlice';
+import { toast } from '../components/ui/toast';
 import type { OrgInvite, OrgMember } from '../types';
 import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
@@ -110,16 +111,30 @@ export default function MembersPage() {
       setRole('CREATOR');
       setInvitesPage(1);
       setInviteOpen(false);
+      toast.success({ title: 'Invitation sent', description: `We emailed ${email.trim()}.` });
+    } else {
+      toast.error({ title: 'Could not send invitation', description: result.payload as string });
     }
   };
 
-  const onRoleChange = (userId: string, nextRole: string) => {
-    if (orgId) dispatch(updateMemberRole({ orgId, userId, role: nextRole }));
+  const onRoleChange = async (userId: string, nextRole: string) => {
+    if (!orgId) return;
+    const result = await dispatch(updateMemberRole({ orgId, userId, role: nextRole }));
+    if (updateMemberRole.fulfilled.match(result)) {
+      toast.success({ title: 'Role updated', description: `Changed to ${roleLabel(nextRole)}.` });
+    } else {
+      toast.error({ title: 'Could not update role', description: result.payload as string });
+    }
   };
 
-  const onRemove = (userId: string, label: string) => {
+  const onRemove = async (userId: string, label: string) => {
     if (!orgId || !window.confirm(`Remove ${label} from this organization?`)) return;
-    dispatch(removeMember({ orgId, userId }));
+    const result = await dispatch(removeMember({ orgId, userId }));
+    if (removeMember.fulfilled.match(result)) {
+      toast.success({ title: 'Member removed', description: `${label} no longer has access.` });
+    } else {
+      toast.error({ title: 'Could not remove member', description: result.payload as string });
+    }
   };
 
   const memberColumns: DataTableColumn<OrgMember>[] = [
@@ -243,7 +258,21 @@ export default function MembersPage() {
       headerClassName: 'w-20 text-right',
       cellClassName: 'w-20 text-right',
       cell: (invite) => (
-        <Button type="button" variant="ghost" size="sm" onClick={() => orgId && dispatch(revokeInvite({ orgId, inviteId: invite.id }))} className="h-8 rounded-md px-2.5 text-[10px] text-destructive hover:bg-destructive/[0.06] hover:text-destructive">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={async () => {
+            if (!orgId) return;
+            const result = await dispatch(revokeInvite({ orgId, inviteId: invite.id }));
+            if (revokeInvite.fulfilled.match(result)) {
+              toast.success({ title: 'Invitation revoked', description: `${invite.email} can no longer join.` });
+            } else {
+              toast.error({ title: 'Could not revoke invitation', description: result.payload as string });
+            }
+          }}
+          className="h-8 rounded-md px-2.5 text-[10px] text-destructive hover:bg-destructive/[0.06] hover:text-destructive"
+        >
           Revoke
         </Button>
       ),

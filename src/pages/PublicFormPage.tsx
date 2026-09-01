@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight, ExternalLink, CreditCard, BarChart2, XCircle, Lock, ShieldCheck } from 'lucide-react';
 import { PoweredBySify } from '../components/ui/SifyWordmark';
+import { toast } from '../components/ui/toast';
 import api from '../lib/api';
 import { getFieldValidation } from '../lib/fieldValidation';
 import { evaluateShowWhen, evaluateLinkingConditions } from '../lib/ruleEngine';
@@ -223,7 +224,7 @@ function FieldsByWidth({
         const url = await getPublicDownloadUrl(doc.documentId, formId);
         await triggerBrowserDownload(url, doc.fileName || doc.label || 'document');
       } catch {
-        alert('Failed to fetch document. Please try again.');
+        toast.error('Failed to fetch document. Please try again.');
       }
     };
 

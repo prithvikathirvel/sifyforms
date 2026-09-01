@@ -68,10 +68,10 @@ export default function LoginPage() {
           </div>
           <div className="w-full space-y-2">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Welcome back</p>
-            <CardTitle className="font-display text-2xl font-bold leading-tight tracking-[-0.03em] text-foreground">
+            <CardTitle className="font-display text-xl font-bold leading-tight tracking-[-0.03em] text-foreground">
               Sign in to your account
             </CardTitle>
-            <p className="text-[13px] font-medium leading-5 text-muted-foreground">
+            <p className="text-xs font-medium leading-5 text-muted-foreground">
               Enter your details to continue to SifyForms.
             </p>
           </div>

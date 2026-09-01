@@ -3,6 +3,7 @@ import { Button } from './button';
 import { Label } from './label';
 import { Card } from './card';
 import { Upload, X, File, Image, FileText, Download, Eye } from 'lucide-react';
+import { toast } from './toast';
 import type { FormField } from '../../types';
 
 interface FileUploadProps {
@@ -120,7 +121,7 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
     });
 
     if (errors.length > 0) {
-      alert(errors.join('\n'));
+      toast.error({ title: 'Some files could not be added', description: errors.join('\n') });
       return;
     }
 

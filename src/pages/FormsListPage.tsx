@@ -4,7 +4,6 @@ import { fetchForms } from '../store/formsSlice';
 import { getSession } from '../store/authSlice';
 import { usePermissions, ACTIONS } from '../hooks/usePermissions';
 import { fetchTeams } from '../store/teamsSlice';
-import type { Team } from '../types';
 import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
 import CreateFormModal from '../components/forms/CreateFormModal';

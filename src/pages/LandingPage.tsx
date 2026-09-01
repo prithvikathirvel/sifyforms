@@ -118,7 +118,7 @@ export default function LandingPage() {
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <Link
               to="/auth/login"
-              className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden h-9 rounded-lg px-3 text-[13px] font-semibold sm:inline-flex')}
+              className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden h-9 rounded-lg px-3 text-xs font-semibold sm:inline-flex')}
             >
               Sign In
             </Link>

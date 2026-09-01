@@ -1,10 +1,9 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../ui/card';
-import { Trash2, Plus, X, Eye, FolderPlus } from 'lucide-react';
-import type { FormField, ShowCondition, ShowWhenRule } from '../../types';
+import { cn } from '../../lib/utils';
+import { Trash2, Plus, X, Eye, GitBranch, CornerDownRight } from 'lucide-react';
+import type { FormField, ShowCondition, ShowConditionOperator, ShowWhenRule } from '../../types';
 import { isShowWhenGroup } from '../../types';
 
 interface ConditionalVisibilityModalProps {
@@ -138,9 +137,9 @@ export function ConditionalVisibilityModal({
                 <select
                     value={String(cond.value || '')}
                     onChange={(e) => updateCondition(path, index, { value: e.target.value })}
-                    className="flex-1 min-w-0 h-8 rounded border px-2 text-xs"
+                    className="h-8 w-full min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-xs font-medium"
                 >
-                    <option value="">Select value...</option>
+                    <option value="">Select value…</option>
                     {sourceField.options!.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
@@ -154,7 +153,7 @@ export function ConditionalVisibilityModal({
                     type="date"
                     value={String(cond.value || '')}
                     onChange={(e) => updateCondition(path, index, { value: e.target.value })}
-                    className="flex-1 min-w-0 h-8 text-xs px-2"
+                    className="h-8 min-w-0 flex-1 px-2 text-xs"
                 />
             );
         }
@@ -163,24 +162,24 @@ export function ConditionalVisibilityModal({
             <Input
                 value={String(cond.value || '')}
                 onChange={(e) => updateCondition(path, index, { value: e.target.value })}
-                placeholder="Value..."
-                className="flex-1 min-w-0 h-8 text-xs"
+                placeholder="Value…"
+                className="h-8 min-w-0 flex-1 text-xs"
             />
         );
     };
 
     const renderConditionRow = (cond: ShowCondition, path: number[], index: number, displayNumber: number) => (
-        <div key={cond.id || index} className="flex items-center gap-3 p-3 bg-white border border-border rounded-xl shadow-sm hover:border-brand-200 transition-colors">
-            <div className="h-6 w-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-bold shrink-0">
+        <div key={cond.id || index} className="flex items-center gap-2 rounded-lg border border-border/80 bg-card px-2.5 py-2 shadow-sm">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/[0.09] text-[11px] font-bold text-primary">
                 {displayNumber}
-            </div>
+            </span>
 
             <select
                 value={cond.fieldId}
                 onChange={(e) => updateCondition(path, index, { fieldId: e.target.value })}
-                className="flex-1 min-w-0 h-9 rounded-lg border-border px-3 text-xs bg-muted/50 hover:bg-muted focus:bg-white transition-colors"
+                className="h-8 w-full min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-xs font-medium"
             >
-                <option value="">Select field...</option>
+                <option value="">Select field…</option>
                 {otherFields.map(f => (
                     <option key={f.id} value={f.id}>{f.label} ({f.type})</option>
                 ))}
@@ -188,25 +187,24 @@ export function ConditionalVisibilityModal({
 
             <select
                 value={cond.operator}
-                onChange={(e) => updateCondition(path, index, { operator: e.target.value as any })}
-                className="w-32 shrink-0 h-9 rounded-lg border-border px-2 text-xs font-medium bg-muted/50 hover:bg-muted focus:bg-white transition-colors"
+                onChange={(e) => updateCondition(path, index, { operator: e.target.value as ShowConditionOperator })}
+                className="h-8 w-32 shrink-0 rounded-md border border-input bg-background px-2 text-xs font-medium"
             >
                 {operators.map(op => (
                     <option key={op.value} value={op.value}>{op.label}</option>
                 ))}
             </select>
 
-            <div className="flex-1 min-w-0">
-                {renderConditionValueInput(cond, path, index)}
-            </div>
+            {renderConditionValueInput(cond, path, index)}
 
             <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => removeChild(path, index)}
-                className="shrink-0 h-9 w-9 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-1"
+                className="h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-destructive/[0.06] hover:text-destructive"
+                aria-label="Remove condition"
             >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
             </Button>
         </div>
     );
@@ -219,39 +217,67 @@ export function ConditionalVisibilityModal({
             <div
                 className={
                     isRoot
-                        ? 'space-y-4'
-                        : 'space-y-3 border-l-4 border-brand-200 bg-brand-50/40 rounded-lg p-3 ml-2'
+                        ? 'space-y-3'
+                        : 'space-y-3 rounded-lg border border-border/80 bg-muted/20 p-3'
                 }
             >
+                {/* Group logic control */}
                 <div className="flex items-center justify-between gap-3">
-                    <div className={`flex items-center gap-3 ${isRoot ? 'bg-muted p-3 rounded-lg border border-border flex-1' : ''}`}>
-                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                            {isRoot ? 'Combine conditions using:' : 'Group logic:'}
-                        </Label>
-                        <select
-                            value={group.logic || 'and'}
-                            onChange={(e) => setGroupLogic(path, e.target.value as 'and' | 'or')}
-                            className="h-8 rounded-md border-border bg-white px-3 text-xs font-bold text-foreground shadow-sm focus:border-brand-300 focus:ring-1 focus:ring-brand-200"
-                        >
-                            <option value="and">ALL match (AND)</option>
-                            <option value="or">ANY match (OR)</option>
-                        </select>
-                    </div>
+                    {isRoot ? (
+                        <div className="inline-flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
+                            {(['and', 'or'] as const).map((logic) => (
+                                <button
+                                    key={logic}
+                                    type="button"
+                                    onClick={() => setGroupLogic(path, logic)}
+                                    className={cn(
+                                        'rounded-md px-3 py-1 text-xs font-semibold transition-colors',
+                                        group.logic === logic
+                                            ? 'bg-card text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    )}
+                                >
+                                    {logic === 'and' ? 'ALL' : 'ANY'}
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+                            <CornerDownRight className="h-3.5 w-3.5" />
+                            Group: match {group.logic === 'and' ? 'ALL' : 'ANY'}
+                        </span>
+                    )}
+
+                    {isRoot && (
+                        <span className="text-[11px] font-medium text-muted-foreground">
+                            Show when {group.logic === 'and' ? 'all' : 'any'} conditions match
+                        </span>
+                    )}
+
                     {!isRoot && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeChild(path.slice(0, -1), path[path.length - 1])}
-                            className="shrink-0 h-8 px-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg text-xs"
-                            title="Remove this group"
-                        >
-                            <Trash2 className="h-3.5 w-3.5 mr-1" />
-                            Remove group
-                        </Button>
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setGroupLogic(path, group.logic === 'and' ? 'or' : 'and')}
+                                className="rounded-md border border-border bg-card px-2 py-1 text-[11px] font-semibold text-foreground hover:bg-muted"
+                            >
+                                {group.logic === 'and' ? 'ALL' : 'ANY'}
+                            </button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeChild(path.slice(0, -1), path[path.length - 1])}
+                                className="h-7 w-7 rounded-md text-muted-foreground hover:bg-destructive/[0.06] hover:text-destructive"
+                                title="Remove this group"
+                                aria-label="Remove group"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                        </div>
                     )}
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                     {group.conditions.map((node, index) => {
                         if (isShowWhenGroup(node)) {
                             return (
@@ -270,21 +296,21 @@ export function ConditionalVisibilityModal({
                         variant="outline"
                         size="sm"
                         onClick={() => addCondition(path)}
-                        className="bg-white text-brand-700 border-brand-200 hover:bg-brand-50 h-8 text-xs"
+                        className="h-8 rounded-lg text-xs"
                     >
-                        <Plus className="h-3.5 w-3.5 mr-1" />
-                        Add Condition
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        Add condition
                     </Button>
                     {depth < MAX_GROUP_DEPTH && (
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => addGroup(path)}
-                            className="bg-white text-muted-foreground border-border hover:bg-muted h-8 text-xs"
-                            title="Add a nested group of conditions with its own AND/OR logic"
+                            className="h-8 rounded-lg text-xs"
+                            title="Add a nested group of conditions with its own ALL/ANY logic"
                         >
-                            <FolderPlus className="h-3.5 w-3.5 mr-1" />
-                            Add Group
+                            <GitBranch className="mr-1 h-3.5 w-3.5" />
+                            Add group
                         </Button>
                     )}
                 </div>
@@ -293,50 +319,62 @@ export function ConditionalVisibilityModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
-                <CardHeader className="flex flex-row items-center justify-between border-b py-4">
-                    <div className="space-y-1">
-                        <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                            <Eye className="h-5 w-5 text-brand-600" />
-                            Conditional Visibility
-                        </CardTitle>
-                        <p className="text-xs text-muted-foreground">Define when this field should be visible to users. Use groups for nested AND/OR logic, e.g. A AND (B OR C).</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+                {/* Header */}
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+                    <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
+                            <Eye className="h-4 w-4" strokeWidth={1.9} />
+                        </span>
+                        <div>
+                            <h2 className="font-display text-base font-bold text-foreground">Conditional visibility</h2>
+                            <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">
+                                Choose when “{field.label}” is shown. Use groups for nested logic like A AND (B OR C).
+                            </p>
+                        </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
-                        <X className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                        <X className="h-4 w-4" />
                     </Button>
-                </CardHeader>
+                </div>
 
-                <CardContent className="flex-1 p-6 space-y-6 overflow-y-auto">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-sm font-semibold">Visibility Conditions</Label>
-                    </div>
-
+                {/* Content */}
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
                     {!localShowWhen || localShowWhen.conditions.length === 0 ? (
-                        <div className="text-center py-12 border-2 border-dashed border-border rounded-xl bg-muted">
-                            <Eye className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
-                            <p className="text-sm font-medium text-muted-foreground mb-1">This field is always visible</p>
-                            <p className="text-xs text-muted-foreground mb-4">Add a condition to hide this field under specific circumstances.</p>
-                            <Button onClick={() => addCondition([])} size="sm" className="bg-brand-600 hover:bg-brand-700 text-white shadow-md">
-                                <Plus className="h-4 w-4 mr-1.5" />
-                                Add First Condition
+                        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 px-6 py-14 text-center">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-ink-400">
+                                <Eye className="h-5 w-5" strokeWidth={1.7} />
+                            </span>
+                            <p className="mt-4 text-sm font-semibold text-foreground">This field is always visible</p>
+                            <p className="mt-1 max-w-xs text-xs font-medium leading-5 text-muted-foreground">
+                                Add a condition to show this field only when specific criteria are met.
+                            </p>
+                            <Button onClick={() => addCondition([])} className="mt-5 h-9 rounded-lg px-3.5">
+                                <Plus className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                                Add first condition
                             </Button>
                         </div>
                     ) : (
                         renderGroup(localShowWhen, [], 1)
                     )}
-                </CardContent>
+                </div>
 
-                <CardFooter className="flex justify-between border-t py-4 bg-muted">
-                    <Button variant="outline" onClick={onClose} className="rounded-lg font-medium">
-                        Cancel
-                    </Button>
-                    <Button onClick={handleSave} className="bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium shadow-md shadow-brand-200">
-                        Apply Visibility Settings
-                    </Button>
-                </CardFooter>
-            </Card>
+                {/* Footer */}
+                <div className="flex shrink-0 items-center justify-between border-t border-border/70 bg-muted/20 px-5 py-3.5">
+                    <span className="text-xs font-medium text-muted-foreground">
+                        The field is hidden until its conditions are met.
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" onClick={onClose} className="h-9 rounded-lg px-3.5">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSave} className="h-9 rounded-lg px-4">
+                            Apply visibility
+                        </Button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

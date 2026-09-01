@@ -2,6 +2,7 @@ import { Card } from './card';
 import { Button } from './button';
 import { Label } from './label';
 import { Download, Eye, EyeOff, File, Image, FileText } from 'lucide-react';
+import { toast } from './toast';
 import type { FormField } from '../../types';
 import { getDownloadUrl, triggerBrowserDownload } from '../../lib/dms';
 
@@ -459,7 +460,7 @@ export default function SubmissionViewer({ fields, data, redactedFields }: Submi
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Download failed: ${errorMessage}. Please check the console for details.`);
+      toast.error({ title: 'Download failed', description: errorMessage });
     }
   };
 
@@ -483,7 +484,7 @@ export default function SubmissionViewer({ fields, data, redactedFields }: Submi
         const url = await getDownloadUrl(fileData.documentId);
         await triggerBrowserDownload(url, fileData.filename || 'download');
       } catch {
-        alert('Failed to get download link.');
+        toast.error('Failed to get download link.');
       }
     };
 

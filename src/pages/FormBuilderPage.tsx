@@ -31,6 +31,7 @@ import FieldInspector from '../components/builder/FieldInspector';
 import SettingsPanel from '../components/builder/SettingsPanel';
 import { ArrowLeft, Save, Loader2, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Plus, Settings } from 'lucide-react';
 import type { FormField } from '../types';
+import { toast } from '../components/ui/toast';
 import { cn } from '../lib/utils';
 import FormPreview from '../components/builder/FormPreview';
 
@@ -445,18 +446,18 @@ export default function FormBuilderPage() {
     // Check backend connectivity first
     const isBackendAccessible = await checkBackendConnectivity();
     if (!isBackendAccessible) {
-      alert('Backend server is not accessible. Please check if the server is running and try again.');
+      toast.error('Backend server is not accessible. Please check if the server is running and try again.');
       return;
     }
 
     // Validate before saving
     if (!builder.formName || builder.formName.trim() === '') {
-      alert('Form name is required. Please add a form name before saving.');
+      toast.error('Form name is required. Please add a form name before saving.');
       return;
     }
 
     if (!builder.schema || !builder.schema.fields || builder.schema.fields.length === 0) {
-      alert('Form must have at least one field before saving.');
+      toast.error('Form must have at least one field before saving.');
       return;
     }
 
@@ -493,7 +494,7 @@ export default function FormBuilderPage() {
       });
 
       if (invalidFields.length > 0) {
-        alert('Form schema validation failed. Please check field configurations.');
+        toast.error('Form schema validation failed. Please check field configurations.');
         return;
       }
 
@@ -511,6 +512,7 @@ export default function FormBuilderPage() {
       await dispatch(updateForm({ id: formId, data: formData.data })).unwrap();
       // Form saved successfully
       dispatch(markSaved());
+      toast.success({ title: 'Form saved', description: 'Your changes are saved.' });
     } catch (error: any) {
       // Handle structured errors from Redux Toolkit
       let errorMessage = 'Failed to save form';
@@ -527,13 +529,13 @@ export default function FormBuilderPage() {
           // Check for network/CORS issues
           if (!error.response) {
             if (error.message && (error.message.includes('Network Error') || error.message.includes('ERR_NETWORK'))) {
-              alert('Network Error: Unable to connect to the server. Please check if the backend server is running.');
+              toast.error('Network Error: Unable to connect to the server. Please check if the backend server is running.');
               return;
             } else if (error.message && error.message.includes('CORS')) {
-              alert('CORS Error: Server configuration issue. Please check backend CORS settings.');
+              toast.error('CORS Error: Server configuration issue. Please check backend CORS settings.');
               return;
             } else if (error.code === 'ECONNREFUSED' || error.code === 'ERR_CONNECTION_REFUSED') {
-              alert('Connection Refused: Backend server is not running or not accessible.');
+              toast.error('Connection Refused: Backend server is not running or not accessible.');
               return;
             }
           }
@@ -544,9 +546,9 @@ export default function FormBuilderPage() {
       }
 
       if (validationErrors) {
-        alert(`Validation failed:\n${JSON.stringify(validationErrors, null, 2)}`);
+        toast.error({ title: 'Validation failed', description: JSON.stringify(validationErrors, null, 2) });
       } else {
-        alert(`Save failed: ${errorMessage}`);
+        toast.error(`Save failed: ${errorMessage}`);
       }
     } finally {
       setIsSaving(false);
@@ -559,18 +561,18 @@ export default function FormBuilderPage() {
     // Check backend connectivity first
     const isBackendAccessible = await checkBackendConnectivity();
     if (!isBackendAccessible) {
-      alert('Backend server is not accessible. Please check if the server is running and try again.');
+      toast.error('Backend server is not accessible. Please check if the server is running and try again.');
       return;
     }
 
     // Validate before publishing
     if (!builder.formName || builder.formName.trim() === '') {
-      alert('Form name is required. Please add a form name before publishing.');
+      toast.error('Form name is required. Please add a form name before publishing.');
       return;
     }
 
     if (!builder.schema || !builder.schema.fields || builder.schema.fields.length === 0) {
-      alert('Form must have at least one field before publishing.');
+      toast.error('Form must have at least one field before publishing.');
       return;
     }
 
@@ -609,7 +611,7 @@ export default function FormBuilderPage() {
 
       if (invalidFields.length > 0) {
         const names = invalidFields.map((f: any) => f.label || f.id || '<unknown>').join(', ');
-        alert(`Form schema validation failed for field(s): ${names}. Please check field configurations.`);
+        toast.error(`Form schema validation failed for field(s): ${names}. Please check field configurations.`);
         return;
       }
 
@@ -629,6 +631,7 @@ export default function FormBuilderPage() {
       // Then publish
       const result = await dispatch(publishForm(formId)).unwrap();
       dispatch(markSaved());
+      toast.success({ title: 'Form published', description: 'It is now live and accepting responses.' });
 
       // Fix undefined org slug issue
       const orgSlug = currentOrg?.slug || 'default-org';
@@ -651,13 +654,13 @@ export default function FormBuilderPage() {
           // Check for network/CORS issues
           if (!error.response) {
             if (error.message && (error.message.includes('Network Error') || error.message.includes('ERR_NETWORK'))) {
-              alert('Network Error: Unable to connect to the server. Please check if the backend server is running.');
+              toast.error('Network Error: Unable to connect to the server. Please check if the backend server is running.');
               return;
             } else if (error.message && error.message.includes('CORS')) {
-              alert('CORS Error: Server configuration issue. Please check backend CORS settings.');
+              toast.error('CORS Error: Server configuration issue. Please check backend CORS settings.');
               return;
             } else if (error.code === 'ECONNREFUSED' || error.code === 'ERR_CONNECTION_REFUSED') {
-              alert('Connection Refused: Backend server is not running or not accessible.');
+              toast.error('Connection Refused: Backend server is not running or not accessible.');
               return;
             }
           }
@@ -668,9 +671,9 @@ export default function FormBuilderPage() {
       }
 
       if (validationErrors) {
-        alert(`Validation failed:\n${JSON.stringify(validationErrors, null, 2)}`);
+        toast.error({ title: 'Validation failed', description: JSON.stringify(validationErrors, null, 2) });
       } else {
-        alert(`Publish failed: ${errorMessage}`);
+        toast.error(`Publish failed: ${errorMessage}`);
       }
     } finally {
       setIsPublishing(false);
@@ -683,11 +686,11 @@ export default function FormBuilderPage() {
     setIsProcessingAction(true);
     try {
       const result = await dispatch(duplicateForm({ formId, name: confirmedName })).unwrap();
-      alert('Form duplicated successfully!');
+      toast.success('Form duplicated successfully!');
       setShowNamingDialog(null);
       navigate(`/forms/${result.id}/edit`);
     } catch (error: any) {
-      alert(`Failed to duplicate form: ${error}`);
+      toast.error(`Failed to duplicate form: ${error}`);
     } finally {
       setIsProcessingAction(false);
     }
@@ -699,10 +702,10 @@ export default function FormBuilderPage() {
     setIsProcessingAction(true);
     try {
       await dispatch(saveFormAsTemplate({ formId, name: confirmedName })).unwrap();
-      alert('Template created successfully!');
+      toast.success('Template created successfully!');
       setShowNamingDialog(null);
     } catch (error: any) {
-      alert(`Failed to create template: ${error}`);
+      toast.error(`Failed to create template: ${error}`);
     } finally {
       setIsProcessingAction(false);
     }
