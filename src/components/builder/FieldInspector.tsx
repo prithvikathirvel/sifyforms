@@ -20,7 +20,7 @@ import { CustomAlertModal } from './CustomAlertModal';
 import { SupportDocumentsModal } from './SupportDocumentsModal';
 import { TableConfigModal } from './TableConfigModal';
 import { Accordion, AccordionItem } from '../ui/accordion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { Dialog, DialogContent, DialogFooter } from '../ui/dialog';
 
 /** Human-readable summary of a Smart Connection condition tree, e.g. `A equals 1 AND (B equals 2 OR C equals 3)` */
 function describeLinkingConditions(
@@ -1555,56 +1555,71 @@ export default function FieldInspector({
 
       {/* AI Prompt Dialog */}
       <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Build with AI</DialogTitle>
-            <DialogDescription>Describe the changes you want (e.g. "add a DOB field").</DialogDescription>
-          </DialogHeader>
-          {/* spacing above textarea */}
-          <div className="mt-6">
+        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl sm:max-w-lg">
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
+                <Wand2 className="h-4 w-4" strokeWidth={1.9} />
+              </span>
+              <div>
+                <h2 className="font-display text-base font-bold text-foreground">Build with AI</h2>
+                <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">
+                  Describe the changes you want (e.g. "add a DOB field").
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setShowAIModal(false)} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5">
             <Textarea
               value={aiPrompt}
               onChange={(e) => setAIPrompt(e.target.value)}
-              className="w-full h-32"
+              className="h-32 w-full"
               placeholder="Type your instructions..."
               disabled={isAISubmitting}
             />
+
+            {/* loading gimmick similar to AI creation */}
+            {isAISubmitting && (
+              <div className="flex flex-col items-center justify-center space-y-4 py-8">
+                <div className="relative">
+                  <div className="h-12 w-12 animate-pulse rounded-full bg-primary"></div>
+                  <div className="absolute inset-0 h-12 w-12 animate-ping rounded-full bg-primary opacity-20"></div>
+                  <Wand2 className="absolute inset-0 flex h-12 w-12 items-center justify-center text-white" />
+                </div>
+                <p className="text-center font-medium text-brand-600">
+                  AI is updating your form...
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* loading gimmick similar to AI creation */}
-          {isAISubmitting && (
-            <div className="flex flex-col items-center justify-center py-8 space-y-4">
-              <div className="relative">
-                <div className="w-12 h-12 bg-primary rounded-full animate-pulse"></div>
-                <div className="absolute inset-0 w-12 h-12 bg-primary rounded-full animate-ping opacity-20"></div>
-                <Wand2 className="absolute inset-0 w-12 h-12 text-white flex items-center justify-center" />
-              </div>
-              <p className="text-center text-brand-600 font-medium">
-                AI is updating your form...
-              </p>
+          <DialogFooter className="flex shrink-0 items-center justify-between gap-3 border-t border-border/70 bg-muted/20 px-5 py-3.5">
+            <span className="text-xs font-medium text-muted-foreground">AI edits are applied to the current form.</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowAIModal(false)} className="h-9 rounded-lg px-3">Cancel</Button>
+              <Button
+                size="sm"
+                className="h-9 rounded-lg px-3"
+                onClick={handleAISubmit}
+                disabled={isAISubmitting || aiPrompt.trim() === ''}
+              >
+                {isAISubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Applying AI edits...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Submit
+                  </>
+                )}
+              </Button>
             </div>
-          )}
-
-          {/* increased space above footer */}
-          <DialogFooter className="space-x-2 justify-center mt-8">
-            <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={handleAISubmit}
-              disabled={isAISubmitting || aiPrompt.trim() === ''}
-            >
-              {isAISubmitting ? (
-                <>
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                  Applying AI edits...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="h-4 w-4 mr-2" />
-                  Submit
-                </>
-              )}
-            </Button>
-            <Button variant="ghost" onClick={() => setShowAIModal(false)}>Cancel</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

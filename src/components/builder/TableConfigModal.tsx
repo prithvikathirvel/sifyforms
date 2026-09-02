@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { Dialog, DialogContent, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -771,18 +771,25 @@ export function TableConfigModal({ field, isOpen, onClose, onUpdate, allFields =
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Table className="h-5 w-5 text-primary" />
-            Table Configuration
-          </DialogTitle>
-          <DialogDescription>
-            Configure columns with full field capabilities — validation, smart connections, conditional visibility, and more.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
+              <Table className="h-4 w-4" strokeWidth={1.9} />
+            </span>
+            <div>
+              <h2 className="font-display text-base font-bold text-foreground">Table configuration</h2>
+              <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">
+                Configure columns with validation, smart connections, and conditional visibility.
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
-        <div className="flex flex-1 min-h-0 gap-4">
+        <div className="flex min-h-0 flex-1 gap-4 p-5">
           {/* Left: Column list */}
           <div className="w-56 shrink-0 flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -954,9 +961,12 @@ export function TableConfigModal({ field, isOpen, onClose, onUpdate, allFields =
           </div>
         </div>
 
-        <DialogFooter className="pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Save Configuration</Button>
+        <DialogFooter className="flex shrink-0 items-center justify-between gap-3 border-t border-border/70 bg-muted/20 px-5 py-3.5">
+          <span className="text-xs font-medium text-muted-foreground">Changes apply to this table only.</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onClose} className="h-9 rounded-lg px-3">Cancel</Button>
+            <Button size="sm" onClick={handleSave} className="h-9 rounded-lg px-3">Save configuration</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

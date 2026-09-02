@@ -9,17 +9,17 @@ interface LogoProps {
 }
 
 const MARK_SIZE: Record<Size, string> = {
-  sm: 'h-6',
-  md: 'h-7',
-  lg: 'h-8',
-  xl: 'h-10',
+  sm: 'h-5',
+  md: 'h-6',
+  lg: 'h-7',
+  xl: 'h-8',
 };
 
 const WORDMARK_SIZE: Record<Size, string> = {
-  sm: 'text-[15px]',
-  md: 'text-[17px]',
-  lg: 'text-[22px]',
-  xl: 'text-[26px]',
+  sm: 'text-[13px]',
+  md: 'text-[15px]',
+  lg: 'text-[18px]',
+  xl: 'text-[21px]',
 };
 
 /**

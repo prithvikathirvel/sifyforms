@@ -151,8 +151,8 @@ export default function DashboardPage() {
           title="Dashboard"
           description={`${currentOrg?.name || 'Your workspace'} · Forms, responses, and team activity`}
           actions={canCreateForm ? (
-            <Button size="sm" onClick={() => setShowCreateModal(true)} className="h-8 rounded-md px-2.5 text-xs">
-              <File className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.8} />
+            <Button size="sm" onClick={() => setShowCreateModal(true)} className="h-9 rounded-lg px-3.5">
+              <File className="mr-2 h-4 w-4" strokeWidth={1.9} />
               <span className="hidden sm:inline">Create form</span>
               <span className="sm:hidden">Create</span>
             </Button>
@@ -364,8 +364,9 @@ export default function DashboardPage() {
                 <ViewToggle value={recentView} onValueChange={setRecentView} />
                 {canCreateForm && (
                   <Button
+                    size="sm"
                     onClick={() => setShowCreateModal(true)}
-                    className="h-9 rounded-lg px-3 sm:px-4"
+                    className="h-9 rounded-lg px-3.5"
                   >
                     <FileText className="mr-2 h-4 w-4" />
                     <span className="hidden sm:inline">Create form</span>

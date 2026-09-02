@@ -43,8 +43,8 @@ const LOGIC_OPTIONS = [
     { value: 'or', label: 'ANY condition matches (OR)' },
 ];
 
-const selectBaseClass = 'h-10 text-[13px] font-medium hover:border-ink-300';
-const compactSelectClass = 'h-9 text-[13px] font-medium hover:border-ink-300';
+const selectBaseClass = 'h-10 text-[13px]';
+const compactSelectClass = 'h-9 text-[13px]';
 
 export function CustomAlertModal({
     field,
