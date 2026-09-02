@@ -36,6 +36,16 @@ function validateField(field: FormField, value: unknown): string | null {
 
   if (field.required && isEmpty) return 'This field is required';
   if (isEmpty) return null;
+  if (field.type === 'likert' && field.required) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return 'Choose a score for every statement';
+    const answer = value as Record<string, unknown>;
+    if (!(field.surveyConfig?.rows ?? []).every((row) => answer[row.id] !== null && answer[row.id] !== undefined)) {
+      return 'Choose a score for every statement';
+    }
+  }
+  if (field.type === 'ranking' && field.surveyConfig?.ranking?.requireAll && (!Array.isArray(value) || value.length !== (field.options ?? []).length)) {
+    return 'Rank every option before continuing';
+  }
 
   const str = Array.isArray(value) ? value.join(', ') : String(value);
 

@@ -1783,6 +1783,20 @@ export default function PublicFormPage() {
   const validationOpts = (field: FormField, formValues: Record<string, any>) => {
     const baseOpts = getFieldValidation(field);
 
+    if (field.type === 'likert') {
+      baseOpts.validate.surveyMatrixComplete = (value: unknown) => {
+        if (!field.required && (value === undefined || value === null || value === '')) return true;
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return 'Choose a score for every statement';
+        const answer = value as Record<string, unknown>;
+        return (field.surveyConfig?.rows ?? []).every((row) => answer[row.id] !== null && answer[row.id] !== undefined)
+          || 'Choose a score for every statement';
+      };
+    }
+    if (field.type === 'ranking' && field.surveyConfig?.ranking?.requireAll) {
+      baseOpts.validate.surveyRankingComplete = (value: unknown) =>
+        (Array.isArray(value) && value.length === (field.options ?? []).length) || 'Rank every option before continuing';
+    }
+
     // Add dynamic required from restriction rules
     const linking = field.fieldLinking;
     if (linking?.enabled && (linking.mode === 'restriction' || (linking.mode === 'advanced' && linking.restrictionRules)) && linking.restrictionRules) {

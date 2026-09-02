@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { FormField } from '../../types';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { normalizeSurveyAnswer, stableSurveyShuffle, surveyScale } from '../../lib/survey';
@@ -11,6 +12,15 @@ interface Props {
 
 export default function SurveyFieldControl({ field, value, onChange, disabled = false }: Props) {
   const config = field.surveyConfig;
+  // Keep an optimistic local matrix value. This makes selection feedback
+  // immediate even when a parent form library batches or serializes object values.
+  const [localLikertValue, setLocalLikertValue] = useState<Record<string, number | null>>({});
+  useEffect(() => {
+    if (field.type !== 'likert') return;
+    setLocalLikertValue(value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, number | null>
+      : {});
+  }, [field.type, value]);
   const scale = surveyScale(field);
   const values = Array.from({ length: scale.max - scale.min + 1 }, (_, index) => scale.min + index);
 
@@ -35,7 +45,16 @@ export default function SurveyFieldControl({ field, value, onChange, disabled = 
   }
 
   if (field.type === 'likert') {
-    const answer = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, number | null> : {};
+    const externalAnswer = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, number | null> : {};
+    const answer = { ...externalAnswer, ...localLikertValue };
+    const selectScore = (rowId: string, score: number) => {
+      const normalized = normalizeSurveyAnswer(field, { ...answer, [rowId]: score });
+      const next = normalized && typeof normalized === 'object' && !Array.isArray(normalized)
+        ? normalized as Record<string, number | null>
+        : { ...answer, [rowId]: score };
+      setLocalLikertValue(next);
+      onChange(next);
+    };
     return (
       <div className="overflow-x-auto rounded-md border border-border" role="group" aria-label={field.label}>
         <table className="w-full min-w-[34rem] border-collapse text-sm">
@@ -47,9 +66,14 @@ export default function SurveyFieldControl({ field, value, onChange, disabled = 
                 type="button"
                 role="radio"
                 aria-checked={selected}
+                aria-pressed={selected}
                 aria-label={`${row.label}: ${score}`}
                 disabled={disabled}
-                onClick={() => onChange(normalizeSurveyAnswer(field, { ...answer, [row.id]: score }))}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  selectScore(row.id, score);
+                }}
                 className={`mx-auto flex h-11 w-11 items-center justify-center rounded-md border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${selected ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background text-foreground hover:border-primary/60 hover:bg-primary/[0.04]'}`}
               >
                 {score}
