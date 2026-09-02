@@ -628,8 +628,25 @@ export interface SurveySettings {
   saveIncomplete?: true;
 }
 
+export interface PostSubmitSettings {
+  template?: 'minimal' | 'celebration' | 'professional' | 'nextSteps';
+  headline?: string;
+  message?: string;
+  icon?: 'check' | 'sparkles' | 'heart' | 'thumbsUp';
+  accentColor?: string;
+  backgroundColor?: string;
+  showSubmissionId?: boolean;
+  showTimestamp?: boolean;
+  primaryAction?: { enabled: boolean; label?: string; url?: string };
+  secondaryAction?: { enabled: boolean; label?: string; url?: string };
+  loadingTitle?: string;
+  loadingMessage?: string;
+  loadingStyle?: 'bar' | 'spinner' | 'pulse';
+}
+
 export interface FormSettings {
   thankYouMessage?: string;
+  postSubmit?: PostSubmitSettings;
   redirectUrl?: string | null;
   collectTimestamp?: boolean;
   reCaptcha?: boolean;

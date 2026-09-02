@@ -308,7 +308,22 @@ export const FormSchemaDefinition = z.object({
 });
 
 export const FormSettingsSchema = z.object({
-  thankYouMessage: z.string().optional(),
+  thankYouMessage: z.string().max(4000).optional(),
+  postSubmit: z.object({
+    template: z.enum(['minimal', 'celebration', 'professional', 'nextSteps']).optional(),
+    headline: z.string().max(160).optional(),
+    message: z.string().max(4000).optional(),
+    icon: z.enum(['check', 'sparkles', 'heart', 'thumbsUp']).optional(),
+    accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    showSubmissionId: z.boolean().optional(),
+    showTimestamp: z.boolean().optional(),
+    primaryAction: z.object({ enabled: z.boolean(), label: z.string().max(80).optional(), url: z.string().max(2048).optional() }).optional(),
+    secondaryAction: z.object({ enabled: z.boolean(), label: z.string().max(80).optional(), url: z.string().max(2048).optional() }).optional(),
+    loadingTitle: z.string().max(160).optional(),
+    loadingMessage: z.string().max(500).optional(),
+    loadingStyle: z.enum(['bar', 'spinner', 'pulse']).optional(),
+  }).optional(),
   redirectUrl: z.string().url().optional().nullable(),
   collectTimestamp: z.boolean().default(true),
   reCaptcha: z.boolean().default(false),

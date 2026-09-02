@@ -417,6 +417,29 @@
     },
     "partialSubmission": {
       "enabled": false
+    },
+    "postSubmit": {
+      "template": "celebration",
+      "headline": "Thank you for helping us improve",
+      "message": "Your feedback has been recorded. We use these responses to prioritize the next product improvements.",
+      "icon": "sparkles",
+      "accentColor": "#7c3aed",
+      "backgroundColor": "#f5f3ff",
+      "showSubmissionId": false,
+      "showTimestamp": true,
+      "primaryAction": {
+        "enabled": false,
+        "label": "Visit our website",
+        "url": "https://example.com"
+      },
+      "secondaryAction": {
+        "enabled": false,
+        "label": "View resources",
+        "url": "https://example.com/resources"
+      },
+      "loadingTitle": "Preparing your confirmation…",
+      "loadingMessage": "Your response has been received. This will only take a moment.",
+      "loadingStyle": "bar"
     }
   }
 }

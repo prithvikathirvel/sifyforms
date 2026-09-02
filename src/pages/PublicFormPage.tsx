@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight, ExternalLink, CreditCard, BarChart2, XCircle, Lock, ShieldCheck } from 'lucide-react';
 import { PoweredBySify } from '../components/ui/SifyWordmark';
 import { FormBranding } from '../components/ui/FormBranding';
+import PostSubmitExperience from '../components/forms/PostSubmitExperience';
 import { toast } from '../components/ui/toast';
 import api from '../lib/api';
 import { getFieldValidation } from '../lib/fieldValidation';
@@ -2550,15 +2551,13 @@ export default function PublicFormPage() {
     if (formType === 'assessment' && form?.settings?.assessment?.showScoreAfterSubmit) {
       if (!assessmentResult) {
         return (
-          <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-            <Card className="shadow-none w-full max-w-md">
-              <CardContent className="pt-6 text-center space-y-4">
-                <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin" />
-                <h2 className="text-xl font-semibold">Evaluating your answers…</h2>
-                <p className="text-muted-foreground text-sm">This takes just a moment.</p>
-              </CardContent>
-            </Card>
-          </div>
+          <PostSubmitExperience
+            settings={form.settings.postSubmit}
+            phase="loading"
+            defaultTitle="Evaluating your answers…"
+            defaultMessage="This takes just a moment. Your response has already been received."
+            submissionId={submissionId}
+          />
         );
       }
 
@@ -2566,17 +2565,22 @@ export default function PublicFormPage() {
       const showAnswers = form?.settings?.assessment?.showCorrectAnswers;
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-          <Card className="shadow-none w-full max-w-lg">
-            <CardHeader className="text-center border-b pb-4">
-              <div className={`text-5xl font-bold mb-1 ${passColor}`}>{assessmentResult.percentage}%</div>
-              <div className={`text-lg font-semibold ${passColor}`}>{assessmentResult.passed ? '✓ Passed' : '✗ Failed'}</div>
-              <p className="text-sm text-muted-foreground mt-1">
+        <PostSubmitExperience
+          settings={form.settings.postSubmit}
+          phase="result"
+          defaultTitle={assessmentResult.passed ? 'Assessment completed — passed' : 'Assessment completed'}
+          defaultMessage={thankYouMessage || 'Your assessment has been evaluated.'}
+          submissionId={submissionId}
+        >
+          <div className="space-y-5">
+            <div className="text-center">
+              <div className={`mb-1 text-5xl font-bold ${passColor}`}>{assessmentResult.percentage}%</div>
+              <div className={`text-lg font-semibold ${passColor}`}>{assessmentResult.passed ? '✓ Passed' : '✗ Not passed'}</div>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Score: {assessmentResult.totalScore} / {assessmentResult.maxScore}
                 {assessmentResult.rank && ` · Rank #${assessmentResult.rank} of ${assessmentResult.totalParticipants}`}
               </p>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
+            </div>
               {/* Section breakdown */}
               {Object.keys(assessmentResult.sections).filter(k => k !== '__default__').length > 0 && (
                 <div className="space-y-2">
@@ -2604,72 +2608,48 @@ export default function PublicFormPage() {
                 </div>
               )}
 
-              <p className="text-center text-sm text-muted-foreground pt-2 border-t">{thankYouMessage || 'Thank you for completing the assessment!'}</p>
-            </CardContent>
-          </Card>
-        </div>
+          </div>
+        </PostSubmitExperience>
       );
     }
 
     // Voting poll results
     if (formType === 'voting' && form?.settings?.voting?.showResultsAfterVoting) {
+      if (!pollResults) {
+        return <PostSubmitExperience settings={form.settings.postSubmit} phase="loading" defaultTitle="Loading live results…" defaultMessage="Your vote has been recorded. Results will appear in a moment." submissionId={submissionId} />;
+      }
       return (
-        <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-          <Card className="shadow-none w-full max-w-lg">
-            <CardHeader className="text-center border-b pb-4">
-              <CheckCircle className="h-10 w-10 mx-auto text-green-500 mb-2" />
-              <h2 className="text-xl font-semibold">Vote Recorded!</h2>
-              <p className="text-sm text-muted-foreground">{thankYouMessage || 'Thank you for voting.'}</p>
-            </CardHeader>
-            <CardContent className="pt-4">
-              {!pollResults ? (
-                <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm">Loading results…</span>
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <BarChart2 className="h-4 w-4" />
-                    <span>Live results · {pollResults.totalSubmissions} vote{pollResults.totalSubmissions !== 1 ? 's' : ''}</span>
+        <PostSubmitExperience settings={form.settings.postSubmit} phase="result" defaultTitle="Vote recorded" defaultMessage={thankYouMessage || 'Thank you for voting.'} submissionId={submissionId}>
+          <div className="space-y-5">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <BarChart2 className="h-4 w-4" />
+              <span>Live results · {pollResults.totalSubmissions} vote{pollResults.totalSubmissions !== 1 ? 's' : ''}</span>
+            </div>
+            {pollResults.tallies.map(tally => (
+              <div key={tally.fieldId} className="space-y-2">
+                <p className="text-sm font-medium">{tally.label}</p>
+                {tally.options.map(opt => (
+                  <div key={opt.value} className="space-y-1">
+                    <div className="flex justify-between text-xs"><span>{opt.label}</span><span className="font-medium">{opt.percentage}% ({opt.count})</span></div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${opt.percentage}%` }} /></div>
                   </div>
-                  {pollResults.tallies.map(tally => (
-                    <div key={tally.fieldId} className="space-y-2">
-                      <p className="text-sm font-medium">{tally.label}</p>
-                      {tally.options.map(opt => (
-                        <div key={opt.value} className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span>{opt.label}</span>
-                            <span className="font-medium">{opt.percentage}% ({opt.count})</span>
-                          </div>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${opt.percentage}%` }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </PostSubmitExperience>
       );
     }
 
     // Default thank-you screen
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-        <Card className="shadow-none w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">Thank You!</h2>
-            <p className="text-muted-foreground">
-              {thankYouMessage || 'Your submission has been received.'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <PostSubmitExperience
+        settings={form.settings.postSubmit}
+        phase="success"
+        defaultTitle="Thank you"
+        defaultMessage={thankYouMessage || 'Your submission has been received.'}
+        submissionId={submissionId}
+      />
     );
   }
 

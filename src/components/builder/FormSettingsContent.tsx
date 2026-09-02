@@ -11,7 +11,14 @@ import FormAccessPanel from '../forms/FormAccessPanel';
 import { useState } from 'react';
 
 const POS_BASE = 'https://apidev.sifymodernization.digital/payment-service';
-import type { PaymentConfig, FormAuthentication, PartialSubmissionConfig, FormBrandingSection, BrandingPosition } from '../../types';
+
+const POST_SUBMIT_PRESETS = {
+  minimal: { accentColor: '#475569', backgroundColor: '#f8fafc', icon: 'check' as const },
+  celebration: { accentColor: '#7c3aed', backgroundColor: '#f5f3ff', icon: 'sparkles' as const },
+  professional: { accentColor: '#0f766e', backgroundColor: '#f0fdfa', icon: 'check' as const },
+  nextSteps: { accentColor: '#2563eb', backgroundColor: '#eff6ff', icon: 'thumbsUp' as const },
+};
+import type { PaymentConfig, FormAuthentication, PartialSubmissionConfig, FormBrandingSection, BrandingPosition, PostSubmitSettings } from '../../types';
 import { uploadFileAuthenticated, getDownloadUrl } from '../../lib/dms';
 
 interface FormSettingsContentProps {
@@ -328,6 +335,8 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
   const origin = window.location.origin;
   const paymentRedirectUrl = formId ? `${origin}/payment/${formId}/status` : '';
   const paymentCancelUrl = formId ? `${origin}/payment/${formId}/status?cancelled=true` : '';
+  const postSubmit: PostSubmitSettings = builder.settings.postSubmit ?? { template: 'minimal', icon: 'check', loadingStyle: 'bar' };
+  const updatePostSubmit = (updates: Partial<PostSubmitSettings>) => dispatch(updateSettings({ postSubmit: { ...postSubmit, ...updates } }));
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex w-full flex-col md:flex-row">
@@ -377,25 +386,54 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
             
             <div className="min-w-0 flex-1 p-5 sm:p-7 lg:p-8">
               <TabsContent value="general" className="mt-0 space-y-6">
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium">Thank You Message</Label>
-                  <Textarea
-                    value={builder.settings.thankYouMessage || ''}
-                    onChange={(e) => dispatch(updateSettings({ thankYouMessage: e.target.value }))}
-                    placeholder="Thank you for your submission!"
-                    className="resize-none"
-                  />
-                  <p className="text-xs text-muted-foreground">Displayed to users immediately after successful submission.</p>
-                </div>
+                <section className="space-y-3">
+                  <div><Label className="text-sm font-semibold">After-submit template</Label><p className="mt-1 text-xs text-muted-foreground">Used by thank-you, processing, assessment result, and poll result screens.</p></div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {([
+                      ['minimal', 'Minimal', 'Quiet confirmation with a neutral layout.'],
+                      ['celebration', 'Celebration', 'Colorful recognition for milestones and feedback.'],
+                      ['professional', 'Professional', 'Trust-focused confirmation for business workflows.'],
+                      ['nextSteps', 'Next steps', 'Action-led layout with links and response details.'],
+                    ] as const).map(([value, title, description]) => (
+                      <button key={value} type="button" onClick={() => updatePostSubmit({ template: value, ...POST_SUBMIT_PRESETS[value] })} className={`rounded-xl border p-3 text-left transition-colors ${postSubmit.template === value ? 'border-primary bg-primary/[0.05]' : 'border-border hover:border-primary/30'}`}>
+                        <span className="block text-sm font-semibold">{title}</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">{description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="rounded-xl border border-border p-3" style={{ backgroundColor: postSubmit.backgroundColor || '#f8fafc' }}>
+                    <div className={`mx-auto max-w-sm rounded-xl border border-black/10 bg-white p-5 ${postSubmit.template === 'nextSteps' ? 'text-left' : 'text-center'}`}>
+                      <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-full text-lg ${postSubmit.template === 'nextSteps' ? '' : 'mx-auto'}`} style={{ color: postSubmit.accentColor || '#475569', backgroundColor: `${postSubmit.accentColor || '#475569'}16` }}>✓</div>
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Response received</p>
+                      <p className="mt-1 text-base font-semibold">{postSubmit.headline || 'Thank you'}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{postSubmit.message || builder.settings.thankYouMessage || 'Your submission has been received.'}</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="grid gap-4 rounded-xl border border-border p-4 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2"><Label>Headline</Label><Input value={postSubmit.headline || ''} onChange={(e) => updatePostSubmit({ headline: e.target.value })} placeholder="Thank you — response received" maxLength={160} /></div>
+                  <div className="space-y-2 sm:col-span-2"><Label>Message</Label><Textarea value={postSubmit.message ?? builder.settings.thankYouMessage ?? ''} onChange={(e) => { updatePostSubmit({ message: e.target.value }); dispatch(updateSettings({ thankYouMessage: e.target.value })); }} placeholder="Explain what happens next." className="min-h-24 resize-y" maxLength={4000} /></div>
+                  <div className="space-y-2"><Label>Icon</Label><select value={postSubmit.icon || 'check'} onChange={(e) => updatePostSubmit({ icon: e.target.value as PostSubmitSettings['icon'] })} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="check">Check</option><option value="sparkles">Sparkles</option><option value="heart">Heart</option><option value="thumbsUp">Thumbs up</option></select></div>
+                  <div className="space-y-2"><Label>Accent color</Label><div className="flex gap-2"><Input type="color" value={postSubmit.accentColor || '#475569'} onChange={(e) => updatePostSubmit({ accentColor: e.target.value })} className="h-10 w-14 p-1" /><Input value={postSubmit.accentColor || '#475569'} onChange={(e) => { if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) updatePostSubmit({ accentColor: e.target.value }); }} maxLength={7} aria-label="Accent hex color" /></div></div>
+                  <div className="space-y-2"><Label>Page background</Label><div className="flex gap-2"><Input type="color" value={postSubmit.backgroundColor || '#f8fafc'} onChange={(e) => updatePostSubmit({ backgroundColor: e.target.value })} className="h-10 w-14 p-1" /><Input value={postSubmit.backgroundColor || '#f8fafc'} onChange={(e) => { if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) updatePostSubmit({ backgroundColor: e.target.value }); }} maxLength={7} aria-label="Background hex color" /></div></div>
+                  <div className="space-y-2"><Label>Loading activity</Label><select value={postSubmit.loadingStyle || 'bar'} onChange={(e) => updatePostSubmit({ loadingStyle: e.target.value as PostSubmitSettings['loadingStyle'] })} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="bar">Activity bar</option><option value="spinner">Spinner</option><option value="pulse">Pulse</option></select></div>
+                  <div className="space-y-2 sm:col-span-2"><Label>Loading title</Label><Input value={postSubmit.loadingTitle || ''} onChange={(e) => updatePostSubmit({ loadingTitle: e.target.value })} placeholder="Processing your response…" /></div>
+                  <div className="space-y-2 sm:col-span-2"><Label>Loading description</Label><Input value={postSubmit.loadingMessage || ''} onChange={(e) => updatePostSubmit({ loadingMessage: e.target.value })} placeholder="Your response is safe. This will only take a moment." /></div>
+                </section>
+
+                <section className="space-y-4 rounded-xl border border-border p-4">
+                  <Label className="text-sm font-semibold">Response details and actions</Label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="flex items-center gap-2 text-sm"><UICheckbox checked={postSubmit.showSubmissionId || false} onCheckedChange={(checked: boolean) => updatePostSubmit({ showSubmissionId: checked })} />Show response reference</label>
+                    <label className="flex items-center gap-2 text-sm"><UICheckbox checked={postSubmit.showTimestamp || false} onCheckedChange={(checked: boolean) => updatePostSubmit({ showTimestamp: checked })} />Show received time</label>
+                  </div>
+                  {(['primaryAction', 'secondaryAction'] as const).map((key, index) => { const action = postSubmit[key] ?? { enabled: false }; return <div key={key} className="grid gap-2 border-t border-border/70 pt-3 sm:grid-cols-[auto_1fr_1.4fr]"><label className="flex items-center gap-2 text-sm"><UICheckbox checked={action.enabled} onCheckedChange={(checked: boolean) => updatePostSubmit({ [key]: { ...action, enabled: checked } })} />{index === 0 ? 'Primary' : 'Secondary'} action</label><Input value={action.label || ''} onChange={(e) => updatePostSubmit({ [key]: { ...action, label: e.target.value } })} placeholder={index === 0 ? 'Continue' : 'Back to website'} /><Input value={action.url || ''} onChange={(e) => updatePostSubmit({ [key]: { ...action, url: e.target.value } })} placeholder="https://example.com/next" /></div>; })}
+                </section>
 
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Redirect URL (Optional)</Label>
-                  <Input
-                    value={builder.settings.redirectUrl || ''}
-                    onChange={(e) => dispatch(updateSettings({ redirectUrl: e.target.value || null }))}
-                    placeholder="https://example.com/thank-you"
-                  />
-                  <p className="text-xs text-muted-foreground">Redirect users to this URL instead of showing the thank you message.</p>
+                  <Input value={builder.settings.redirectUrl || ''} onChange={(e) => dispatch(updateSettings({ redirectUrl: e.target.value || null }))} placeholder="https://example.com/thank-you" />
+                  <p className="text-xs text-muted-foreground">A redirect replaces the customized after-submit experience entirely.</p>
                 </div>
               </TabsContent>
 
