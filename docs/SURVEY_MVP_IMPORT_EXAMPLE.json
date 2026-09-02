@@ -1,0 +1,422 @@
+{
+  "fields": [
+    {
+      "id": "relationship",
+      "type": "radio",
+      "label": "Which best describes your relationship with us?",
+      "required": true,
+      "options": [
+        {
+          "label": "Current customer",
+          "value": "customer"
+        },
+        {
+          "label": "Trial user",
+          "value": "trial"
+        },
+        {
+          "label": "Former customer",
+          "value": "former"
+        },
+        {
+          "label": "Just exploring",
+          "value": "exploring"
+        }
+      ]
+    },
+    {
+      "id": "experience_text",
+      "type": "textarea",
+      "label": "In a few words, what stood out about your experience?",
+      "placeholder": "For example: support was helpful, setup was slow, or pricing was clear",
+      "helpText": "Your answer can reveal a relevant follow-up immediately.",
+      "required": false
+    },
+    {
+      "id": "support_followup",
+      "type": "radio",
+      "label": "You mentioned support. Was your issue resolved?",
+      "required": true,
+      "options": [
+        {
+          "label": "Yes, completely",
+          "value": "complete"
+        },
+        {
+          "label": "Partly",
+          "value": "partly"
+        },
+        {
+          "label": "No",
+          "value": "no"
+        }
+      ],
+      "showWhen": {
+        "id": "show_support_followup",
+        "logic": "and",
+        "conditions": [
+          {
+            "id": "support_keyword",
+            "fieldId": "experience_text",
+            "operator": "contains",
+            "value": "support"
+          }
+        ]
+      }
+    },
+    {
+      "id": "slow_followup",
+      "type": "textarea",
+      "label": "You mentioned that something was slow. Where did the delay happen?",
+      "placeholder": "Tell us which page, task, or process felt slow",
+      "required": false,
+      "showWhen": {
+        "id": "show_slow_followup",
+        "logic": "and",
+        "conditions": [
+          {
+            "id": "slow_keyword",
+            "fieldId": "experience_text",
+            "operator": "contains",
+            "value": "slow"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nps",
+      "type": "nps",
+      "label": "How likely are you to recommend us to a colleague or friend?",
+      "required": true,
+      "surveyConfig": {
+        "kind": "nps",
+        "analysisLabel": "Recommendation likelihood",
+        "metricKey": "nps",
+        "scale": {
+          "min": 0,
+          "max": 10,
+          "minLabel": "Not at all likely",
+          "maxLabel": "Extremely likely"
+        }
+      }
+    },
+    {
+      "id": "detractor_reason",
+      "type": "textarea",
+      "label": "What is the most important thing we should improve?",
+      "placeholder": "Your answer helps us prioritize the right improvement",
+      "required": false,
+      "showWhen": {
+        "id": "show_detractor_reason",
+        "logic": "and",
+        "conditions": [
+          {
+            "id": "nps_detractor",
+            "fieldId": "nps",
+            "operator": "lte",
+            "value": 6
+          }
+        ]
+      }
+    },
+    {
+      "id": "promoter_reason",
+      "type": "textarea",
+      "label": "What would you tell others is the best part of the experience?",
+      "required": false,
+      "showWhen": {
+        "id": "show_promoter_reason",
+        "logic": "and",
+        "conditions": [
+          {
+            "id": "nps_promoter",
+            "fieldId": "nps",
+            "operator": "gte",
+            "value": 9
+          }
+        ]
+      }
+    },
+    {
+      "id": "csat",
+      "type": "csat",
+      "label": "Overall, how satisfied are you with your experience?",
+      "required": true,
+      "surveyConfig": {
+        "kind": "csat",
+        "analysisLabel": "Overall satisfaction",
+        "metricKey": "csat",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "minLabel": "Very dissatisfied",
+          "maxLabel": "Very satisfied"
+        }
+      }
+    },
+    {
+      "id": "task_completed",
+      "type": "radio",
+      "label": "Were you able to complete what you came to do?",
+      "required": true,
+      "options": [
+        {
+          "label": "Yes",
+          "value": "yes"
+        },
+        {
+          "label": "Partly",
+          "value": "partly"
+        },
+        {
+          "label": "No",
+          "value": "no"
+        }
+      ]
+    },
+    {
+      "id": "ces",
+      "type": "ces",
+      "label": "The product made it easy to complete my goal.",
+      "required": true,
+      "surveyConfig": {
+        "kind": "ces",
+        "analysisLabel": "Customer effort",
+        "metricKey": "ces",
+        "scale": {
+          "min": 1,
+          "max": 7,
+          "minLabel": "Strongly disagree",
+          "midpointLabel": "Neither agree nor disagree",
+          "maxLabel": "Strongly agree"
+        }
+      },
+      "showWhen": {
+        "id": "show_ces",
+        "logic": "or",
+        "conditions": [
+          {
+            "id": "task_yes",
+            "fieldId": "task_completed",
+            "operator": "equals",
+            "value": "yes"
+          },
+          {
+            "id": "task_partly",
+            "fieldId": "task_completed",
+            "operator": "equals",
+            "value": "partly"
+          }
+        ]
+      }
+    },
+    {
+      "id": "blocker",
+      "type": "textarea",
+      "label": "What prevented you from completing your goal?",
+      "required": true,
+      "placeholder": "Describe the blocker",
+      "showWhen": {
+        "id": "show_blocker",
+        "logic": "and",
+        "conditions": [
+          {
+            "id": "task_no",
+            "fieldId": "task_completed",
+            "operator": "equals",
+            "value": "no"
+          }
+        ]
+      }
+    },
+    {
+      "id": "likert_product",
+      "type": "likert",
+      "label": "How much do you agree with each statement?",
+      "helpText": "Choose one score for every statement.",
+      "required": true,
+      "surveyConfig": {
+        "kind": "likert",
+        "analysisLabel": "Product experience matrix",
+        "metricKey": "product_experience",
+        "scale": {
+          "min": 1,
+          "max": 5,
+          "minLabel": "Strongly disagree",
+          "midpointLabel": "Neither agree nor disagree",
+          "maxLabel": "Strongly agree"
+        },
+        "rows": [
+          {
+            "id": "easy_to_learn",
+            "label": "The product was easy to learn"
+          },
+          {
+            "id": "reliable",
+            "label": "The product worked reliably"
+          },
+          {
+            "id": "clear",
+            "label": "The information was clear"
+          },
+          {
+            "id": "valuable",
+            "label": "The product delivered value"
+          }
+        ]
+      }
+    },
+    {
+      "id": "priority_ranking",
+      "type": "ranking",
+      "label": "Rank the improvements that matter most to you",
+      "helpText": "Use the arrow buttons to place the most important item first.",
+      "required": true,
+      "options": [
+        {
+          "label": "Faster performance",
+          "value": "performance"
+        },
+        {
+          "label": "Simpler navigation",
+          "value": "navigation"
+        },
+        {
+          "label": "More integrations",
+          "value": "integrations"
+        },
+        {
+          "label": "Better reporting",
+          "value": "reporting"
+        }
+      ],
+      "surveyConfig": {
+        "kind": "ranking",
+        "analysisLabel": "Improvement priorities",
+        "metricKey": "improvement_ranking",
+        "randomize": {
+          "enabled": true,
+          "pinOptionIds": []
+        },
+        "ranking": {
+          "maxRanked": 4,
+          "requireAll": true
+        }
+      }
+    },
+    {
+      "id": "experience_rating",
+      "type": "rating",
+      "label": "How would you rate the visual experience?",
+      "required": false,
+      "helpText": "Optional: choose one to five stars."
+    },
+    {
+      "id": "useful_features",
+      "type": "checkbox",
+      "label": "Which areas were useful?",
+      "required": false,
+      "options": [
+        {
+          "label": "Form builder",
+          "value": "builder"
+        },
+        {
+          "label": "Conditional logic",
+          "value": "logic"
+        },
+        {
+          "label": "Reports",
+          "value": "reports"
+        },
+        {
+          "label": "Exports",
+          "value": "exports"
+        }
+      ]
+    },
+    {
+      "id": "final_comment",
+      "type": "textarea",
+      "label": "Is there anything else you would like us to know?",
+      "required": false
+    }
+  ],
+  "variables": [],
+  "layout": {
+    "mode": "multiStep",
+    "orientation": "vertical",
+    "stepperStyle": "progress",
+    "allowBackNavigation": true,
+    "steps": [
+      {
+        "id": "context",
+        "title": "Your context",
+        "description": "Tell us briefly about your experience. Follow-up questions appear while you answer.",
+        "order": 0,
+        "fieldIds": [
+          "relationship",
+          "experience_text",
+          "support_followup",
+          "slow_followup"
+        ]
+      },
+      {
+        "id": "loyalty",
+        "title": "Recommendation and satisfaction",
+        "description": "These standard measures help track changes over time.",
+        "order": 1,
+        "fieldIds": [
+          "nps",
+          "detractor_reason",
+          "promoter_reason",
+          "csat"
+        ]
+      },
+      {
+        "id": "effort",
+        "title": "Effort and product experience",
+        "description": "Tell us how easy the experience was and rate each statement.",
+        "order": 2,
+        "fieldIds": [
+          "task_completed",
+          "ces",
+          "blocker",
+          "likert_product"
+        ]
+      },
+      {
+        "id": "priorities",
+        "title": "Priorities and final feedback",
+        "description": "Rank future improvements and add any final comments.",
+        "order": 3,
+        "fieldIds": [
+          "priority_ranking",
+          "experience_rating",
+          "useful_features",
+          "final_comment"
+        ]
+      }
+    ]
+  },
+  "settings": {
+    "formType": "survey",
+    "thankYouMessage": "Thank you. Your feedback has been recorded and will help guide the next improvements.",
+    "collectTimestamp": true,
+    "theme": "minimal",
+    "survey": {
+      "identityMode": "anonymous",
+      "showQuestionNumbers": true,
+      "showProgress": true,
+      "randomizeQuestions": false,
+      "allowBackNavigation": true,
+      "saveIncomplete": true
+    },
+    "authentication": {
+      "enabled": false
+    },
+    "partialSubmission": {
+      "enabled": false
+    }
+  }
+}

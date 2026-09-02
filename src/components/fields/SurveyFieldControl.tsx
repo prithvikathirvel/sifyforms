@@ -40,7 +40,22 @@ export default function SurveyFieldControl({ field, value, onChange, disabled = 
       <div className="overflow-x-auto rounded-md border border-border" role="group" aria-label={field.label}>
         <table className="w-full min-w-[34rem] border-collapse text-sm">
           <thead><tr className="bg-muted/50"><th className="p-3 text-left font-medium">Statement</th>{values.map((score) => <th key={score} className="p-2 text-center font-medium">{score}</th>)}</tr></thead>
-          <tbody>{(config?.rows ?? []).map((row) => <tr key={row.id} className="border-t"><th scope="row" className="p-3 text-left font-normal">{row.label}</th>{values.map((score) => <td key={score} className="p-2 text-center"><input type="radio" name={`${field.id}-${row.id}`} aria-label={`${row.label}: ${score}`} checked={answer[row.id] === score} disabled={disabled} onChange={() => onChange(normalizeSurveyAnswer(field, { ...answer, [row.id]: score }))} className="h-5 w-5 accent-primary" /></td>)}</tr>)}</tbody>
+          <tbody>{(config?.rows ?? []).map((row) => <tr key={row.id} className="border-t"><th scope="row" className="p-3 text-left font-normal">{row.label}</th>{values.map((score) => {
+            const selected = Number(answer[row.id]) === score;
+            return <td key={score} className="p-1.5 text-center">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={`${row.label}: ${score}`}
+                disabled={disabled}
+                onClick={() => onChange(normalizeSurveyAnswer(field, { ...answer, [row.id]: score }))}
+                className={`mx-auto flex h-11 w-11 items-center justify-center rounded-md border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${selected ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background text-foreground hover:border-primary/60 hover:bg-primary/[0.04]'}`}
+              >
+                {score}
+              </button>
+            </td>;
+          })}</tr>)}</tbody>
         </table>
         <div className="flex justify-between bg-muted/30 px-3 py-2 text-xs text-muted-foreground"><span>{config?.scale?.minLabel}</span><span>{config?.scale?.maxLabel}</span></div>
       </div>

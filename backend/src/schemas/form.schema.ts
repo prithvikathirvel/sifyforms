@@ -290,12 +290,15 @@ export const FormStepSchema = z.object({
   description: z.string().optional(),
   fieldIds: z.array(z.string()),
   order: z.number(),
+  lockOnComplete: z.boolean().optional(),
 });
 
 export const FormLayoutSchema = z.object({
   mode: z.enum(['singlePage', 'multiStep']),
   steps: z.array(FormStepSchema).optional(),
   allowBackNavigation: z.boolean().optional(),
+  orientation: z.enum(['vertical', 'horizontal']).optional(),
+  stepperStyle: z.enum(['progress', 'circles', 'minimal']).optional(),
 });
 
 export const FormSchemaDefinition = z.object({
