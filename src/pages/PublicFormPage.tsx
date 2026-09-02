@@ -1783,6 +1783,9 @@ export default function PublicFormPage() {
   const validationOpts = (field: FormField, formValues: Record<string, any>) => {
     const baseOpts = getFieldValidation(field);
 
+    // getFieldValidation removes an empty validate map. Survey controls add
+    // their shape validation here, so recreate it before assigning callbacks.
+    baseOpts.validate ||= {};
     if (field.type === 'likert') {
       baseOpts.validate.surveyMatrixComplete = (value: unknown) => {
         if (!field.required && (value === undefined || value === null || value === '')) return true;
