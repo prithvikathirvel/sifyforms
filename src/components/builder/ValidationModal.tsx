@@ -108,7 +108,7 @@ export function ValidationModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+            <div className="flex h-[min(46rem,90dvh)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
                 {/* Header */}
                 <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
                     <div className="flex items-start gap-3">

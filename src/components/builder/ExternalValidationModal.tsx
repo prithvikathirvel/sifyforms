@@ -96,7 +96,7 @@ export function ExternalValidationModal({ isOpen, onClose, field, onUpdate }: Ex
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex h-[80vh] max-h-[90vh] flex-col overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl sm:max-w-[700px]">
+      <DialogContent className="flex h-[min(46rem,90dvh)] flex-col overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl sm:max-w-4xl">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">

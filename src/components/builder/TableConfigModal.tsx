@@ -771,7 +771,7 @@ export function TableConfigModal({ field, isOpen, onClose, onUpdate, allFields =
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl">
+      <DialogContent className="flex h-[min(46rem,90dvh)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
           <div className="flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">

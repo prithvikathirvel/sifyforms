@@ -18,8 +18,35 @@ interface FormSettingsContentProps {
   formId?: string;
 }
 
-/** Max logo upload size — stored inline in form settings as a data URI */
-const MAX_LOGO_SIZE = 500 * 1024;
+/**
+ * Keep inline branding below the API's 50 MB JSON limit. Large raster images
+ * are downscaled client-side; DMS uploads retain the original file.
+ */
+const MAX_INLINE_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_IMAGE_EDGE = 2400;
+
+async function imageAsDataUrl(file: File): Promise<string> {
+  if (file.size <= MAX_INLINE_IMAGE_BYTES || file.type === 'image/svg+xml' || file.type === 'image/gif') {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('The image could not be read.'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('This browser cannot process the image.');
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  // WebP preserves transparency and dramatically reduces oversized uploads.
+  return canvas.toDataURL('image/webp', 0.9);
+}
 
 const BRANDING_POSITIONS: { value: BrandingPosition; label: string }[] = [
   { value: 'left', label: 'Left' },
@@ -66,20 +93,19 @@ function BrandingSectionEditor({
     }
   };
 
-  const handleLogoFile = (file: File | undefined) => {
+  const handleLogoFile = async (file: File | undefined) => {
     setUploadError(null);
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       setUploadError('Please choose an image file.');
       return;
     }
-    if (file.size > MAX_LOGO_SIZE) {
-      setUploadError('Image must be smaller than 500 KB. Use an image URL or DMS upload for larger files.');
-      return;
+    try {
+      const dataUrl = await imageAsDataUrl(file);
+      update({ logoUrl: dataUrl, logoDocumentId: undefined });
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'The image could not be processed.');
     }
-    const reader = new FileReader();
-    reader.onload = () => update({ logoUrl: reader.result as string, logoDocumentId: undefined });
-    reader.readAsDataURL(file);
   };
 
   const handleDmsLogoUpload = async (file: File | undefined) => {
@@ -127,7 +153,7 @@ function BrandingSectionEditor({
         <>
           {showLogo && (
             <div className="space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground">Logo (Optional)</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Image (Optional)</Label>
               {value?.logoUrl ? (
                 <div className="flex items-center gap-3">
                   <img
@@ -173,7 +199,7 @@ function BrandingSectionEditor({
                           e.target.value = '';
                         }}
                       />
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Inline (max 500 KB)</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Large images are optimized automatically; transparency is preserved.</p>
                     </div>
                   </div>
                   {dmsEnabled && (
@@ -225,9 +251,10 @@ function BrandingSectionEditor({
           </div>
 
           {showLogo && (
+            <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs font-medium text-muted-foreground">Logo Position</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Image Position</Label>
                 <select
                   className="w-full h-9 text-sm rounded-md border border-input bg-background px-2 outline-none focus:ring-1 focus:ring-ring"
                   value={value?.logoPosition || 'center'}
@@ -250,6 +277,41 @@ function BrandingSectionEditor({
                   ))}
                 </select>
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Width (px)</Label>
+                <Input type="number" min={24} max={1200} value={value?.imageWidth ?? (label.includes('Header') ? 180 : 120)} onChange={(e) => update({ imageWidth: Number(e.target.value) })} className="h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Height (px)</Label>
+                <Input type="number" min={24} max={400} value={value?.imageHeight ?? (label.includes('Header') ? 64 : 48)} onChange={(e) => update({ imageHeight: Number(e.target.value) })} className="h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Fit</Label>
+                <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs" value={value?.imageFit || 'contain'} onChange={(e) => update({ imageFit: e.target.value as FormBrandingSection['imageFit'] })}>
+                  <option value="contain">Contain</option><option value="cover">Cover / crop</option><option value="fill">Stretch</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Padding (px)</Label>
+                <Input type="number" min={0} max={48} value={value?.imagePadding ?? 0} onChange={(e) => update({ imagePadding: Number(e.target.value) })} className="h-9" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-[7rem_7rem_1fr]">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Background</Label>
+                <Input type="color" value={value?.imageBackground && /^#[0-9a-f]{6}$/i.test(value.imageBackground) ? value.imageBackground : '#ffffff'} onChange={(e) => update({ imageBackground: e.target.value })} className="h-9 p-1" title="Leave unchanged for a transparent background" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Corner (px)</Label>
+                <Input type="number" min={0} max={999} value={value?.imageRadius ?? 0} onChange={(e) => update({ imageRadius: Number(e.target.value) })} className="h-9" />
+              </div>
+              <div className="col-span-2 space-y-1 sm:col-span-1">
+                <Label className="text-[11px] text-muted-foreground">Accessible description</Label>
+                <Input value={value?.imageAlt || ''} onChange={(e) => update({ imageAlt: e.target.value || undefined })} placeholder="e.g. Acme company logo" className="h-9" />
+              </div>
+            </div>
             </div>
           )}
         </>
@@ -617,7 +679,7 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                 <div className="space-y-4 pt-4 border-t">
                   <div>
                     <Label className="text-sm font-medium">Header & Footer</Label>
-                    <p className="text-xs text-muted-foreground">Show branding above and below the public form. Header supports a logo and text with custom placement; footer is text only.</p>
+                    <p className="text-xs text-muted-foreground">Add an image and/or text above and below the form, with responsive sizing and placement controls.</p>
                   </div>
                   <BrandingSectionEditor
                     label="Form Header"
@@ -631,9 +693,13 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                   />
                   <BrandingSectionEditor
                     label="Form Footer"
-                    description="Text shown below the form."
+                    description="Image and/or text shown below the form."
                     value={builder.settings.footer}
                     onChange={(footer) => dispatch(updateSettings({ footer }))}
+                    showLogo
+                    dmsEnabled={builder.settings.dms?.enabled || false}
+                    orgId={currentOrg?.id}
+                    formId={formId}
                   />
                 </div>
 

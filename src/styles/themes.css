@@ -140,44 +140,71 @@
   --input: 210 20% 20%;
 }
 
-/* Base style overrides when a theme is active */
+/* Premium public-form surface system. Theme colors remain accents; controls stay
+   calm, legible surfaces instead of inheriting saturated border colors. */
 [data-theme] {
+  --form-surface: 0 0% 100%;
+  --form-copy: 222 47% 11%;
+  --form-muted: 215 16% 42%;
+  --form-control: 0 0% 100%;
+  --form-control-border: 214 24% 84%;
   background-color: hsl(var(--background)) !important;
   color: hsl(var(--foreground)) !important;
 }
 
+[data-theme="dark-mode"] {
+  --form-surface: 222 38% 10%;
+  --form-copy: 210 40% 98%;
+  --form-muted: 215 20% 72%;
+  --form-control: 222 30% 15%;
+  --form-control-border: 217 24% 29%;
+}
+
 [data-theme] .form-card {
-  background-color: hsl(var(--card)) !important;
-  color: hsl(var(--card-foreground)) !important;
-  border-color: hsl(var(--border)) !important;
-  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  overflow: hidden;
+  border-radius: 1rem;
+  background-color: hsl(var(--form-surface)) !important;
+  color: hsl(var(--form-copy)) !important;
+  border-color: hsl(var(--form-control-border) / 0.75) !important;
+  box-shadow: 0 24px 60px -24px rgb(15 23 42 / 0.28), 0 8px 24px -16px rgb(15 23 42 / 0.18);
 }
 
-[data-theme] label,
-[data-theme] h1,
-[data-theme] h2,
-[data-theme] h3,
-[data-theme] h4 {
-  color: hsl(var(--card-foreground)) !important;
+[data-theme] .form-card label,
+[data-theme] .form-card h1,
+[data-theme] .form-card h2,
+[data-theme] .form-card h3,
+[data-theme] .form-card h4 {
+  color: hsl(var(--form-copy)) !important;
 }
 
-[data-theme] input,
-[data-theme] textarea,
-[data-theme] select {
-  background-color: hsl(var(--input)) !important;
-  color: hsl(var(--card-foreground)) !important;
-  border-color: hsl(var(--border)) !important;
+[data-theme] .form-card input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+[data-theme] .form-card textarea,
+[data-theme] .form-card select {
+  background-color: hsl(var(--form-control)) !important;
+  color: hsl(var(--form-copy)) !important;
+  border-color: hsl(var(--form-control-border)) !important;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
 }
 
-[data-theme] button.bg-primary {
-  background-color: hsl(var(--primary)) !important;
-  color: hsl(var(--primary-foreground)) !important;
+[data-theme] .form-card input:hover,
+[data-theme] .form-card textarea:hover,
+[data-theme] .form-card select:hover {
+  border-color: hsl(var(--primary) / 0.55) !important;
 }
 
-[data-theme] .text-muted-foreground {
-  color: hsl(var(--card-foreground) / 0.7) !important;
+[data-theme] .form-card input:focus,
+[data-theme] .form-card textarea:focus,
+[data-theme] .form-card select:focus {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.13) !important;
 }
 
-[data-theme] .bg-muted {
-  background-color: hsl(var(--border)) !important;
+[data-theme] .form-card input::placeholder,
+[data-theme] .form-card textarea::placeholder,
+[data-theme] .form-card .text-muted-foreground {
+  color: hsl(var(--form-muted)) !important;
+}
+
+[data-theme] .form-card .bg-muted {
+  background-color: hsl(var(--form-copy) / 0.045) !important;
 }

@@ -584,7 +584,7 @@ export default function FieldInspector({
                     variant="outline" 
                     size="sm" 
                     onClick={() => setShowCSVImport(true)}
-                    className="h-7 text-[10px] gap-1 px-2"
+                    className="h-7 gap-1 border-primary/20 bg-primary/[0.07] px-2 text-[10px] text-primary hover:bg-primary/[0.12]"
                   >
                     <FileSpreadsheet className="h-3 w-3" />
                     Bulk Import (CSV)
@@ -619,7 +619,7 @@ export default function FieldInspector({
                       variant="outline"
                       size="sm"
                       onClick={addOption}
-                      className="h-8 w-full text-[12px]"
+                      className="h-8 w-full border-primary/20 bg-primary/[0.07] text-[12px] text-primary hover:border-primary/30 hover:bg-primary/[0.12]"
                     >
                       <Plus className="h-3.5 w-3.5 mr-1.5" />
                       Add Option
@@ -660,7 +660,7 @@ export default function FieldInspector({
                 variant="outline"
                 size="sm"
                 onClick={() => setShowTableConfigModal(true)}
-                className="h-8 w-full bg-plum-50 text-[12px] hover:bg-plum-100 text-plum-700 border-plum-200"
+                className="h-8 w-full border-primary/20 bg-primary/[0.07] text-[12px] text-primary hover:border-primary/30 hover:bg-primary/[0.12]"
               >
                 <Database className="h-3.5 w-3.5 mr-1.5" />
                 Configure Table Columns &amp; Settings
@@ -812,8 +812,8 @@ export default function FieldInspector({
               </div>
               <Button
                 size="sm"
-                className="h-8 shrink-0 text-[12px]"
-                variant={field.externalValidation?.enabled ? "default" : "outline"}
+                className="h-8 shrink-0 border-primary/20 bg-primary/[0.07] text-[12px] text-primary hover:border-primary/30 hover:bg-primary/[0.12]"
+                variant="outline"
                 onClick={() => setIsExtValidationModalOpen(true)}
               >
                 <Globe className="h-3.5 w-3.5 mr-1.5" />
@@ -887,7 +887,7 @@ export default function FieldInspector({
               variant="outline"
               size="sm"
               onClick={() => setShowAdvancedLinkingModal(true)}
-              className="h-8 w-full text-[12px]"
+              className="h-8 w-full border-primary/20 bg-primary/[0.07] text-[12px] text-primary hover:border-primary/30 hover:bg-primary/[0.12]"
             >
               <Settings className="h-3.5 w-3.5 mr-1.5" />
               Configure Smart Connections
@@ -1000,7 +1000,7 @@ export default function FieldInspector({
               variant="outline"
               size="sm"
               onClick={() => setShowVariableManager(true)}
-              className="h-8 w-full text-[12px]"
+              className="h-8 w-full border-primary/20 bg-primary/[0.07] text-[12px] text-primary hover:border-primary/30 hover:bg-primary/[0.12]"
             >
               <Calculator className="h-3.5 w-3.5 mr-1.5" />
               Manage Data Calculations
@@ -1029,7 +1029,7 @@ export default function FieldInspector({
               variant="outline"
               size="sm"
               onClick={() => setShowVisibilityModal(true)}
-              className="h-8 w-full bg-brand-50 text-[12px] hover:bg-brand-100 text-brand-700 border-brand-200"
+              className="h-8 w-full border-primary/20 bg-primary/[0.07] text-[12px] text-primary hover:border-primary/30 hover:bg-primary/[0.12]"
             >
               <Eye className="h-3.5 w-3.5 mr-1.5" />
               Manage Conditional Visibility
@@ -1085,7 +1085,7 @@ export default function FieldInspector({
                 variant="outline"
                 size="sm"
                 onClick={() => setShowValidationModal(true)}
-                className="h-8 w-full bg-brand-50 text-[12px] hover:bg-brand-100 text-brand-700 border-brand-200"
+                className="h-8 w-full border-primary/20 bg-primary/[0.07] text-[12px] text-primary hover:border-primary/30 hover:bg-primary/[0.12]"
               >
                 <Shield className="h-3.5 w-3.5 mr-1.5" />
                 Manage Validation Rules
@@ -1367,7 +1367,7 @@ export default function FieldInspector({
                   </div>
                 ))}
 
-                <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1" onClick={addRule}>
+                <Button variant="outline" size="sm" className="h-7 w-full gap-1 border-primary/20 bg-primary/[0.07] text-xs text-primary hover:bg-primary/[0.12]" onClick={addRule}>
                   <Plus className="h-3.5 w-3.5" /> Add Validation Rule
                 </Button>
               </div>
@@ -1391,7 +1391,7 @@ export default function FieldInspector({
               variant="outline"
               size="sm"
               onClick={() => setShowAlertModal(true)}
-              className="h-8 w-full text-[12px]"
+              className="h-8 w-full border-primary/20 bg-primary/[0.07] text-[12px] text-primary hover:border-primary/30 hover:bg-primary/[0.12]"
             >
               <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
               Manage Field Alerts
@@ -1427,7 +1427,7 @@ export default function FieldInspector({
               variant="outline"
               size="sm"
               onClick={() => setShowDocsModal(true)}
-              className="h-8 w-full text-[12px]"
+              className="h-8 w-full border-primary/20 bg-primary/[0.07] text-[12px] text-primary hover:border-primary/30 hover:bg-primary/[0.12]"
             >
               <FileText className="h-3.5 w-3.5 mr-1.5" />
               Manage Reference Documents
@@ -1555,7 +1555,7 @@ export default function FieldInspector({
 
       {/* AI Prompt Dialog */}
       <Dialog open={showAIModal} onOpenChange={setShowAIModal}>
-        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl sm:max-w-lg">
+        <DialogContent className="flex h-[min(46rem,90dvh)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl">
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
             <div className="flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
@@ -1639,7 +1639,7 @@ export default function FieldInspector({
       {/* Variable Manager Modal */}
       {showVariableManager && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+          <div className="flex h-[min(46rem,90dvh)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
               <div>
                 <h2 className="font-display text-base font-bold text-foreground">Data calculations</h2>

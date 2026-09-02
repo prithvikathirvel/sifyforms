@@ -317,8 +317,8 @@ export const FormSettingsSchema = z.object({
   theme: z.string().optional(),
   isFormActive: z.boolean().optional(),
   expirationDateTime: z.string().optional(),
-  // Branding header/footer. Header: logo and/or text with positioning; footer: text only.
-  // `enabled: false` hides the section without losing its content.
+  // Header/footer share one image model so builder preview and public view remain identical.
+  // Bounds prevent accidentally persisted values from producing unusable layouts.
   header: z.object({
     enabled: z.boolean().optional(),
     logoUrl: z.string().optional(),
@@ -326,13 +326,28 @@ export const FormSettingsSchema = z.object({
     text: z.string().optional(),
     logoPosition: z.enum(['left', 'center', 'right']).optional(),
     textPosition: z.enum(['left', 'center', 'right']).optional(),
+    imageWidth: z.number().min(24).max(1200).optional(),
+    imageHeight: z.number().min(24).max(400).optional(),
+    imageFit: z.enum(['contain', 'cover', 'fill']).optional(),
+    imagePadding: z.number().min(0).max(48).optional(),
+    imageRadius: z.number().min(0).max(999).optional(),
+    imageBackground: z.string().max(64).optional(),
+    imageAlt: z.string().max(240).optional(),
   }).optional(),
   footer: z.object({
     enabled: z.boolean().optional(),
-    // legacy field — footer no longer renders a logo but old settings may carry one
     logoUrl: z.string().optional(),
     logoDocumentId: z.string().optional(),
     text: z.string().optional(),
+    logoPosition: z.enum(['left', 'center', 'right']).optional(),
+    textPosition: z.enum(['left', 'center', 'right']).optional(),
+    imageWidth: z.number().min(24).max(1200).optional(),
+    imageHeight: z.number().min(24).max(400).optional(),
+    imageFit: z.enum(['contain', 'cover', 'fill']).optional(),
+    imagePadding: z.number().min(0).max(48).optional(),
+    imageRadius: z.number().min(0).max(999).optional(),
+    imageBackground: z.string().max(64).optional(),
+    imageAlt: z.string().max(240).optional(),
   }).optional(),
   authentication: z.any().optional(),
   partialSubmission: z.any().optional(),

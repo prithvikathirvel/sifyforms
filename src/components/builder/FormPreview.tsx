@@ -14,9 +14,9 @@ import FormStepper from './FormStepper';
 import { Button } from '../ui/button';
 import { evaluateShowWhen, evaluateLinkingConditions } from '../../lib/ruleEngine';
 import { CalculationEngine } from '../../lib/calculationEngine';
-import { getPublicDownloadUrl } from '../../lib/dms';
-import type { FormField, FormSchema, FormSettings, FormBrandingSection, FormLayout } from '../../types';
+import type { FormField, FormSchema, FormSettings, FormLayout } from '../../types';
 import { cn } from '../../lib/utils';
+import { FormBranding } from '../ui/FormBranding';
 
 interface FormPreviewProps {
   schema: FormSchema;
@@ -26,79 +26,6 @@ interface FormPreviewProps {
   description?: string;
   orientation?: 'vertical' | 'horizontal';
   layout?: FormLayout;
-}
-
-const JUSTIFY: Record<string, string> = {
-  left: 'justify-start',
-  center: 'justify-center',
-  right: 'justify-end',
-};
-
-/** Header/footer branding — mirrors the public page's header bar + footer text. */
-function PreviewBranding({ section, variant, formId }: {
-  section?: FormBrandingSection;
-  variant: 'header' | 'footer';
-  formId?: string;
-}) {
-  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (!section || section.enabled === false) { setLogoUrl(undefined); return; }
-    if (section.logoDocumentId && formId) {
-      getPublicDownloadUrl(section.logoDocumentId, formId)
-        .then((url) => setLogoUrl(url))
-        .catch(() => setLogoUrl(section.logoUrl));
-    } else {
-      setLogoUrl(section.logoUrl);
-    }
-  }, [section, formId]);
-
-  if (!section || section.enabled === false) return null;
-
-  if (variant === 'footer') {
-    if (!section.text) return null;
-    return (
-      <div className="mt-6 text-center">
-        <p className="text-sm text-muted-foreground whitespace-pre-line">{section.text}</p>
-      </div>
-    );
-  }
-
-  const hasLogo = !!logoUrl;
-  const hasText = !!section.text;
-  if (!hasLogo && !hasText) return null;
-
-  const logoPos = section.logoPosition || 'center';
-  const textPos = section.textPosition || 'center';
-
-  const logoEl = hasLogo ? (
-    <img src={logoUrl} alt="Form header logo" className="max-h-12 object-contain" />
-  ) : null;
-  const textEl = hasText ? (
-    <p className="text-lg font-semibold text-foreground whitespace-pre-line">{section.text}</p>
-  ) : null;
-
-  const row = (!hasLogo || !hasText || logoPos === textPos) ? (
-    <div className={`flex items-center gap-3 ${JUSTIFY[hasLogo ? logoPos : textPos]}`}>
-      {logoEl}
-      {textEl}
-    </div>
-  ) : (
-    <div className="grid grid-cols-3 items-center gap-2">
-      {(['left', 'center', 'right'] as const).map((pos) => (
-        <div key={pos} className={`flex items-center gap-2 ${JUSTIFY[pos]}`}>
-          {logoPos === pos && logoEl}
-          {textPos === pos && textEl}
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <div className="sticky top-0 z-40 w-full bg-card border-b border-border shadow-sm px-4 sm:px-6 lg:px-8 py-3">
-      {row}
-    </div>
-  );
 }
 
 function validateField(field: FormField, value: unknown): string | null {
@@ -679,8 +606,8 @@ export default function FormPreview({
   const isFirstStep = currentStepIndex === 0;
 
   return (
-    <div className="min-h-full bg-muted/30" data-theme={settings.theme || 'default'}>
-      <PreviewBranding section={settings.header} variant="header" formId={formId} />
+    <div className="public-form-shell min-h-full bg-muted/30" data-theme={settings.theme || 'default'}>
+      <FormBranding section={settings.header} variant="header" formId={formId} preview />
       <div className="px-4 py-12 sm:px-6 lg:px-8">
         <div className={isHorizontal ? 'mx-auto w-full max-w-[1400px]' : 'mx-auto max-w-2xl'}>
           <div className="form-card rounded-lg border border-border bg-card p-6 shadow-xl sm:p-8">
@@ -746,7 +673,7 @@ export default function FormPreview({
             )}
           </div>
 
-          <PreviewBranding section={settings.footer} variant="footer" formId={formId} />
+          <FormBranding section={settings.footer} variant="footer" formId={formId} preview />
         </div>
       </div>
     </div>

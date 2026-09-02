@@ -580,8 +580,20 @@ export interface FormBrandingSection {
   text?: string;
   /** Where the logo sits in the header row (default 'center') */
   logoPosition?: BrandingPosition;
-  /** Where the text sits in the header row (default 'center') */
+  /** Where the text sits in the branding row (default 'center') */
   textPosition?: BrandingPosition;
+  /** Rendered image box width in CSS pixels (responsive max-width still applies). */
+  imageWidth?: number;
+  /** Rendered image box height in CSS pixels. */
+  imageHeight?: number;
+  /** How unusual image proportions fit inside the image box. */
+  imageFit?: 'contain' | 'cover' | 'fill';
+  /** Inner spacing around transparent or tightly-cropped artwork. */
+  imagePadding?: number;
+  imageRadius?: number;
+  /** CSS color used behind transparent images. */
+  imageBackground?: string;
+  imageAlt?: string;
 }
 
 export interface FormSettings {

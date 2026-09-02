@@ -86,25 +86,25 @@ export default function CSVImportModal({ open, onClose, onImport }: CSVImportMod
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col transform transition-all overflow-hidden">
+      <div className="flex h-[min(46rem,90dvh)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-brand-100 text-brand-600 rounded-lg">
-              <Table className="h-5 w-5" />
-            </div>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
+              <Table className="h-4 w-4" strokeWidth={1.9} />
+            </span>
             <div>
-              <h2 className="text-xl font-semibold text-foreground">Bulk Import Options (CSV)</h2>
-              <p className="text-sm text-muted-foreground">Upload a CSV file to populate field options</p>
+              <h2 className="font-display text-base font-bold text-foreground">Bulk import options</h2>
+              <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">Upload a CSV file and map its columns to option labels and values.</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-muted">
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto bg-muted/30 px-5 py-4">
           {!csvData ? (
             <div className="space-y-4">
               <div
@@ -202,7 +202,7 @@ export default function CSVImportModal({ open, onClose, onImport }: CSVImportMod
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t bg-muted flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/70 bg-muted/20 px-5 py-3.5">
           {csvData ? (
              <Button variant="ghost" onClick={reset} className="text-muted-foreground hover:text-brand-600 hover:bg-brand-50 font-medium">
               Upload different file

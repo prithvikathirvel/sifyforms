@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight, ExternalLink, CreditCard, BarChart2, XCircle, Lock, ShieldCheck } from 'lucide-react';
 import { PoweredBySify } from '../components/ui/SifyWordmark';
+import { FormBranding } from '../components/ui/FormBranding';
 import { toast } from '../components/ui/toast';
 import api from '../lib/api';
 import { getFieldValidation } from '../lib/fieldValidation';
@@ -23,97 +24,12 @@ import FormStepper from '../components/builder/FormStepper';
 import TableField from '../components/ui/TableField';
 import TurnstileWidget from '../components/security/TurnstileWidget';
 import { getPublicDownloadUrl, resolveFilesForSubmission, resolveSignatureForSubmission, triggerBrowserDownload } from '../lib/dms';
-import type { Form, FormField, FormLayout, DateConstraint, AssessmentResult, VotingResult, FormBrandingSection, DmsFileReference, FormFileValue } from '../types';
+import type { Form, FormField, FormLayout, DateConstraint, AssessmentResult, VotingResult, DmsFileReference, FormFileValue } from '../types';
 
 const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
 
-const BRANDING_JUSTIFY: Record<string, string> = {
-  left: 'justify-start',
-  center: 'justify-center',
-  right: 'justify-end',
-};
-const BRANDING_TEXT_ALIGN: Record<string, string> = {
-  left: 'text-left',
-  center: 'text-center',
-  right: 'text-right',
-};
-
-// Message shown when a Smart Connection restriction rule makes a field required.
-// Reads the same as a normal required field — form fillers don't need to know
-// the requirement is condition-driven. Shared between validation registration
-// and the linking effect so the stale error can be detected and cleared when
-// the condition stops matching.
+// Shared message for ordinary and condition-driven required validation.
 const CONDITIONAL_REQUIRED_MESSAGE = 'This field is required';
-
-/**
- * Branding around the public form. Header: a full-width bar pinned to the top
- * of the page, with logo and/or text each placed left/center/right (same side
- * = grouped together, e.g. logo + text both left; different sides = split row,
- * e.g. logo left + text center). Footer: plain text below the form, no bar.
- * Hidden when disabled or empty; legacy sections without the flag stay visible.
- */
-function FormBranding({ section, variant, formId }: { section?: FormBrandingSection; variant: 'header' | 'footer'; formId?: string }) {
-  const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (section?.logoDocumentId && formId) {
-      getPublicDownloadUrl(section.logoDocumentId, formId)
-        .then((url) => setResolvedLogoUrl(url))
-        .catch(() => setResolvedLogoUrl(section?.logoUrl));
-    } else {
-      setResolvedLogoUrl(section?.logoUrl);
-    }
-  }, [section?.logoDocumentId, section?.logoUrl, formId]);
-
-  if (!section || section.enabled === false) return null;
-
-  if (variant === 'footer') {
-    if (!section.text) return null;
-    return (
-      <div className="mt-6 text-center">
-        <p className="text-sm text-muted-foreground whitespace-pre-line">{section.text}</p>
-      </div>
-    );
-  }
-
-  const hasLogo = !!resolvedLogoUrl;
-  const hasText = !!section.text;
-  if (!hasLogo && !hasText) return null;
-
-  const logoPos = section.logoPosition || 'center';
-  const textPos = section.textPosition || 'center';
-
-  const logoEl = hasLogo ? (
-    <img src={resolvedLogoUrl} alt="Form header logo" className="max-h-12 object-contain" />
-  ) : null;
-  const textEl = hasText ? (
-    <p className="text-lg font-semibold text-foreground whitespace-pre-line">{section.text}</p>
-  ) : null;
-
-  // Single element, or both on the same side: one grouped row; otherwise a
-  // three-column row so each element is pinned to its own side.
-  const row = (!hasLogo || !hasText || logoPos === textPos) ? (
-    <div className={`flex items-center gap-3 ${BRANDING_JUSTIFY[hasLogo ? logoPos : textPos]} ${BRANDING_TEXT_ALIGN[hasLogo ? logoPos : textPos]}`}>
-      {logoEl}
-      {textEl}
-    </div>
-  ) : (
-    <div className="grid grid-cols-3 items-center gap-2">
-      {(['left', 'center', 'right'] as const).map((pos) => (
-        <div key={pos} className={`flex items-center gap-2 ${BRANDING_JUSTIFY[pos]} ${BRANDING_TEXT_ALIGN[pos]}`}>
-          {logoPos === pos && logoEl}
-          {textPos === pos && textEl}
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <div className="sticky top-0 z-40 w-full bg-card border-b border-border shadow-sm px-4 sm:px-6 lg:px-8 py-3">
-      {row}
-    </div>
-  );
-}
 
 function FieldsByWidth({
   fields,
@@ -2903,13 +2819,13 @@ export default function PublicFormPage() {
 
   return (
     <div
-      className="min-h-screen bg-background text-foreground transition-colors duration-300"
+      className="public-form-shell min-h-screen bg-background text-foreground transition-colors duration-300"
       data-theme={form?.settings?.theme || 'default'}
     >
       <FormBranding section={form.settings?.header} variant="header" formId={form.id} />
-      <div className="py-12 px-4 sm:px-6 lg:px-8">
+      <div className="px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
       <div className={layout.orientation === 'horizontal' ? 'mx-auto w-full max-w-[1400px]' : 'max-w-2xl mx-auto'}>
-        <Card className="form-card border-border shadow-xl">
+        <Card className="form-card border-border">
           <CardHeader>
             <CardTitle className="min-w-0 break-words text-2xl">{form.name}</CardTitle>
             {form.description && (
