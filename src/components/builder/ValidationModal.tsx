@@ -2,6 +2,7 @@ import type { FieldRule, FormField } from '../../types';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Select } from '../ui/select';
 import { X, Plus, Trash2, ShieldCheck } from 'lucide-react';
 
 interface ValidationModalProps {
@@ -74,8 +75,7 @@ const getDefaultMessageForRuleType = (type: string) => {
     }
 };
 
-const selectBaseClass =
-    'h-9 w-full appearance-none rounded-lg border border-input bg-background px-3 text-[13px] font-medium shadow-none transition-colors hover:border-ink-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0';
+const selectBaseClass = 'h-9 text-[13px] font-medium hover:border-ink-300';
 
 export function ValidationModal({
     field,
@@ -167,15 +167,12 @@ export function ValidationModal({
                                 <div className="space-y-3 px-4 py-3">
                                     <div className="space-y-1.5">
                                         <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Type</Label>
-                                        <select
+                                        <Select
                                             value={rule.type}
                                             onChange={(e) => updateRule(rule.id, { type: e.target.value as FieldRule['type'], value: '' })}
+                                            options={RULE_TYPES}
                                             className={selectBaseClass}
-                                        >
-                                            {RULE_TYPES.map(rt => (
-                                                <option key={rt.value} value={rt.value}>{rt.label}</option>
-                                            ))}
-                                        </select>
+                                        />
                                     </div>
 
                                     {/* Rule value input */}
@@ -189,16 +186,13 @@ export function ValidationModal({
                                             </Label>
 
                                             {rule.type === 'custom' ? (
-                                                <select
+                                                <Select
                                                     value={rule.value || ''}
                                                     onChange={(e) => updateRule(rule.id, { value: e.target.value })}
+                                                    options={otherFields.map(f => ({ value: f.id, label: f.label || f.id }))}
+                                                    placeholder="Select a field to match…"
                                                     className={selectBaseClass}
-                                                >
-                                                    <option value="">Select a field to match…</option>
-                                                    {otherFields.map(f => (
-                                                        <option key={f.id} value={f.id}>{f.label || f.id}</option>
-                                                    ))}
-                                                </select>
+                                                />
                                             ) : (
                                                 <>
                                                     <Input

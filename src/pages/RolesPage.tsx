@@ -184,7 +184,7 @@ export default function RolesPage() {
     : 0;
 
   return (
-    <div className="app-shell flex min-h-screen bg-workspace">
+    <div className="app-shell flex h-screen bg-workspace">
       <Sidebar onCreateForm={() => {}} />
       <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
         <PageHeader

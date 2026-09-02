@@ -1,11 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="sf-grad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#3D1D5F"/>
-      <stop offset="55%" stop-color="#6B2E9E"/>
-      <stop offset="100%" stop-color="#D81B8F"/>
-    </linearGradient>
-  </defs>
-  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#sf-grad)"/>
-  <text x="32" y="42" text-anchor="middle" font-family="'Geist Variable','Geist',Inter,system-ui,sans-serif" font-size="25" font-weight="700" letter-spacing="-0.5" fill="#ffffff">SF</text>
+<svg width="72" height="80" viewBox="0 0 72 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="2.25" y="2.25" width="67.5" height="75.5" rx="13.75" stroke="#6B2FA0" stroke-width="4.5"/>
+<rect x="12" y="31" width="32" height="4.5" rx="2" fill="#6B2FA0"/>
+<rect x="12" y="41.5" width="24" height="4.5" rx="2" fill="#6B2FA0"/>
+<rect x="46" y="54" width="14" height="14" rx="7" fill="#6B2FA0"/>
+<g clip-path="url(#clip0_4_2)">
+<path d="M54.9998 59.5L52.2501 62.2498L51.0002 60.9999" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</g>
+<defs>
+<clipPath id="clip0_4_2">
+<rect width="6" height="6" fill="white" transform="translate(50 58)"/>
+</clipPath>
+</defs>
 </svg>

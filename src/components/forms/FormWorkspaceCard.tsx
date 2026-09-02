@@ -80,7 +80,7 @@ export function FormWorkspaceCard({ form, orgSlug, teamName }: FormWorkspaceCard
           </span>
 
           <div className="min-w-0 flex-1 pt-0.5">
-            <CardTitle className="line-clamp-1 font-display text-[15px] font-bold leading-5 text-foreground">
+            <CardTitle className="line-clamp-1 font-display text-[13px] font-bold leading-5 text-foreground">
               <button
                 type="button"
                 onClick={() => navigate(`/forms/${form.id}/edit`)}

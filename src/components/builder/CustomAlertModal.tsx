@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../ui/card';
-import { Trash2, Plus, X, AlertCircle } from 'lucide-react';
+import { Select } from '../ui/select';
+import { Trash2, Plus, X, MessageSquareWarning } from 'lucide-react';
 import type { FormField, ShowCondition, ShowConditionOperator } from '../../types';
 
 interface AlertRule {
@@ -22,6 +22,29 @@ interface CustomAlertModalProps {
     onUpdate: (updates: Partial<FormField>) => void;
     operators: { label: string; value: ShowConditionOperator; needsValue?: boolean }[];
 }
+
+const ALERT_TYPE_OPTIONS: { value: AlertRule['type']; label: string }[] = [
+    { value: 'info', label: 'Info' },
+    { value: 'warning', label: 'Warning' },
+    { value: 'error', label: 'Error' },
+    { value: 'success', label: 'Success' },
+];
+
+/** Small, muted accents per severity — kept subtle so the modal reads as one theme, not four. */
+const ALERT_TYPE_DOT: Record<AlertRule['type'], string> = {
+    info: 'bg-sky-500',
+    warning: 'bg-amber-500',
+    error: 'bg-destructive',
+    success: 'bg-emerald-500',
+};
+
+const LOGIC_OPTIONS = [
+    { value: 'and', label: 'ALL conditions match (AND)' },
+    { value: 'or', label: 'ANY condition matches (OR)' },
+];
+
+const selectBaseClass = 'h-10 text-[13px] font-medium hover:border-ink-300';
+const compactSelectClass = 'h-9 text-[13px] font-medium hover:border-ink-300';
 
 export function CustomAlertModal({
     field,
@@ -127,16 +150,13 @@ export function CustomAlertModal({
         if (sourceField?.type !== 'table') return null;
         const columns = sourceField.tableConfig?.columns || [];
         return (
-            <select
+            <Select
                 value={cond.tableColumnId || ''}
                 onChange={(e) => updateCondition(alertIndex, condIndex, { tableColumnId: e.target.value || undefined })}
-                className="w-28 h-8 rounded border px-2 text-[11px]"
-            >
-                <option value="">Any column</option>
-                {columns.map(col => (
-                    <option key={col.id} value={col.id}>{col.label || col.id}</option>
-                ))}
-            </select>
+                options={columns.map(col => ({ value: col.id, label: col.label || col.id }))}
+                placeholder="Any column"
+                className={`w-32 shrink-0 ${compactSelectClass}`}
+            />
         );
     };
 
@@ -151,16 +171,13 @@ export function CustomAlertModal({
             const col = sourceField.tableConfig?.columns?.find(c => c.id === cond.tableColumnId);
             if (col?.type === 'select' && col.options && col.options.length > 0) {
                 return (
-                    <select
+                    <Select
                         value={String(cond.value || '')}
                         onChange={(e) => updateCondition(alertIndex, condIndex, { value: e.target.value })}
-                        className="flex-1 min-w-0 h-8 rounded border px-2 text-xs"
-                    >
-                        <option value="">Select value...</option>
-                        {col.options.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
+                        options={col.options.map((opt) => ({ value: opt.value, label: opt.label }))}
+                        placeholder="Select value…"
+                        className={`min-w-0 flex-1 ${compactSelectClass}`}
+                    />
                 );
             }
         }
@@ -169,16 +186,13 @@ export function CustomAlertModal({
 
         if (hasOptions) {
             return (
-                <select
+                <Select
                     value={String(cond.value || '')}
                     onChange={(e) => updateCondition(alertIndex, condIndex, { value: e.target.value })}
-                    className="flex-1 min-w-0 h-8 rounded border px-2 text-xs"
-                >
-                    <option value="">Select value...</option>
-                    {sourceField.options!.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                </select>
+                    options={sourceField.options!.map((opt) => ({ value: opt.value, label: opt.label }))}
+                    placeholder="Select value…"
+                    className={`min-w-0 flex-1 ${compactSelectClass}`}
+                />
             );
         }
 
@@ -186,156 +200,170 @@ export function CustomAlertModal({
             <Input
                 value={String(cond.value || '')}
                 onChange={(e) => updateCondition(alertIndex, condIndex, { value: e.target.value })}
-                placeholder="Value..."
-                className="flex-1 min-w-0 h-8 text-xs"
+                placeholder="Value…"
+                className="h-8 min-w-0 flex-1 text-[12px]"
             />
         );
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between border-b py-4">
-                    <div className="space-y-1">
-                        <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                            <AlertCircle className="h-5 w-5 text-orange-500" />
-                            Custom Field Alerts
-                        </CardTitle>
-                        <p className="text-xs text-muted-foreground">Trigger messages dynamically based on user selection.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+                {/* Header */}
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+                    <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
+                            <MessageSquareWarning className="h-4 w-4" strokeWidth={1.9} />
+                        </span>
+                        <div>
+                            <h2 className="font-display text-base font-bold text-foreground">Custom alerts</h2>
+                            <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">
+                                Show a message to respondents when “{field.label}” meets a condition.
+                            </p>
+                        </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
-                        <X className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                        <X className="h-4 w-4" />
                     </Button>
-                </CardHeader>
+                </div>
 
-                <CardContent className="flex-1 overflow-y-auto p-6 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-sm font-semibold">Configured Alerts</Label>
-                        <Button variant="outline" size="sm" onClick={addAlert} className="bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100">
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Add New Alert
-                        </Button>
-                    </div>
-
+                {/* Content */}
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-muted/30 px-5 py-4">
                     {localAlerts.length === 0 ? (
-                        <div className="text-center py-12 border-2 border-dashed border-border rounded-xl bg-muted">
-                            <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
-                            <p className="text-sm font-medium text-muted-foreground">No alerts configured</p>
-                            <p className="text-xs text-muted-foreground mb-4">Add alerts to show helpful tips or warnings based on user input.</p>
+                        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-muted/50 text-ink-400">
+                                <MessageSquareWarning className="h-5 w-5" strokeWidth={1.7} />
+                            </span>
+                            <p className="mt-4 text-sm font-semibold text-foreground">No alerts configured</p>
+                            <p className="mt-1 max-w-xs text-xs font-medium leading-5 text-muted-foreground">
+                                Add an alert to show a helpful tip or warning based on what the respondent enters.
+                            </p>
+                            <Button onClick={addAlert} className="mt-5 h-9 rounded-lg px-3.5">
+                                <Plus className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                                Add first alert
+                            </Button>
                         </div>
                     ) : (
-                        <div className="space-y-6">
-                            {localAlerts.map((alert, alertIndex) => (
-                                <Card key={alert.id} className="border-border shadow-sm overflow-hidden">
-                                    <div className={`h-1 w-full ${
-                                        alert.type === 'info' ? 'bg-plum-500' :
-                                        alert.type === 'warning' ? 'bg-orange-500' :
-                                        alert.type === 'error' ? 'bg-red-500' : 'bg-green-500'
-                                    }`} />
-                                    <div className="p-4 space-y-4">
-                                        <div className="flex gap-4">
-                                            <div className="flex-1 space-y-4">
-                                                <div className="grid grid-cols-4 gap-4">
-                                                    <div className="col-span-1 space-y-2">
-                                                        <Label className="text-xs">Type</Label>
-                                                        <select
-                                                            value={alert.type}
-                                                            onChange={(e) => updateAlert(alertIndex, { type: e.target.value as any })}
-                                                            className="w-full h-9 rounded-lg border-border px-3 text-xs"
-                                                        >
-                                                            <option value="info">Info (Blue)</option>
-                                                            <option value="warning">Warning (Orange)</option>
-                                                            <option value="error">Error (Red)</option>
-                                                            <option value="success">Success (Green)</option>
-                                                        </select>
-                                                    </div>
-                                                    <div className="col-span-3 space-y-2">
-                                                        <Label className="text-xs">Alert Message</Label>
-                                                        <Input
-                                                            value={alert.message}
-                                                            onChange={(e) => updateAlert(alertIndex, { message: e.target.value })}
-                                                            placeholder="Enter the alert content..."
-                                                            className="h-9 text-xs"
-                                                        />
-                                                    </div>
-                                                </div>
+                        localAlerts.map((alert, alertIndex) => (
+                            <div key={alert.id} className="rounded-xl border border-border/80 bg-card shadow-sm">
+                                <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className={`h-2 w-2 shrink-0 rounded-full ${ALERT_TYPE_DOT[alert.type]}`} />
+                                        <span className="text-[13px] font-semibold text-foreground">Alert {alertIndex + 1}</span>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => removeAlert(alertIndex)}
+                                        className="h-7 w-7 rounded-md text-muted-foreground hover:bg-destructive/[0.06] hover:text-destructive"
+                                        aria-label="Remove alert"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
 
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <Label className="text-xs font-semibold text-muted-foreground">Show this alert when…</Label>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[11px] font-medium text-muted-foreground">Match:</span>
-                                                            <select
-                                                                value={alert.logic}
-                                                                onChange={(e) => updateAlert(alertIndex, { logic: e.target.value as 'and' | 'or' })}
-                                                                className="h-7 text-xs rounded-md border border-border bg-white px-2 font-medium focus:border-brand-300 outline-none"
-                                                            >
-                                                                <option value="and">ALL conditions (AND)</option>
-                                                                <option value="or">ANY condition (OR)</option>
-                                                            </select>
-                                                            <Button variant="ghost" size="sm" onClick={() => addCondition(alertIndex)} className="h-7 text-xs text-brand-600">
-                                                                <Plus className="h-3 w-3 mr-1" /> Add Condition
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div className="space-y-2">
-                                                        {alert.conditions.map((cond, condIndex) => (
-                                                            <div key={cond.id} className="flex items-center gap-2">
-                                                                <select
-                                                                    value={cond.fieldId}
-                                                                    onChange={(e) => updateCondition(alertIndex, condIndex, { fieldId: e.target.value, tableColumnId: undefined })}
-                                                                    className="flex-1 h-8 rounded border px-2 text-[11px]"
-                                                                >
-                                                                    <option value={field.id}>This Field ({field.label}) [{field.type}]</option>
-                                                                    {otherFields.map(f => (
-                                                                        <option key={f.id} value={f.id}>{f.label} [{f.type}]</option>
-                                                                    ))}
-                                                                </select>
-                                                                {renderTableColumnPicker(cond, alertIndex, condIndex)}
-                                                                <select
-                                                                    value={cond.operator}
-                                                                    onChange={(e) => updateCondition(alertIndex, condIndex, { operator: e.target.value as any })}
-                                                                    className="w-24 h-8 rounded border px-2 text-[11px]"
-                                                                >
-                                                                    {operators.map(op => (
-                                                                        <option key={op.value} value={op.value}>{op.label}</option>
-                                                                    ))}
-                                                                </select>
-                                                                {renderConditionValueInput(cond, alertIndex, condIndex)}
-                                                                <Button variant="ghost" size="sm" onClick={() => removeCondition(alertIndex, condIndex)} className="h-8 w-8 p-0 text-muted-foreground">
-                                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <Button variant="ghost" size="sm" onClick={() => removeAlert(alertIndex)} className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600">
-                                                <X className="h-4 w-4" />
-                                            </Button>
+                                <div className="space-y-3 px-4 py-3">
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                                        <div className="space-y-1.5 sm:col-span-1">
+                                            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Type</Label>
+                                            <Select
+                                                value={alert.type}
+                                                onChange={(e) => updateAlert(alertIndex, { type: e.target.value as AlertRule['type'] })}
+                                                options={ALERT_TYPE_OPTIONS}
+                                                className={selectBaseClass}
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5 sm:col-span-3">
+                                            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Message</Label>
+                                            <Input
+                                                value={alert.message}
+                                                onChange={(e) => updateAlert(alertIndex, { message: e.target.value })}
+                                                placeholder="Enter the alert content…"
+                                            />
                                         </div>
                                     </div>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
 
-                <CardFooter className="flex items-center justify-between border-t py-4 bg-muted">
-                    {saveError ? (
-                        <p className="text-xs text-red-600 font-medium">{saveError}</p>
-                    ) : (
-                        <span className="text-xs text-muted-foreground">Alerts appear as popups while the candidate fills the form.</span>
+                                    <div className="space-y-2.5 rounded-lg border border-border/60 bg-muted/25 p-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Show this alert when…</Label>
+                                            <div className="flex items-center gap-2">
+                                                <Select
+                                                    value={alert.logic}
+                                                    onChange={(e) => updateAlert(alertIndex, { logic: e.target.value as 'and' | 'or' })}
+                                                    options={LOGIC_OPTIONS}
+                                                    className={`w-60 max-w-full ${compactSelectClass}`}
+                                                />
+                                                <Button variant="ghost" size="sm" onClick={() => addCondition(alertIndex)} className="h-8 shrink-0 rounded-md px-2 text-[12px] text-primary hover:bg-primary/[0.05] hover:text-primary">
+                                                    <Plus className="mr-1 h-3.5 w-3.5" strokeWidth={1.9} /> Add condition
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {alert.conditions.map((cond, condIndex) => (
+                                                <div key={cond.id} className="grid grid-cols-1 items-center gap-2 rounded-lg border border-border/70 bg-card p-2 sm:grid-cols-[minmax(13rem,1.3fr)_minmax(9rem,0.8fr)_minmax(11rem,1fr)_2rem]">
+                                                    <Select
+                                                        value={cond.fieldId}
+                                                        onChange={(e) => updateCondition(alertIndex, condIndex, { fieldId: e.target.value, tableColumnId: undefined })}
+                                                        options={[
+                                                            { value: field.id, label: `This field (${field.label})` },
+                                                            ...otherFields.map(f => ({ value: f.id, label: f.label })),
+                                                        ]}
+                                                        className={`min-w-0 ${compactSelectClass}`}
+                                                    />
+                                                    {renderTableColumnPicker(cond, alertIndex, condIndex)}
+                                                    <Select
+                                                        value={cond.operator}
+                                                        onChange={(e) => updateCondition(alertIndex, condIndex, { operator: e.target.value as ShowConditionOperator })}
+                                                        options={operators}
+                                                        className={`min-w-0 ${compactSelectClass}`}
+                                                    />
+                                                    {renderConditionValueInput(cond, alertIndex, condIndex)}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => removeCondition(alertIndex, condIndex)}
+                                                        className="h-9 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-destructive/[0.06] hover:text-destructive"
+                                                        aria-label="Remove condition"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
                     )}
-                    <div className="flex gap-3">
-                        <Button variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button onClick={handleSave} className="bg-brand-600 hover:bg-brand-700 text-white">
-                            Apply Alerts
-                        </Button>
+
+                    {localAlerts.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={addAlert}
+                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.03] hover:text-primary"
+                        >
+                            <Plus className="h-4 w-4" strokeWidth={1.9} />
+                            Add another alert
+                        </button>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex shrink-0 flex-col gap-3 border-t border-border/70 bg-muted/20 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                    {saveError ? (
+                        <p className="text-xs font-medium text-destructive">{saveError}</p>
+                    ) : (
+                        <span className="text-xs font-medium text-muted-foreground">
+                            Alerts appear as popups while respondents fill out the form.
+                        </span>
+                    )}
+                    <div className="flex shrink-0 gap-2">
+                        <Button variant="outline" onClick={onClose} className="h-9 rounded-lg px-3.5">Cancel</Button>
+                        <Button onClick={handleSave} className="h-9 rounded-lg px-4">Apply alerts</Button>
                     </div>
-                </CardFooter>
-            </Card>
+                </div>
+            </div>
         </div>
     );
 }

@@ -3,7 +3,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Trash2, Plus, X, FolderPlus } from 'lucide-react';
+import { Trash2, Plus, X, FolderPlus, Link2 } from 'lucide-react';
 import type { FormField, FormVariable, AdvancedDateRange } from '../../types';
 import { isLinkingGroup } from '../../types';
 
@@ -553,15 +553,20 @@ export function AdvancedLinkingModal({
   const dateFields = otherFields.filter(f => ['date', 'time'].includes(f.type));
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl h-[95vh] flex flex-col shadow-2xl">
-        <CardHeader className="flex flex-row items-center justify-between border-b py-4">
-          <div className="space-y-1">
-            <CardTitle className="text-xl font-bold">Field Linking Configuration</CardTitle>
-            <p className="text-xs text-muted-foreground">Manage how this field reacts to other inputs.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <Card className="flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+        <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
+              <Link2 className="h-4 w-4" strokeWidth={1.9} />
+            </span>
+            <div>
+              <CardTitle className="font-display text-base font-bold text-foreground">Field linking</CardTitle>
+              <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">Manage how this field reacts to other inputs.</p>
+            </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+            <X className="h-4 w-4" />
           </Button>
         </CardHeader>
 
@@ -1166,18 +1171,18 @@ export function AdvancedLinkingModal({
           </div>
         </CardContent>
 
-        <div className="p-6 border-t bg-muted/80 flex items-center justify-between">
-          <div className="text-[10px] text-muted-foreground max-w-[50%] leading-tight">
+        <div className="flex shrink-0 flex-col gap-3 border-t border-border/70 bg-muted/20 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-w-xl text-xs font-medium leading-5 text-muted-foreground">
             Changes are applied only when you click <span className="font-bold">Save Changes</span>. Source fields must exist for linking to work in production.
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose} className="rounded-xl border-2 hover:bg-white text-xs font-bold px-6">
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" onClick={onClose} className="h-9 rounded-lg px-3.5">
               Cancel
             </Button>
             <Button
               onClick={handleSave}
               disabled={linkingMode === 'advanced' && ruleErrors.some(e => e !== null)}
-              className="bg-brand-600 hover:bg-brand-700 shadow-lg shadow-brand-200 rounded-xl text-xs font-bold px-8 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-9 rounded-lg px-4 disabled:cursor-not-allowed"
             >
               Save Changes
             </Button>

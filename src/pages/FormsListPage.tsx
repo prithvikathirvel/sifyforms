@@ -152,7 +152,7 @@ export default function FormsListPage() {
     <div className="app-shell flex h-screen bg-workspace">
       <Sidebar onCreateForm={() => setShowCreateModal(true)} />
 
-      <main className="min-w-0 flex-1 overflow-auto bg-workspace">
+      <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
         <PageHeader
           title="Forms"
           description={isLoading

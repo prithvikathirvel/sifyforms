@@ -1623,22 +1623,32 @@ export default function FieldInspector({
 
       {/* Variable Manager Modal */}
       {showVariableManager && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-lg p-6">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-lg font-medium">Data Calculations</h3>
-              <Button variant="ghost" onClick={() => setShowVariableManager(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+              <div>
+                <h2 className="font-display text-base font-bold text-foreground">Data calculations</h2>
+                <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">
+                  Create variables to perform calculations or store values.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowVariableManager(false)}
+                className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close data calculations"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Create variables to perform calculations or store values.
-            </p>
-            <VariableManager
-              variables={variables}
-              fields={allFields}
-              onUpdateVariables={handleUpdateVariables}
-            />
+            <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 px-5 py-4">
+              <VariableManager
+                variables={variables}
+                fields={allFields}
+                onUpdateVariables={handleUpdateVariables}
+              />
+            </div>
           </div>
         </div>
       )}

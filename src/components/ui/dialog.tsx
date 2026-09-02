@@ -14,7 +14,7 @@ const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) => {
   return (
     <div className="fixed inset-0 z-50">
       <div
-        className="fixed inset-0 bg-black/50"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => onOpenChange(false)}
       />
       <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -31,7 +31,7 @@ const DialogContent = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "relative z-50 w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg",
+      "relative z-50 w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-2xl",
       className
     )}
     {...props}

@@ -146,7 +146,7 @@ export default function DashboardPage() {
     <div className="app-shell flex h-screen bg-workspace">
       <Sidebar onCreateForm={() => setShowCreateModal(true)} />
 
-      <main className="min-w-0 flex-1 overflow-auto bg-workspace">
+      <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
         <PageHeader
           title="Dashboard"
           description={`${currentOrg?.name || 'Your workspace'} · Forms, responses, and team activity`}
@@ -427,12 +427,13 @@ export default function DashboardPage() {
 
                 {/* View all link */}
                 {forms.length > DASHBOARD_FORM_LIMIT && (
-                  <div className="mt-6 text-center">
-                    <Link to="/forms">
-                      <Button variant="outline" className="rounded-lg border-border hover:border-primary/20 hover:bg-primary/[0.04] gap-2">
-                        View all {forms.length} forms
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
+                  <div className="mt-6 flex justify-center border-t border-border/70 pt-5">
+                    <Link
+                      to="/forms"
+                      className="group inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-[12px] font-semibold text-foreground shadow-sm transition-colors hover:border-primary/25 hover:bg-primary/[0.05] hover:text-primary"
+                    >
+                      View all {forms.length} forms
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                     </Link>
                   </div>
                 )}

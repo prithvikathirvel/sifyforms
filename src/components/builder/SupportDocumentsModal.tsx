@@ -187,22 +187,24 @@ export function SupportDocumentsModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl flex flex-col shadow-2xl overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between border-b py-4">
-                    <div className="space-y-1">
-                        <CardTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                            <FileText className="h-5 w-5 text-plum-500" />
-                            Support Documents
-                        </CardTitle>
-                        <p className="text-xs text-muted-foreground">Add reference documents or links for the candidate to review.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <Card className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+                <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+                    <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
+                            <FileText className="h-4 w-4" strokeWidth={1.9} />
+                        </span>
+                        <div>
+                            <CardTitle className="font-display text-base font-bold text-foreground">Support documents</CardTitle>
+                            <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">Add reference documents or links for the respondent to review.</p>
+                        </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full" disabled={saving}>
-                        <X className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" disabled={saving}>
+                        <X className="h-4 w-4" />
                     </Button>
                 </CardHeader>
 
-                <CardContent className="flex-1 p-6 space-y-6">
+                <CardContent className="min-h-0 flex-1 space-y-6 overflow-y-auto bg-muted/30 px-5 py-4">
                     <div className="flex items-center justify-between">
                         <Label className="text-sm font-semibold">Configured Documents</Label>
                         <Button variant="outline" size="sm" onClick={addDocument} className="bg-plum-50 text-plum-700 border-plum-200 hover:bg-plum-100" disabled={saving}>
@@ -360,15 +362,15 @@ export function SupportDocumentsModal({
                     )}
                 </CardContent>
 
-                <CardFooter className="flex items-center justify-between border-t py-4 bg-muted">
+                <CardFooter className="flex shrink-0 flex-col gap-3 border-t border-border/70 bg-muted/20 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
                     {saveError ? (
                         <p className="text-xs text-red-600 font-medium">{saveError}</p>
                     ) : (
                         <span className="text-xs text-muted-foreground">Documents are shown to the candidate next to this field.</span>
                     )}
-                    <div className="flex gap-3">
-                        <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-                        <Button onClick={handleSave} disabled={saving} className="bg-brand-600 hover:bg-brand-700 text-white shadow-md">
+                    <div className="flex shrink-0 gap-2">
+                        <Button variant="outline" onClick={onClose} disabled={saving} className="h-9 rounded-lg px-3.5">Cancel</Button>
+                        <Button onClick={handleSave} disabled={saving} className="h-9 rounded-lg px-4">
                         {saving ? (
                             <>
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

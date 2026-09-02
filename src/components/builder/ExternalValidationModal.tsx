@@ -5,7 +5,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox as UICheckbox } from '../ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Trash2, Plus, Globe, Lock, Code, CheckCircle, Save } from 'lucide-react';
+import { Trash2, Plus, Globe, Lock, Code, CheckCircle, Save, X } from 'lucide-react';
 import type { FormField } from '../../types';
 
 interface ExternalValidationModalProps {
@@ -96,27 +96,32 @@ export function ExternalValidationModal({ isOpen, onClose, field, onUpdate }: Ex
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[700px] h-[80vh] flex flex-col p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Globe className="h-4.5 w-4.5" />
+      <DialogContent className="flex h-[80vh] max-h-[90vh] flex-col overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl sm:max-w-[700px]">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/[0.07] text-primary">
+              <Globe className="h-4 w-4" strokeWidth={1.9} />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-foreground">External Validation</h2>
-              <p className="text-xs text-muted-foreground">Check "{field.label}" against a third-party API.</p>
+              <h2 className="font-display text-base font-bold text-foreground">External validation</h2>
+              <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">Check “{field.label}” against a third-party API.</p>
             </div>
           </div>
-          <label className="flex shrink-0 cursor-pointer items-center gap-2">
-            <span className={`text-xs font-medium ${config.enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
-              {config.enabled ? 'Enabled' : 'Disabled'}
-            </span>
-            <UICheckbox
-              id="ev-enabled"
-              checked={config.enabled}
-              onCheckedChange={(checked) => updateConfig({ enabled: !!checked })}
-            />
-          </label>
+          <div className="flex shrink-0 items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2">
+              <span className={`text-xs font-medium ${config.enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {config.enabled ? 'Enabled' : 'Disabled'}
+              </span>
+              <UICheckbox
+                id="ev-enabled"
+                checked={config.enabled}
+                onCheckedChange={(checked) => updateConfig({ enabled: !!checked })}
+              />
+            </label>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 pt-2">
@@ -440,17 +445,17 @@ export function ExternalValidationModal({ isOpen, onClose, field, onUpdate }: Ex
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
-          <p className="text-[11px] text-muted-foreground">
+        <div className="flex shrink-0 flex-col gap-3 border-t border-border/70 bg-muted/20 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-medium text-muted-foreground">
             {config.enabled && !isValidUrl(config.url)
               ? 'Enter a valid endpoint URL to enable.'
               : 'Credentials are stored securely and never shown to respondents.'}
           </p>
           <div className="flex shrink-0 gap-2">
-            <Button variant="outline" onClick={onClose} type="button" className="h-8 text-xs">
+            <Button variant="outline" onClick={onClose} type="button" className="h-9 rounded-lg px-3.5">
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={config.enabled && !isValidUrl(config.url)} className="h-8 gap-1.5 text-xs">
+            <Button onClick={handleSave} disabled={config.enabled && !isValidUrl(config.url)} className="h-9 gap-1.5 rounded-lg px-4">
               <Save className="h-3.5 w-3.5" />
               Save
             </Button>
