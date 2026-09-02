@@ -21,10 +21,19 @@ import {
 } from 'lucide-react';
 import type { FormField } from '../../types';
 import { cn } from '../../lib/utils';
+import { useAppSelector } from '../../hooks/useAppDispatch';
 
 interface FieldPaletteProps {
   onAddField: (type: FormField['type']) => void;
 }
+
+const surveyFieldTypes: { type: FormField['type']; label: string; icon: React.ElementType }[] = [
+  { type: 'nps', label: 'NPS (0–10)', icon: Hash },
+  { type: 'csat', label: 'CSAT', icon: Star },
+  { type: 'ces', label: 'Effort Score', icon: Calculator },
+  { type: 'likert', label: 'Likert Matrix', icon: Table },
+  { type: 'ranking', label: 'Ranking', icon: ListPlus },
+];
 
 const fieldTypes: { type: FormField['type']; label: string; icon: React.ElementType }[] = [
   { type: 'text', label: 'Text Input', icon: Type },
@@ -97,6 +106,8 @@ function DraggableFieldType({ type, label, icon: Icon, onAddField }: {
 }
 
 export default function FieldPalette({ onAddField }: FieldPaletteProps) {
+  const isSurvey = useAppSelector((state) => state.builder.settings.formType === 'survey');
+  const availableFieldTypes = isSurvey ? [...surveyFieldTypes, ...fieldTypes] : fieldTypes;
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border/70 px-3.5 py-3">
@@ -107,7 +118,7 @@ export default function FieldPalette({ onAddField }: FieldPaletteProps) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         <div className="space-y-0.5">
-          {fieldTypes.map(({ type, label, icon: Icon }) => (
+          {availableFieldTypes.map(({ type, label, icon: Icon }) => (
             <DraggableFieldType
               key={type}
               type={type}

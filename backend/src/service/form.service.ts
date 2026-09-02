@@ -236,6 +236,15 @@ export async function updateForm(formId: string, orgId: string, data: UpdateForm
   const form = await formDao.findFormByIdAndOrg(formId, orgId);
   if (!form) throw createError(404, 'Form not found');
 
+  const mergedSchema = data.schema ?? JSON.parse(form.schema);
+  const mergedSettings = data.settings ?? JSON.parse(form.settings);
+  const strictAnonymous = mergedSettings.formType === 'survey' && (mergedSettings.survey?.identityMode ?? 'anonymous') === 'anonymous';
+  if (strictAnonymous) {
+    const conflictingField = (mergedSchema.fields ?? []).find((field: any) => ['email', 'phone', 'signature', 'file'].includes(field.type));
+    if (conflictingField) throw createError(400, `Strict anonymous surveys cannot contain the “${conflictingField.label}” identity or upload field.`);
+    if (mergedSettings.authentication?.enabled || mergedSettings.payment?.enabled) throw createError(400, 'Strict anonymous surveys cannot enable authentication or payment collection.');
+  }
+
   const updateData: Record<string, unknown> = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.description !== undefined) updateData.description = data.description;
@@ -278,6 +287,13 @@ export async function duplicateForm(formId: string, orgId: string, userId: strin
 export async function publishForm(formId: string, orgId: string) {
   const form = await formDao.findFormByIdAndOrg(formId, orgId);
   if (!form) throw createError(404, 'Form not found');
+  const schema = JSON.parse(form.schema);
+  const settings = JSON.parse(form.settings);
+  const strictAnonymous = settings.formType === 'survey' && (settings.survey?.identityMode ?? 'anonymous') === 'anonymous';
+  if (strictAnonymous) {
+    const conflict = (schema.fields ?? []).find((field: any) => ['email', 'phone', 'signature', 'file'].includes(field.type));
+    if (conflict || settings.authentication?.enabled || settings.payment?.enabled) throw createError(400, 'Resolve strict-anonymous identity, authentication, upload, or payment conflicts before publishing.');
+  }
   const updated = await formDao.publishForm(formId);
   return {
     ...parseForm(updated),

@@ -12,6 +12,41 @@ import { CreateSubmissionSchema, UpdateSubmissionInput } from '../schemas/submis
 import { SubmissionListFilter } from '../dao/interfaces/SubmissionDao';
 import { verifyTurnstileToken } from './turnstile.service';
 import axios from 'axios';
+import crypto from 'crypto';
+import prisma from '../utils/prisma';
+import { z } from 'zod';
+
+export async function saveSurveyPartial(input: unknown) {
+  const parsed = z.object({
+    formId: z.string().min(1),
+    sessionToken: z.string().min(32).max(256),
+    data: z.record(z.string(), z.unknown()),
+    stepIndex: z.number().int().min(0).max(1000).default(0),
+  }).strict().safeParse(input);
+  if (!parsed.success) throw createError(400, 'Invalid partial survey request');
+
+  const form = await formDao.findFormById(parsed.data.formId);
+  if (!form || !form.isPublished) throw createError(404, 'Survey not found or not published');
+  const schema = JSON.parse(form.schema);
+  const settings = JSON.parse(form.settings);
+  if (settings.formType !== 'survey') throw createError(400, 'Partial sessions are available only for surveys');
+
+  const strictAnonymous = (settings.survey?.identityMode ?? 'anonymous') === 'anonymous';
+  const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  const allowed = new Set(fields.filter((field: any) => !field.disabled && !['display', 'html'].includes(field.type)
+    && !(strictAnonymous && ['email', 'phone', 'signature', 'file'].includes(field.type))).map((field: any) => String(field.id)));
+  const safeData = Object.fromEntries(Object.entries(parsed.data.data).filter(([key]) => allowed.has(key)));
+  const serialized = JSON.stringify(safeData);
+  if (serialized.length > 1_000_000) throw createError(413, 'Partial survey response is too large');
+  const tokenHash = crypto.createHash('sha256').update(parsed.data.sessionToken).digest('hex');
+  const sessions = (prisma as any).surveyResponseSession;
+  await sessions.upsert({
+    where: { formId_tokenHash: { formId: parsed.data.formId, tokenHash } },
+    create: { formId: parsed.data.formId, tokenHash, data: serialized, stepIndex: parsed.data.stepIndex },
+    update: { data: serialized, stepIndex: parsed.data.stepIndex },
+  });
+  return { saved: true };
+}
 
 export async function createSubmission(
   input: unknown,
@@ -28,7 +63,7 @@ export async function createSubmission(
     });
   }
 
-  const { formId, data, turnstileToken } = parsed.data;
+  const { formId, data, turnstileToken, surveySessionToken } = parsed.data;
 
   // Verify bot protection before database reads, schema processing, external
   // validation, or any write. Missing, forged, expired, and replayed tokens fail.
@@ -83,12 +118,22 @@ export async function createSubmission(
     }
   }
 
+  const strictAnonymous = settings.formType === 'survey' && (settings.survey?.identityMode ?? 'anonymous') === 'anonymous';
   const submission = await submissionDao.createSubmission({
     formId,
     data: JSON.stringify(finalData),
-    ip,
-    userAgent,
+    // Strict anonymous surveys deliberately discard transport metadata before persistence.
+    ip: strictAnonymous ? null : ip,
+    userAgent: strictAnonymous ? null : userAgent,
   });
+
+  if (settings.formType === 'survey' && surveySessionToken) {
+    const tokenHash = crypto.createHash('sha256').update(surveySessionToken).digest('hex');
+    await (prisma as any).surveyResponseSession.updateMany({
+      where: { formId, tokenHash },
+      data: { completedAt: new Date() },
+    });
+  }
 
   // People answered under the terms shown on the form at this moment, so freeze
   // the response policy: it cannot be widened after the fact.
@@ -188,8 +233,16 @@ export async function getSubmissionAggregate(formId: string, orgId: string, user
   const access = await assertResponseLevel(userId, orgId, formId, 'AGGREGATE');
   const submissions = await submissionDao.findSubmissionsForExport(formId);
   const summary = aggregateSubmissions(formId, submissions, JSON.parse(form.schema));
+  const settings = JSON.parse(form.settings);
+  let surveyOverview: { incomplete: number; started: number; completionRate: number } | undefined;
+  if (settings.formType === 'survey') {
+    const incomplete = await (prisma as any).surveyResponseSession.count({ where: { formId, completedAt: null } });
+    const completedSessions = await (prisma as any).surveyResponseSession.count({ where: { formId, completedAt: { not: null } } });
+    const started = incomplete + Math.max(completedSessions, summary.total);
+    surveyOverview = { incomplete, started, completionRate: started ? Number((summary.total / started * 100).toFixed(1)) : 0 };
+  }
 
-  return { ...summary, formName: form.name, access: { level: access.level, policy: access.policy } };
+  return { ...summary, formName: form.name, surveyOverview, access: { level: access.level, policy: access.policy } };
 }
 
 export async function getSubmission(
@@ -262,16 +315,27 @@ export async function exportSubmissions(
   });
 
   const submissions = await submissionDao.findSubmissionsForExport(formId, ids);
-  const data = submissions.map(s => ({
-    id: s.id,
-    ...JSON.parse(s.data),
-    submittedAt: s.createdAt,
-    isRead: s.isRead,
-  }));
+  const exportSchema = JSON.parse(form.schema);
+  const exportFields = Array.isArray(exportSchema.fields) ? exportSchema.fields : [];
+  const data = submissions.map(s => {
+    const answers = JSON.parse(s.data);
+    const flattened: Record<string, unknown> = {};
+    for (const field of exportFields) {
+      const answer = answers[field.id];
+      if (field.type === 'likert' && answer && typeof answer === 'object' && !Array.isArray(answer)) {
+        for (const row of field.surveyConfig?.rows ?? []) flattened[`${field.id}.${row.id}`] = answer[row.id] ?? '';
+      } else if (field.type === 'ranking' && Array.isArray(answer)) {
+        flattened[field.id] = answer.join(' > ');
+      } else {
+        flattened[field.id] = answer;
+      }
+    }
+    return { id: s.id, ...flattened, submittedAt: s.createdAt, isRead: s.isRead };
+  });
 
   if (format === 'csv') {
     if (data.length === 0) return { format: 'csv' as const, formName: form.name, csvContent: 'No submissions' };
-    const headers = Object.keys(data[0]);
+    const headers = Array.from(new Set(data.flatMap((row) => Object.keys(row))));
     const csvRows = [
       headers.join(','),
       ...data.map((row: Record<string, unknown>) =>

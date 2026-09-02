@@ -22,8 +22,10 @@ import SignaturePad from '../components/ui/SignaturePad';
 import { MultiSelectField } from '../components/builder/MultiSelectField';
 import FormStepper from '../components/builder/FormStepper';
 import TableField from '../components/ui/TableField';
+import SurveyFieldControl from '../components/fields/SurveyFieldControl';
 import TurnstileWidget from '../components/security/TurnstileWidget';
 import { getPublicDownloadUrl, resolveFilesForSubmission, resolveSignatureForSubmission, triggerBrowserDownload } from '../lib/dms';
+import { stableSurveyShuffle } from '../lib/survey';
 import type { Form, FormField, FormLayout, DateConstraint, AssessmentResult, VotingResult, DmsFileReference, FormFileValue } from '../types';
 
 const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
@@ -45,6 +47,7 @@ function FieldsByWidth({
   onVerifyField,
   formId,
   orientation = 'vertical',
+  showQuestionNumbers = false,
 }: {
   fields: FormField[];
   errors: any;
@@ -59,6 +62,7 @@ function FieldsByWidth({
   onVerifyField: (fieldId: string, value: unknown) => void;
   formId?: string;
   orientation?: 'vertical' | 'horizontal';
+  showQuestionNumbers?: boolean;
 }) {
   // Group consecutive fields by width to maintain order
   const groupFieldsByWidthConsecutive = () => {
@@ -214,6 +218,7 @@ function FieldsByWidth({
         className={orientation === 'horizontal' ? `space-y-2 ${spanClass(field)}` : 'space-y-2'}
       >
         <Label>
+          {showQuestionNumbers && <span className="mr-1 text-muted-foreground">{fields.findIndex((item) => item.id === field.id) + 1}.</span>}
           {field.label}
           {(field.required || opts.required) && (
             <span className="text-destructive ml-1">*</span>
@@ -477,6 +482,7 @@ export default function PublicFormPage() {
   // Draft / partial submission
   const [draftRestored, setDraftRestored] = useState(false);
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const surveySaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Payment overlay state
   const [paymentInProgress, setPaymentInProgress] = useState(false);
@@ -617,6 +623,30 @@ export default function PublicFormPage() {
     return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
   }, [formValues, currentStepIndex, submitted, authStep, authEmail, authPhone]);
 
+  // Survey responses are always persisted as incomplete sessions, including in
+  // strict-anonymous mode. The opaque browser token is hashed by the server and
+  // is never treated as respondent identity.
+  useEffect(() => {
+    if (submitted || form?.settings?.formType !== 'survey' || !form.id || Object.keys(formValues || {}).length === 0) return;
+    if (surveySaveTimer.current) clearTimeout(surveySaveTimer.current);
+    surveySaveTimer.current = setTimeout(() => {
+      const storageKey = `sifyforms:survey-session:${form.id}`;
+      let sessionToken = localStorage.getItem(storageKey);
+      if (!sessionToken) {
+        sessionToken = `${crypto.randomUUID()}${crypto.randomUUID()}`;
+        localStorage.setItem(storageKey, sessionToken);
+      }
+      const safe: Record<string, unknown> = {};
+      Object.entries(formValues || {}).forEach(([key, val]) => {
+        if (val instanceof File || val instanceof FileList) return;
+        if (Array.isArray(val) && val.some((item) => item instanceof File)) return;
+        safe[key] = val;
+      });
+      api.post('/submissions/partial', { formId: form.id, sessionToken, data: safe, stepIndex: currentStepIndex }).catch(() => {});
+    }, 1200);
+    return () => { if (surveySaveTimer.current) clearTimeout(surveySaveTimer.current); };
+  }, [form, formValues, currentStepIndex, submitted]);
+
   // Verified sessions expire after 30 minutes of inactivity
   const AUTH_SESSION_TTL_MS = 30 * 60 * 1000;
 
@@ -707,21 +737,28 @@ export default function PublicFormPage() {
 
   const { fieldsToShow, currentStep, totalSteps } = useMemo(() => {
     if (!form) return { fieldsToShow: [], currentStep: null, totalSteps: 0 };
+    let orderedFields = form.schema.fields;
+    if (form.settings?.formType === 'survey' && form.settings.survey?.randomizeQuestions) {
+      const storageKey = `sifyforms:survey-session:${form.id}`;
+      let seed = localStorage.getItem(storageKey);
+      if (!seed) { seed = `${crypto.randomUUID()}${crypto.randomUUID()}`; localStorage.setItem(storageKey, seed); }
+      orderedFields = stableSurveyShuffle(orderedFields, seed);
+    }
     if (!isMultiStep) {
 
-      return { fieldsToShow: form.schema.fields, currentStep: null, totalSteps: 1 };
+      return { fieldsToShow: orderedFields, currentStep: null, totalSteps: 1 };
     }
     const steps = (layout.steps || []).sort((a, b) => a.order - b.order);
 
 
     if (steps.length === 0) {
 
-      return { fieldsToShow: form.schema.fields, currentStep: null, totalSteps: 1 };
+      return { fieldsToShow: orderedFields, currentStep: null, totalSteps: 1 };
     }
     const step = steps[currentStepIndex] ?? steps[0];
     const stepFieldIds = new Set(step?.fieldIds || []);
     // Use schema.fields order (drag-drop source of truth) filtered to this step's fields
-    const fieldsToShow = form.schema.fields.filter((f) => stepFieldIds.has(f.id));
+    const fieldsToShow = orderedFields.filter((f) => stepFieldIds.has(f.id));
 
 
 
@@ -1522,6 +1559,9 @@ export default function PublicFormPage() {
           formId: form.id,
           data: submissionData,
           turnstileToken,
+          surveySessionToken: form.settings?.formType === 'survey'
+            ? localStorage.getItem(`sifyforms:survey-session:${form.id}`) || undefined
+            : undefined,
         });
       } catch (caughtError: any) {
         const responseData = caughtError?.response?.data;
@@ -2276,6 +2316,23 @@ export default function PublicFormPage() {
         );
       }
 
+      case 'nps':
+      case 'csat':
+      case 'ces':
+      case 'likert':
+      case 'ranking':
+        return (
+          <>
+            <input type="hidden" {...register(field.id, opts)} />
+            <SurveyFieldControl
+              field={field}
+              value={formValues[field.id]}
+              onChange={(answer) => setValue(field.id, answer, { shouldDirty: true, shouldValidate: true })}
+              disabled={field.disabled}
+            />
+          </>
+        );
+
       case 'rating': {
         const ratingValue = formValues[field.id] || 0;
         return (
@@ -2347,9 +2404,15 @@ export default function PublicFormPage() {
     }
   };
 
+  const confirmSoftRequired = (fields: FormField[]) => {
+    const skipped = fields.filter((field) => field.surveyConfig?.softRequired && (formValues[field.id] === undefined || formValues[field.id] === null || formValues[field.id] === ''));
+    return skipped.length === 0 || window.confirm(`${skipped.length === 1 ? skipped[0].label : `${skipped.length} recommended questions`} was left unanswered. Continue anyway?`);
+  };
+
   const handleNextStep = async (e?: React.FormEvent) => {
     e?.preventDefault?.();
 
+    if (!confirmSoftRequired(visibleFields)) return;
     const fields = visibleFields.map((f) => f.id);
 
     if (fields.length === 0) {
@@ -2393,7 +2456,7 @@ export default function PublicFormPage() {
     setCurrentStepIndex((i) => Math.max(i - 1, 0));
   };
 
-  const allowBack = layout.allowBackNavigation !== false;
+  const allowBack = form?.settings?.formType === 'survey' ? form.settings.survey?.allowBackNavigation !== false : layout.allowBackNavigation !== false;
 
   if (isLoading) {
     return (
@@ -2708,6 +2771,8 @@ export default function PublicFormPage() {
       return;
     }
 
+    if ((!isMultiStep || isLastStep) && !confirmSoftRequired(visibleFields)) return;
+
     // Check for external validation errors/loading on visible fields
     const visibleFieldIds = visibleFields.map(f => f.id);
     const activeExternalErrors = Object.keys(externalValidationErrors).filter(id => visibleFieldIds.includes(id));
@@ -2905,7 +2970,7 @@ export default function PublicFormPage() {
                 </button>
               </div>
             )}
-            {isMultiStep && totalSteps > 1 && (
+            {isMultiStep && totalSteps > 1 && !(form.settings?.formType === 'survey' && form.settings.survey?.showProgress === false) && (
               <FormStepper
                 steps={sortedSteps.map((s) => ({ id: s.id, title: s.title }))}
                 currentIndex={currentStepIndex}
@@ -2934,6 +2999,7 @@ export default function PublicFormPage() {
                   onVerifyField={handleExternalValidation}
                   formId={form.id}
                   orientation={layout.orientation}
+                  showQuestionNumbers={form.settings?.formType === 'survey' && form.settings.survey?.showQuestionNumbers !== false}
                 />
               </fieldset>
 

@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
-import { X, Plus, Trash2, Shield, Settings, Calculator, Link, Eye, EyeOff, Database, Loader2, Wand2, Globe, FileSpreadsheet, AlertCircle, FileText, ClipboardCheck, BarChart2 } from 'lucide-react';
+import { X, Plus, Trash2, Shield, Settings, Calculator, Link, Eye, EyeOff, Database, Loader2, Wand2, Globe, FileSpreadsheet, AlertCircle, FileText, ClipboardCheck, BarChart2, BarChart3 } from 'lucide-react';
 import type { FormField, ShowConditionOperator, ShowWhenNode, FormVariable, DateConstraint, TableValidationRule, TableValidationRuleType, LinkingConditionNode } from '../../types';
 import { isShowWhenGroup, isLinkingGroup } from '../../types';
 import { AdvancedLinkingModal } from './AdvancedLinkingModal';
@@ -203,7 +203,8 @@ export default function FieldInspector({
     );
   }
 
-  const hasOptions = ['select', 'multiselect', 'radio', 'checkbox'].includes(field.type);
+  const hasOptions = ['select', 'multiselect', 'radio', 'checkbox', 'ranking'].includes(field.type);
+  const isSurveyQuestion = ['nps', 'csat', 'ces', 'likert', 'ranking'].includes(field.type);
   const otherFields = allFields.filter(f => f.id !== field.id);
   // True when the Input Validation modal also defines a min/max/length rule,
   // which overlaps with the Constraints & Defaults fields below.
@@ -291,6 +292,22 @@ export default function FieldInspector({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
       <Accordion>
+        {isSurveyQuestion && (
+          <AccordionItem title="Survey Question" subtitle="Scale, reporting, and response behavior" icon={<BarChart3 className="h-4 w-4" />} defaultOpen>
+            <div className="space-y-4">
+              <div className="space-y-2"><Label>Analysis label</Label><Input value={field.surveyConfig?.analysisLabel || ''} onChange={(e) => onUpdate({ surveyConfig: { ...field.surveyConfig!, analysisLabel: e.target.value } })} placeholder="Short label used in reports" /></div>
+              {!['ranking'].includes(field.type) && <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1"><Label>Scale minimum</Label><Input type="number" min={0} max={10} value={field.surveyConfig?.scale?.min ?? (field.type === 'nps' ? 0 : 1)} onChange={(e) => onUpdate({ surveyConfig: { ...field.surveyConfig!, scale: { ...(field.surveyConfig?.scale || { max: field.type === 'nps' ? 10 : 5 }), min: Number(e.target.value) } } })} /></div>
+                <div className="space-y-1"><Label>Scale maximum</Label><Input type="number" min={1} max={10} value={field.surveyConfig?.scale?.max ?? (field.type === 'nps' ? 10 : 5)} onChange={(e) => onUpdate({ surveyConfig: { ...field.surveyConfig!, scale: { ...(field.surveyConfig?.scale || { min: field.type === 'nps' ? 0 : 1 }), max: Number(e.target.value) } } })} /></div>
+                <div className="space-y-1"><Label>Low label</Label><Input value={field.surveyConfig?.scale?.minLabel || ''} onChange={(e) => onUpdate({ surveyConfig: { ...field.surveyConfig!, scale: { ...field.surveyConfig!.scale!, minLabel: e.target.value } } })} /></div>
+                <div className="space-y-1"><Label>High label</Label><Input value={field.surveyConfig?.scale?.maxLabel || ''} onChange={(e) => onUpdate({ surveyConfig: { ...field.surveyConfig!, scale: { ...field.surveyConfig!.scale!, maxLabel: e.target.value } } })} /></div>
+              </div>}
+              {field.type === 'likert' && <div className="space-y-2"><Label>Matrix statements (one per line)</Label><Textarea value={(field.surveyConfig?.rows || []).map((row) => row.label).join('\n')} onChange={(e) => onUpdate({ surveyConfig: { ...field.surveyConfig!, rows: e.target.value.split('\n').filter(Boolean).map((label, index) => ({ id: field.surveyConfig?.rows?.[index]?.id || `row_${Date.now()}_${index}`, label })) } })} /></div>}
+              <label className="flex items-start gap-2"><input type="checkbox" className="mt-0.5 h-4 w-4" checked={field.surveyConfig?.softRequired || false} onChange={(e) => onUpdate({ surveyConfig: { ...field.surveyConfig!, softRequired: e.target.checked } })} /><span><span className="block text-sm font-medium">Soft required</span><span className="block text-xs text-muted-foreground">Prompt when skipped, but allow the respondent to continue.</span></span></label>
+              {['ranking'].includes(field.type) && <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" checked={field.surveyConfig?.randomize?.enabled || false} onChange={(e) => onUpdate({ surveyConfig: { ...field.surveyConfig!, randomize: { ...field.surveyConfig?.randomize, enabled: e.target.checked } } })} /><span className="text-sm">Randomize choices per response</span></label>}
+            </div>
+          </AccordionItem>
+        )}
         {/* Basic Properties */}
         <AccordionItem
           title="Basic Properties"

@@ -229,9 +229,30 @@ export interface TableConfig {
   namedRows?: TableNamedRow[];
 }
 
+export type SurveyQuestionKind = 'nps' | 'csat' | 'ces' | 'likert' | 'ranking';
+
+export interface SurveyQuestionConfig {
+  kind: SurveyQuestionKind;
+  analysisLabel?: string;
+  metricKey?: string;
+  scale?: {
+    min: number;
+    max: number;
+    minLabel?: string;
+    midpointLabel?: string;
+    maxLabel?: string;
+    notApplicable?: boolean;
+  };
+  rows?: Array<{ id: string; label: string }>;
+  randomize?: { enabled: boolean; pinOptionIds?: string[] };
+  ranking?: { maxRanked?: number; requireAll?: boolean };
+  softRequired?: boolean;
+}
+
 export interface FormField {
   id: string;
-  type: 'text' | 'email' | 'phone' | 'number' | 'select' | 'multiselect' | 'radio' | 'checkbox' | 'date' | 'time' | 'textarea' | 'file' | 'rating' | 'signature' | 'html' | 'display' | 'table';
+  type: 'text' | 'email' | 'phone' | 'number' | 'select' | 'multiselect' | 'radio' | 'checkbox' | 'date' | 'time' | 'textarea' | 'file' | 'rating' | 'signature' | 'html' | 'display' | 'table' | 'nps' | 'csat' | 'ces' | 'likert' | 'ranking';
+  surveyConfig?: SurveyQuestionConfig;
   label: string;
   placeholder?: string;
   helpText?: string;
@@ -596,6 +617,17 @@ export interface FormBrandingSection {
   imageAlt?: string;
 }
 
+export interface SurveySettings {
+  /** Strict anonymous is the privacy-safe default when omitted. */
+  identityMode: 'anonymous' | 'pseudonymous' | 'identified';
+  showQuestionNumbers?: boolean;
+  showProgress?: boolean;
+  randomizeQuestions?: boolean;
+  allowBackNavigation?: boolean;
+  /** Survey MVP always persists incomplete responses; retained for explicit schema output. */
+  saveIncomplete?: true;
+}
+
 export interface FormSettings {
   thankYouMessage?: string;
   redirectUrl?: string | null;
@@ -624,6 +656,7 @@ export interface FormSettings {
   dms?: DmsSettings;
   /** Determines which post-submission processor runs */
   formType?: 'assessment' | 'voting' | 'survey' | 'registration' | 'application';
+  survey?: SurveySettings;
   /** Assessment-specific processing config */
   assessment?: {
     passThreshold: number;
@@ -812,6 +845,16 @@ export interface FieldSummary {
   responseRate?: number;
   counts?: Record<string, number>;
   stats?: { min: number; max: number; mean: number; median?: number };
+  surveyMetric?: {
+    kind: 'nps' | 'csat' | 'ces' | 'likert' | 'ranking';
+    score?: number;
+    promoters?: number;
+    passives?: number;
+    detractors?: number;
+    topBoxPercent?: number;
+    rowMeans?: Record<string, number>;
+    averageRanks?: Record<string, number>;
+  };
 }
 
 /** Counts and distributions, computed server-side so no row ever leaves it. */
@@ -822,6 +865,7 @@ export interface AggregateResult {
   firstResponseAt: string | null;
   lastResponseAt: string | null;
   fields: FieldSummary[];
+  surveyOverview?: { incomplete: number; started: number; completionRate: number };
   /** Optional for compatibility with servers deployed before analytics enrichment. */
   insights?: {
     responsesLast7Days: number;

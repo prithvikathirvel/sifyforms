@@ -222,6 +222,44 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
       errors[field.id] = `${field.label} must be a valid number.`;
       continue;
     }
+    if (['nps', 'csat', 'ces'].includes(field.type)) {
+      const fallback = field.type === 'nps' ? { min: 0, max: 10 } : { min: 1, max: 5 };
+      const scale = field.surveyConfig?.scale || fallback;
+      const score = Number(value);
+      if (!Number.isInteger(score) || score < scale.min || score > scale.max) {
+        errors[field.id] = `${field.label} must be a whole number from ${scale.min} to ${scale.max}.`;
+        continue;
+      }
+      data[field.id] = score;
+    }
+    if (field.type === 'likert') {
+      const scale = field.surveyConfig?.scale || { min: 1, max: 5 };
+      const rows = Array.isArray(field.surveyConfig?.rows) ? field.surveyConfig.rows : [];
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        errors[field.id] = `${field.label} has an invalid matrix answer.`;
+        continue;
+      }
+      const rowIds = new Set(rows.map((row: any) => String(row.id)));
+      const unknownRows = Object.keys(value).filter((id) => !rowIds.has(id));
+      const invalidScore = Object.entries(value).some(([id, score]) => !rowIds.has(id) || !Number.isInteger(Number(score)) || Number(score) < scale.min || Number(score) > scale.max);
+      if (unknownRows.length || invalidScore || (field.required && rows.some((row: any) => value[row.id] == null))) {
+        errors[field.id] = `${field.label} contains an invalid or incomplete matrix answer.`;
+        continue;
+      }
+      data[field.id] = Object.fromEntries(Object.entries(value).map(([id, score]) => [id, Number(score)]));
+    }
+    if (field.type === 'ranking') {
+      const allowed = new Set((field.options || []).map((option: any) => String(option.value)));
+      if (!Array.isArray(value) || value.some((item: any) => typeof item !== 'string' || !allowed.has(item)) || new Set(value).size !== value.length) {
+        errors[field.id] = `${field.label} contains an invalid ranking.`;
+        continue;
+      }
+      const maxRanked = field.surveyConfig?.ranking?.maxRanked;
+      if ((maxRanked && value.length > maxRanked) || (field.surveyConfig?.ranking?.requireAll && value.length !== allowed.size)) {
+        errors[field.id] = `${field.label} ranking is incomplete or exceeds its limit.`;
+        continue;
+      }
+    }
     if (field.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
       errors[field.id] = `${field.label} must be a valid date.`;
       continue;

@@ -108,6 +108,14 @@ export default function AggregateResults({ formId, notice }: Props) {
         </div>
       )}
 
+      {summary.surveyOverview && (
+        <div className="grid grid-cols-3 gap-3">
+          <InsightStat icon={<Activity className="h-4 w-4" />} label="Survey starts" value={summary.surveyOverview.started.toLocaleString()} detail="Completed and incomplete sessions" />
+          <InsightStat icon={<MessageSquareText className="h-4 w-4" />} label="Incomplete" value={summary.surveyOverview.incomplete.toLocaleString()} detail="Saved separately from submissions" />
+          <InsightStat icon={<Gauge className="h-4 w-4" />} label="Completion rate" value={`${summary.surveyOverview.completionRate}%`} detail="Completed submissions / starts" />
+        </div>
+      )}
+
       {summary.total === 0 ? (
         <Card className="rounded-xl border-dashed border-border bg-card shadow-none">
           <CardContent className="py-16 text-center">
@@ -324,6 +332,15 @@ function QuestionResult({ field, total }: { field: FieldSummary; total: number }
         </div>
       </CardHeader>
       <CardContent className="px-4 py-4">
+        {field.surveyMetric && (
+          <div className="mb-4 rounded-lg border border-primary/20 bg-primary/[0.04] p-3">
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-primary">{field.surveyMetric.kind} metric</p>
+            {field.surveyMetric.score !== undefined && <p className="mt-1 font-display text-2xl font-bold tabular-nums">{field.surveyMetric.score}{field.surveyMetric.kind === 'csat' && field.surveyMetric.topBoxPercent !== undefined ? ` avg · ${field.surveyMetric.topBoxPercent}% satisfied` : ''}</p>}
+            {field.surveyMetric.kind === 'nps' && <p className="mt-1 text-xs text-muted-foreground">{field.surveyMetric.promoters} promoters · {field.surveyMetric.passives} passives · {field.surveyMetric.detractors} detractors</p>}
+            {field.surveyMetric.rowMeans && <div className="mt-2 space-y-1">{Object.entries(field.surveyMetric.rowMeans).map(([row, mean]) => <div key={row} className="flex justify-between text-xs"><span>{row}</span><strong>{mean}</strong></div>)}</div>}
+            {field.surveyMetric.averageRanks && <div className="mt-2 space-y-1">{Object.entries(field.surveyMetric.averageRanks).sort((a,b) => a[1] - b[1]).map(([option, rank]) => <div key={option} className="flex justify-between text-xs"><span>{option}</span><strong>Avg. rank {rank}</strong></div>)}</div>}
+          </div>
+        )}
         {counts.length > 0 ? (
           <div className="space-y-3">
             {counts.map(([option, count], index) => {

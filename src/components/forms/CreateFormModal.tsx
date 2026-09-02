@@ -61,6 +61,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   const [step, setStep] = useState<Step>('choose');
   const [formName, setFormNameLocal] = useState('');
   const [formDescription, setFormDescriptionLocal] = useState('');
+  const [formMode, setFormMode] = useState<'standard' | 'survey'>('standard');
   const [teamId, setTeamId] = useState<string | null>(null);
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
@@ -80,6 +81,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
     setStep('choose');
     setFormNameLocal('');
     setFormDescriptionLocal('');
+    setFormMode('standard');
     setJsonInput('');
     setJsonError('');
     setActionError('');
@@ -104,10 +106,15 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
         description: formDescription.trim(),
         teamId: effectiveTeamId,
         schema: {
-          fields: [],
+          fields: formMode === 'survey' ? [
+            { id: 'survey_nps', type: 'nps', label: 'How likely are you to recommend us?', required: true, surveyConfig: { kind: 'nps', scale: { min: 0, max: 10, minLabel: 'Not at all likely', maxLabel: 'Extremely likely' } } },
+            { id: 'survey_feedback', type: 'textarea', label: 'What is the main reason for your score?', required: false, placeholder: 'Share your feedback' },
+          ] as FormField[] : [],
           layout: { mode: 'singlePage', steps: [] },
         },
-        settings: { thankYouMessage: 'Thank you for your submission!' },
+        settings: formMode === 'survey'
+          ? { formType: 'survey', thankYouMessage: 'Thank you for sharing your feedback!', survey: { identityMode: 'anonymous', showQuestionNumbers: true, showProgress: true, allowBackNavigation: true, saveIncomplete: true } }
+          : { thankYouMessage: 'Thank you for your submission!' },
       })).unwrap();
 
       dispatch(resetBuilder());
@@ -344,8 +351,23 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
     >
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         <div className="mx-auto max-w-4xl space-y-5">
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-semibold">What are you creating?</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                { value: 'standard', title: 'Standard form', description: 'Collect registrations, applications, files, and structured data.' },
+                { value: 'survey', title: 'Survey', description: 'Start with NPS and use research-ready scales, ranking, pages, and reports.' },
+              ] as const).map((option) => (
+                <button key={option.value} type="button" onClick={() => setFormMode(option.value)}
+                  className={`rounded-xl border p-4 text-left ${formMode === option.value ? 'border-primary bg-primary/[0.04]' : 'border-border hover:border-primary/30'}`}>
+                  <span className="block text-sm font-semibold">{option.title}</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">{option.description}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
           <div className="space-y-2">
-            <Label htmlFor="formName">Form name</Label>
+            <Label htmlFor="formName">{formMode === 'survey' ? 'Survey name' : 'Form name'}</Label>
             <Input
               id="formName"
               autoFocus

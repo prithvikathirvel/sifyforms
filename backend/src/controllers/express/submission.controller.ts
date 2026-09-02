@@ -10,6 +10,15 @@ function getParamString(param: string | string[] | undefined): string {
   return param || '';
 }
 
+export async function saveSurveyPartial(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await submissionService.saveSurveyPartial(req.body);
+    res.status(StatusCodes.OK).json(result);
+  } catch (error: any) {
+    res.status(error.statusCode ?? StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
+  }
+}
+
 export async function createSubmission(req: Request, res: Response): Promise<void> {
   try {
     logger.info('Express --> createSubmission --> Request', { formId: req.body.formId });

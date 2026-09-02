@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createSubmission,
+  saveSurveyPartial,
   listSubmissions,
   getSubmission,
   updateSubmission,
@@ -12,11 +13,14 @@ import {
   getSubmissionAggregate,
 } from '../controllers/express/submission.controller';
 import { authMiddleware, orgMiddleware } from '../middleware/auth.middleware';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
 // Public route for form submissions. Authentication is intentionally not
 // required; the shared service requires server-verified Turnstile proof.
+const surveyPartialLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: true, legacyHeaders: false });
+router.post('/partial', surveyPartialLimiter, saveSurveyPartial);
 router.post('/', createSubmission);
 router.post('/check-unique', checkFieldUniqueness);
 router.post('/check-external', checkExternalValidation);

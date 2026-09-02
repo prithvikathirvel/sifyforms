@@ -30,6 +30,15 @@ export const createSubmission = functions.http('createSubmission', async (req: a
   }
 });
 
+export const saveSurveyPartial = functions.http('saveSurveyPartial', async (req: any, res: any) => {
+  try {
+    const result = await submissionService.saveSurveyPartial(req.body);
+    res.status(StatusCodes.OK).json(result);
+  } catch (error: any) {
+    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
+  }
+});
+
 // POST https://<region>-<project>.cloudfunctions.net/checkFieldUniqueness
 // No auth — Body: { formId, fieldId, value }
 export const checkFieldUniqueness = functions.http('checkFieldUniqueness', async (req: any, res: any) => {

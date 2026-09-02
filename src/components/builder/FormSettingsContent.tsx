@@ -368,6 +368,10 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                   <BarChart2 className="h-4 w-4 mr-2" />
                   Voting
                 </TabsTrigger>
+                <TabsTrigger value="survey" className="w-full justify-start data-[state=active]:bg-background">
+                  <BarChart2 className="h-4 w-4 mr-2" />
+                  Survey
+                </TabsTrigger>
               </TabsList>
             </div>
             
@@ -1212,6 +1216,50 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
 
                     </>
                   );
+                })()}
+              </TabsContent>
+
+              <TabsContent value="survey" className="mt-0 space-y-5">
+                {(() => {
+                  const isSurvey = builder.settings.formType === 'survey';
+                  const survey = builder.settings.survey ?? { identityMode: 'anonymous' as const, saveIncomplete: true as const };
+                  const updateSurvey = (updates: Partial<typeof survey>) => dispatch(updateSettings({
+                    formType: 'survey', survey: { ...survey, ...updates, saveIncomplete: true },
+                  }));
+                  return <>
+                    <div className="flex items-center justify-between rounded-lg border bg-card p-3">
+                      <div><Label className="text-sm font-semibold">Enable Survey Mode</Label><p className="mt-0.5 text-xs text-muted-foreground">Adds survey questions, anonymous partial saving, and survey reports.</p></div>
+                      <UICheckbox checked={isSurvey} onCheckedChange={(checked: boolean) => dispatch(updateSettings({ formType: checked ? 'survey' : undefined, survey: checked ? survey : undefined }))} />
+                    </div>
+                    {isSurvey && <>
+                      <div className="space-y-3 rounded-lg border bg-card p-3">
+                        <Label className="text-sm font-semibold">Respondent identity</Label>
+                        <p className="text-xs text-muted-foreground">Strict anonymous is the safest default and stores no direct identity, raw IP, or browser user-agent.</p>
+                        <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={survey.identityMode} onChange={(event) => {
+                          const identityMode = event.target.value as 'anonymous' | 'pseudonymous' | 'identified';
+                          updateSurvey({ identityMode });
+                          if (identityMode === 'anonymous') dispatch(updateSettings({
+                            authentication: builder.settings.authentication ? { ...builder.settings.authentication, enabled: false } : undefined,
+                            payment: builder.settings.payment ? { ...builder.settings.payment, enabled: false } : undefined,
+                          }));
+                        }}>
+                          <option value="anonymous">Strict anonymous (recommended)</option>
+                          <option value="pseudonymous">Pseudonymous</option>
+                          <option value="identified">Identified</option>
+                        </select>
+                        {survey.identityMode === 'anonymous' && <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">Authentication, payment, email, phone, signatures, and uploads conflict with strict anonymity and are blocked by server validation.</p>}
+                      </div>
+                      <div className="space-y-3 rounded-lg border bg-card p-3">
+                        {([
+                          ['showQuestionNumbers', 'Show question numbers'],
+                          ['showProgress', 'Show survey progress'],
+                          ['allowBackNavigation', 'Allow back navigation'],
+                          ['randomizeQuestions', 'Randomize question order'],
+                        ] as const).map(([key, label]) => <div key={key} className="flex items-center justify-between"><Label>{label}</Label><UICheckbox checked={key === 'randomizeQuestions' ? survey[key] === true : survey[key] !== false} onCheckedChange={(checked: boolean) => updateSurvey({ [key]: checked })} /></div>)}
+                      </div>
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900"><strong>Incomplete responses are always saved.</strong> They remain separate from completed submissions and are excluded from completion metrics.</div>
+                    </>}
+                  </>;
                 })()}
               </TabsContent>
             </div>

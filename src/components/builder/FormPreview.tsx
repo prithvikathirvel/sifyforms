@@ -17,6 +17,7 @@ import { CalculationEngine } from '../../lib/calculationEngine';
 import type { FormField, FormSchema, FormSettings, FormLayout } from '../../types';
 import { cn } from '../../lib/utils';
 import { FormBranding } from '../ui/FormBranding';
+import SurveyFieldControl from '../fields/SurveyFieldControl';
 
 interface FormPreviewProps {
   schema: FormSchema;
@@ -297,6 +298,12 @@ function FieldControl({
           hideLabel
         />
       );
+    case 'nps':
+    case 'csat':
+    case 'ces':
+    case 'likert':
+    case 'ranking':
+      return <SurveyFieldControl field={field} value={value} onChange={onChange} disabled={disabled} />;
     case 'rating':
       return (
         <div className="flex gap-1">
@@ -400,7 +407,7 @@ export default function FormPreview({
   );
   const isMultiStep = layout?.mode === 'multiStep' && steps.length > 0;
   const stepperStyle = layout?.stepperStyle || 'progress';
-  const allowBack = layout?.allowBackNavigation !== false;
+  const allowBack = settings.formType === 'survey' ? settings.survey?.allowBackNavigation !== false : layout?.allowBackNavigation !== false;
 
   // Clamp the step index whenever the step list shrinks.
   useEffect(() => {
@@ -508,6 +515,7 @@ export default function FormPreview({
     return (
       <div key={field.id} className={cn('space-y-2', isHorizontal && spanClass(field))}>
         <Label>
+          {settings.formType === 'survey' && settings.survey?.showQuestionNumbers !== false && <span className="mr-1 text-muted-foreground">{visibleFields.findIndex((item) => item.id === field.id) + 1}.</span>}
           {field.label}
           {field.required && <span className="ml-1 text-destructive">*</span>}
         </Label>
@@ -618,12 +626,12 @@ export default function FormPreview({
 
             {isMultiStep && (
               <>
-                <FormStepper
+                {!(settings.formType === 'survey' && settings.survey?.showProgress === false) && <FormStepper
                   steps={steps.map((s) => ({ id: s.id, title: s.title }))}
                   currentIndex={currentStepIndex}
                   style={stepperStyle}
                   onStepClick={allowBack ? (i) => setCurrentStepIndex(i) : undefined}
-                />
+                />}
                 {currentStep?.title && (
                   <h3 className="mb-1 text-lg font-semibold text-foreground">{currentStep.title}</h3>
                 )}

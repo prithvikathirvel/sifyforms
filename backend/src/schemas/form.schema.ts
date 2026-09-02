@@ -94,12 +94,29 @@ export const FormFieldSchema = z.object({
   type: z.enum([
     'text', 'email', 'phone', 'number', 'select', 'radio',
     'checkbox', 'multiselect', 'date', 'time', 'textarea', 'file', 'rating',
-    'signature', 'html', 'display', 'table'
+    'signature', 'html', 'display', 'table', 'nps', 'csat', 'ces', 'likert', 'ranking'
   ]),
   label: z.string(),
   placeholder: z.string().optional(),
   helpText: z.string().optional(),
   required: z.boolean().default(false),
+  surveyConfig: z.object({
+    kind: z.enum(['nps', 'csat', 'ces', 'likert', 'ranking']),
+    analysisLabel: z.string().max(120).optional(),
+    metricKey: z.string().max(80).optional(),
+    scale: z.object({
+      min: z.number().int().min(0).max(10),
+      max: z.number().int().min(1).max(10),
+      minLabel: z.string().max(80).optional(),
+      midpointLabel: z.string().max(80).optional(),
+      maxLabel: z.string().max(80).optional(),
+      notApplicable: z.boolean().optional(),
+    }).refine((scale) => scale.max > scale.min, 'Scale maximum must exceed minimum').optional(),
+    rows: z.array(z.object({ id: z.string().min(1), label: z.string().min(1).max(200) })).max(50).optional(),
+    randomize: z.object({ enabled: z.boolean(), pinOptionIds: z.array(z.string()).optional() }).optional(),
+    ranking: z.object({ maxRanked: z.number().int().min(1).max(100).optional(), requireAll: z.boolean().optional() }).optional(),
+    softRequired: z.boolean().optional(),
+  }).optional(),
   unique: z.boolean().optional(),
   fileConfig: z.object({
     accept: z.array(z.string()).optional(),
@@ -313,6 +330,14 @@ export const FormSettingsSchema = z.object({
     showResultsAfterVoting: z.boolean(),
     showResultsPublic: z.boolean(),
   }).optional(),
+  survey: z.object({
+    identityMode: z.enum(['anonymous', 'pseudonymous', 'identified']).default('anonymous'),
+    showQuestionNumbers: z.boolean().optional(),
+    showProgress: z.boolean().optional(),
+    randomizeQuestions: z.boolean().optional(),
+    allowBackNavigation: z.boolean().optional(),
+    saveIncomplete: z.literal(true).default(true),
+  }).optional(),
   // Other settings that may come from the frontend
   theme: z.string().optional(),
   isFormActive: z.boolean().optional(),
@@ -350,12 +375,18 @@ export const FormSettingsSchema = z.object({
     imageAlt: z.string().max(240).optional(),
   }).optional(),
   authentication: z.any().optional(),
+  payment: z.any().optional(),
   partialSubmission: z.any().optional(),
   dms: z.object({
     enabled: z.boolean(),
     maxFileSize: z.number().positive().optional(),
     allowedMimeTypes: z.array(z.string()).optional(),
   }).optional(),
+}).superRefine((settings, ctx) => {
+  const strictAnonymous = settings.formType === 'survey' && (settings.survey?.identityMode ?? 'anonymous') === 'anonymous';
+  if (!strictAnonymous) return;
+  if (settings.authentication?.enabled) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['authentication'], message: 'Strict anonymous surveys cannot require authentication.' });
+  if (settings.payment?.enabled) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['payment'], message: 'Strict anonymous surveys cannot collect payments.' });
 });
 
 export const CreateFormSchema = z.object({
@@ -365,6 +396,11 @@ export const CreateFormSchema = z.object({
   description: z.string().optional(),
   schema: FormSchemaDefinition,
   settings: FormSettingsSchema.optional(),
+}).superRefine((form, ctx) => {
+  const strictAnonymous = form.settings?.formType === 'survey' && (form.settings.survey?.identityMode ?? 'anonymous') === 'anonymous';
+  if (strictAnonymous && form.schema.fields.some((field) => ['email', 'phone', 'signature', 'file'].includes(field.type))) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['schema', 'fields'], message: 'Strict anonymous surveys cannot contain direct-identity or upload fields.' });
+  }
 });
 
 export const UpdateFormSchema = z.object({
@@ -373,6 +409,11 @@ export const UpdateFormSchema = z.object({
   schema: FormSchemaDefinition.optional(),
   settings: FormSettingsSchema.optional(),
   isPublished: z.boolean().optional(),
+}).superRefine((form, ctx) => {
+  const strictAnonymous = form.settings?.formType === 'survey' && (form.settings.survey?.identityMode ?? 'anonymous') === 'anonymous';
+  if (strictAnonymous && form.schema?.fields.some((field) => ['email', 'phone', 'signature', 'file'].includes(field.type))) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['schema', 'fields'], message: 'Strict anonymous surveys cannot contain direct-identity or upload fields.' });
+  }
 });
 
 export type FormField = z.infer<typeof FormFieldSchema>;

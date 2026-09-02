@@ -778,9 +778,22 @@ export default function FormBuilderPage() {
       label: getDefaultLabel(type),
       placeholder: '',
       required: false,
-      options: type === 'select' || type === 'radio' || type === 'checkbox' || type === 'multiselect'
+      options: ['select', 'radio', 'checkbox', 'multiselect'].includes(type)
         ? [{ label: 'Option 1', value: 'option1' }]
-        : undefined,
+        : type === 'ranking'
+          ? [{ label: 'First item', value: 'item_1' }, { label: 'Second item', value: 'item_2' }, { label: 'Third item', value: 'item_3' }]
+          : undefined,
+      surveyConfig: type === 'nps'
+        ? { kind: 'nps', scale: { min: 0, max: 10, minLabel: 'Not at all likely', maxLabel: 'Extremely likely' } }
+        : type === 'csat'
+          ? { kind: 'csat', scale: { min: 1, max: 5, minLabel: 'Very dissatisfied', maxLabel: 'Very satisfied' } }
+          : type === 'ces'
+            ? { kind: 'ces', scale: { min: 1, max: 7, minLabel: 'Strongly disagree', maxLabel: 'Strongly agree' } }
+            : type === 'likert'
+              ? { kind: 'likert', scale: { min: 1, max: 5, minLabel: 'Strongly disagree', maxLabel: 'Strongly agree' }, rows: [{ id: 'row_1', label: 'Statement 1' }, { id: 'row_2', label: 'Statement 2' }] }
+              : type === 'ranking'
+                ? { kind: 'ranking', ranking: { requireAll: true } }
+                : undefined,
     };
     dispatch(addField(newField));
     dispatch(selectField(newField.id));
@@ -804,6 +817,11 @@ export default function FormBuilderPage() {
       html: 'Custom HTML',
       display: 'Display Value',
       table: 'Table Grid',
+      nps: 'How likely are you to recommend us?',
+      csat: 'How satisfied are you with your experience?',
+      ces: 'How easy was it to complete your goal?',
+      likert: 'How much do you agree with each statement?',
+      ranking: 'Rank these items in order of preference',
     };
     return labels[type] || 'New Field';
   };

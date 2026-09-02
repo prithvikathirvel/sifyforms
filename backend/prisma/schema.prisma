@@ -171,6 +171,7 @@ model Form {
   isPublished Boolean @default(false)
 
   submissions Submission[]
+  surveyResponseSessions SurveyResponseSession[]
   drafts      Draft[]
 
   createdBy String
@@ -248,6 +249,22 @@ model Submission {
 }
 
 // Stores computed output after post-submission processing (assessment scores, vote tallies)
+model SurveyResponseSession {
+  id          String   @id @default(cuid())
+  formId      String
+  tokenHash   String
+  data        String   @db.LongText
+  stepIndex   Int      @default(0)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, tokenHash])
+  @@index([formId, completedAt])
+}
+
 model ProcessingResult {
   id           String   @id @default(cuid())
   submissionId String   @unique

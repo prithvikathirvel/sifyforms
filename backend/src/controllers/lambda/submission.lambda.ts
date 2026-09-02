@@ -27,6 +27,15 @@ export const createSubmission = async (event: APIGatewayProxyEvent): Promise<API
   }
 };
 
+export const saveSurveyPartial = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const result = await submissionService.saveSurveyPartial(parseBody(event));
+    return lambdaResponse(StatusCodes.OK, result);
+  } catch (error: any) {
+    return lambdaError(error);
+  }
+};
+
 // POST /checkFieldUniqueness
 // No auth — Body: { formId, fieldId, value }
 export const checkFieldUniqueness = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {

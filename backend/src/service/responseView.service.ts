@@ -178,6 +178,17 @@ export interface FieldSummary {
   counts?: Record<string, number>;
   /** Present for numeric fields. */
   stats?: { min: number; max: number; mean: number; median: number };
+  /** Server-calculated survey metric; clients never supply these values. */
+  surveyMetric?: {
+    kind: 'nps' | 'csat' | 'ces' | 'likert' | 'ranking';
+    score?: number;
+    promoters?: number;
+    passives?: number;
+    detractors?: number;
+    topBoxPercent?: number;
+    rowMeans?: Record<string, number>;
+    averageRanks?: Record<string, number>;
+  };
 }
 
 export interface AggregateResult {
@@ -218,12 +229,15 @@ const SUMMARISABLE = new Set([
   'multiselect',
   'dropdown',
   'rating',
+  'nps',
+  'csat',
+  'ces',
   'scale',
   'boolean',
   'yesno',
 ]);
 
-const NUMERIC = new Set(['number', 'rating', 'scale', 'currency']);
+const NUMERIC = new Set(['number', 'rating', 'scale', 'currency', 'nps', 'csat', 'ces']);
 const NON_RESPONSE_FIELDS = new Set(['html', 'display']);
 const TREND_DAYS = 14;
 
@@ -361,6 +375,29 @@ export function aggregateSubmissions(
           median: Number(median.toFixed(2)),
         };
       }
+    }
+
+    if (type === 'nps') {
+      const scores = values.map(Number).filter(Number.isFinite);
+      const promoters = scores.filter(score => score >= 9).length;
+      const passives = scores.filter(score => score >= 7 && score <= 8).length;
+      const detractors = scores.filter(score => score <= 6).length;
+      summary.surveyMetric = { kind: 'nps', score: scores.length ? Number((((promoters - detractors) / scores.length) * 100).toFixed(1)) : 0, promoters, passives, detractors };
+    } else if (type === 'csat') {
+      const scores = values.map(Number).filter(Number.isFinite);
+      const configuredMax = Number((field as any).surveyConfig?.scale?.max ?? 5);
+      const topBox = configuredMax <= 5 ? configuredMax - 1 : Math.ceil(configuredMax * 0.8);
+      summary.surveyMetric = { kind: 'csat', score: summary.stats?.mean, topBoxPercent: scores.length ? Number((scores.filter(score => score >= topBox).length / scores.length * 100).toFixed(1)) : 0 };
+    } else if (type === 'ces') {
+      summary.surveyMetric = { kind: 'ces', score: summary.stats?.mean };
+    } else if (type === 'likert') {
+      const totals: Record<string, number[]> = {};
+      values.forEach((answer) => { if (answer && typeof answer === 'object' && !Array.isArray(answer)) Object.entries(answer).forEach(([row, score]) => { const n = Number(score); if (Number.isFinite(n)) (totals[row] ||= []).push(n); }); });
+      summary.surveyMetric = { kind: 'likert', rowMeans: Object.fromEntries(Object.entries(totals).map(([row, scores]) => [row, Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2))])) };
+    } else if (type === 'ranking') {
+      const ranks: Record<string, number[]> = {};
+      values.forEach((answer) => { if (Array.isArray(answer)) answer.forEach((option, index) => (ranks[String(option)] ||= []).push(index + 1)); });
+      summary.surveyMetric = { kind: 'ranking', averageRanks: Object.fromEntries(Object.entries(ranks).map(([option, positions]) => [option, Number((positions.reduce((a, b) => a + b, 0) / positions.length).toFixed(2))])) };
     }
 
     result.fields.push(summary);

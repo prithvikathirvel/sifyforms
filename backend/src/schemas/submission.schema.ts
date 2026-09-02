@@ -4,6 +4,7 @@ export const CreateSubmissionSchema = z.object({
   formId: z.string().min(1),
   data: z.record(z.string(), z.any()),
   turnstileToken: z.string().min(1, 'Security verification is required').max(2048),
+  surveySessionToken: z.string().min(32).max(256).optional(),
   // Accepted temporarily so older clients fail on Turnstile rather than on an
   // unknown key. The client-generated math CAPTCHA is no longer trusted.
   captchaProblem: z.string().optional(),

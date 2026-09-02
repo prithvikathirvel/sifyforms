@@ -842,7 +842,7 @@ export default function SubmissionsPage() {
     ...(canSeeRows
       ? [{ id: 'submissions', label: 'Submissions', icon: <Eye className="h-3.5 w-3.5" /> }]
       : []),
-    { id: 'results', label: 'Results', icon: <BarChart2 className="h-3.5 w-3.5" /> },
+    { id: 'results', label: formType === 'survey' ? 'Survey report' : 'Results', icon: <BarChart2 className="h-3.5 w-3.5" /> },
     ...(formType === 'assessment' && canSeeAggregate ? [
       ...(canSeeRows
         ? [{ id: 'leaderboard', label: 'Leaderboard', icon: <Trophy className="h-3.5 w-3.5" /> }]
