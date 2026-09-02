@@ -102,7 +102,7 @@ export function FormBranding({ section, variant, formId, preview = false }: {
     <div
       className={cn(
         'w-full border-border px-4 py-3 sm:px-6',
-        variant === 'header' ? 'sticky top-0 z-40 border-b bg-card/95 shadow-sm backdrop-blur' : 'mt-6 border-t bg-card/70',
+        variant === 'header' ? 'sticky top-0 z-40 border-b bg-card' : 'mt-6 border-t bg-transparent',
         preview && 'relative top-auto z-10'
       )}
     >

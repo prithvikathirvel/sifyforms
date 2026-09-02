@@ -575,7 +575,7 @@ export default function FormPreview({
     return groups.map((group, gi) => {
       const gridClass =
         group.width === 'half'
-          ? 'grid grid-cols-2 gap-4'
+          ? 'grid grid-cols-1 gap-5 sm:grid-cols-2'
           : group.width === 'third'
             ? 'grid grid-cols-3 gap-4'
             : 'space-y-6';
@@ -608,9 +608,9 @@ export default function FormPreview({
   return (
     <div className="public-form-shell min-h-full bg-muted/30" data-theme={settings.theme || 'default'}>
       <FormBranding section={settings.header} variant="header" formId={formId} preview />
-      <div className="px-4 py-12 sm:px-6 lg:px-8">
-        <div className={isHorizontal ? 'mx-auto w-full max-w-[1400px]' : 'mx-auto max-w-2xl'}>
-          <div className="form-card rounded-lg border border-border bg-card p-6 shadow-xl sm:p-8">
+      <div className="px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+        <div className={isHorizontal ? 'mx-auto w-full max-w-[1400px]' : 'mx-auto max-w-3xl'}>
+          <div className="form-card border border-border bg-card p-5 sm:p-7">
             <div className="mb-6">
               <h2 className="min-w-0 break-words text-2xl font-semibold text-foreground">{name || 'Untitled form'}</h2>
               {description && <p className="mt-1 break-words text-sm text-muted-foreground">{description}</p>}

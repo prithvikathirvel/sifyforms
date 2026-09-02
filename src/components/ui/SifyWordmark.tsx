@@ -16,16 +16,13 @@ export function SifyWordmark({ className }: { className?: string }) {
   );
 }
 
-/** Compact parent-brand attribution shown after the author's custom footer. */
+/** Quiet parent-brand attribution shown after the author's custom footer. */
 export function PoweredBySify({ className }: { className?: string }) {
   return (
-    <span
-      className={cn('inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1.5 text-slate-500 shadow-sm backdrop-blur', className)}
-      aria-label="Powered by Sify Forms"
-    >
-      <span className="text-[10px] font-medium uppercase tracking-[0.08em]">Powered by</span>
-      <SifyWordmark className="h-3.5 text-slate-500" />
-      <span className="text-[11px] font-semibold text-slate-600">Forms</span>
+    <span className={cn('inline-flex items-center gap-2 text-slate-500', className)} aria-label="Powered by Sify Forms">
+      <span className="text-[11px] font-medium">Powered by</span>
+      <SifyWordmark className="h-4 text-slate-500" />
+      <span className="sr-only">Forms</span>
     </span>
   );
 }

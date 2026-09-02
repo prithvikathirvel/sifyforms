@@ -1,172 +1,118 @@
-﻿/* 
-  Professional Two-Color Theme System
-  Strictly scoped to [data-theme] containers.
-  Designed for Public Forms (Soft Outer Background / Deep Inner Card).
-*/
+/*
+ * Public form themes
+ *
+ * Themes change only the quiet page tint and interaction accent. The reading
+ * surface and controls stay neutral so every form remains professional and
+ * legible. Depth comes from spacing and 1px borders—not decorative shadows.
+ */
 
-/* Professional Blue */
 [data-theme="modern-blue"] {
-  --background: 210 40% 96%;
-  /* Very Soft Blue Outer */
+  --background: 214 38% 97%;
   --foreground: 222 47% 11%;
-  --card: 222 47% 11%;
-  /* Deep Navy Inner */
-  --card-foreground: 210 40% 98%;
-  --primary: 217 91% 60%;
-  /* Bright Blue Accent */
-  --primary-foreground: 210 40% 98%;
-  --border: 217 32% 17%;
-  --input: 217 32% 17%;
-  --ring: 217 91% 60%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 221 83% 53%;
 }
 
-/* Elegant Dark */
 [data-theme="dark-mode"] {
-  --background: 222 47% 4%;
-  /* Deep Charcoal Outer */
+  --background: 222 42% 7%;
   --foreground: 210 40% 98%;
-  --card: 222 47% 12%;
-  /* Slate Card Inner */
-  --card-foreground: 210 40% 98%;
-  --primary: 262 83% 58%;
-  /* Indigo Accent */
-  --primary-foreground: 210 40% 98%;
-  --border: 217 32% 20%;
-  --input: 217 32% 20%;
+  --primary: 263 72% 66%;
+  --primary-foreground: 222 42% 8%;
+  --ring: 263 72% 66%;
 }
 
-/* Soft Sage */
 [data-theme="nature-green"] {
-  --background: 140 20% 92%;
-  /* Soft Mint Outer */
-  --foreground: 140 40% 10%;
-  --card: 140 20% 20%;
-  /* Deep Sage Inner */
-  --card-foreground: 140 20% 95%;
-  --primary: 142 76% 36%;
-  /* Forest Green Accent */
-  --primary-foreground: 140 20% 95%;
-  --border: 140 20% 30%;
-  --input: 140 20% 30%;
+  --background: 145 24% 96%;
+  --foreground: 158 32% 12%;
+  --primary: 158 64% 32%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 158 64% 32%;
 }
 
-/* Warm Sand */
 [data-theme="sunset-orange"] {
-  --background: 30 30% 96%;
-  /* Soft Sand Outer */
-  --foreground: 30 40% 10%;
-  --card: 30 30% 18%;
-  /* Deep Walnut Inner */
-  --card-foreground: 30 30% 95%;
-  --primary: 25 95% 45%;
-  /* Warm Terracotta Accent */
-  --primary-foreground: 30 30% 95%;
-  --border: 30 30% 25%;
-  --input: 30 30% 25%;
+  --background: 32 45% 97%;
+  --foreground: 24 34% 13%;
+  --primary: 24 80% 44%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 24 80% 44%;
 }
 
-/* Royal Velvet */
 [data-theme="royal-purple"] {
-  --background: 270 30% 94%;
-  /* Soft Lavender Outer */
-  --foreground: 270 50% 10%;
-  --card: 270 50% 15%;
-  /* Deep Violet Inner */
-  --card-foreground: 270 30% 98%;
-  --primary: 270 91% 65%;
-  /* Bright Orchid Accent */
-  --primary-foreground: 270 30% 98%;
-  --border: 270 50% 25%;
-  --input: 270 50% 25%;
+  --background: 268 34% 97%;
+  --foreground: 266 38% 13%;
+  --primary: 266 65% 48%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 266 65% 48%;
 }
 
-/* Clean Slate */
 [data-theme="monochrome"] {
   --background: 210 20% 98%;
-  /* White-ish Outer */
-  --foreground: 210 20% 10%;
-  --card: 222 47% 11%;
-  /* Deep Slate Inner */
-  --card-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  /* White Accent */
-  --primary-foreground: 222 47% 11%;
-  --border: 217 32% 17%;
-  --input: 217 32% 17%;
+  --foreground: 222 47% 11%;
+  --primary: 222 47% 16%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 222 47% 22%;
 }
 
-/* Oceanic */
 [data-theme="ocean-teal"] {
-  --background: 190 40% 94%;
-  /* Soft Sky Outer */
-  --foreground: 190 60% 10%;
-  --card: 190 60% 15%;
-  /* Deep Abyss Inner */
-  --card-foreground: 190 40% 98%;
-  --primary: 190 90% 40%;
-  /* Vibrant Teal Accent */
-  --primary-foreground: 190 40% 98%;
-  --border: 190 60% 25%;
-  --input: 190 60% 25%;
+  --background: 188 35% 96%;
+  --foreground: 190 42% 11%;
+  --primary: 187 75% 30%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 187 75% 30%;
 }
 
-/* Rose Garden */
 [data-theme="cherry-red"] {
-  --background: 350 30% 96%;
-  /* Soft Rose Outer */
-  --foreground: 350 60% 10%;
-  --card: 350 60% 18%;
-  /* Deep Burgundy Inner */
-  --card-foreground: 350 30% 98%;
-  --primary: 350 80% 55%;
-  /* Rich Red Accent */
-  --primary-foreground: 350 30% 98%;
-  --border: 350 60% 25%;
-  --input: 350 60% 25%;
+  --background: 350 40% 97%;
+  --foreground: 347 38% 12%;
+  --primary: 347 68% 45%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 347 68% 45%;
 }
 
-/* Corporate */
 [data-theme="corporate-gray"] {
-  --background: 210 10% 92%;
-  /* Light Gray Outer */
-  --foreground: 210 20% 10%;
-  --card: 222 47% 11%;
-  /* Dark Gray Inner */
-  --card-foreground: 210 40% 98%;
-  --primary: 210 20% 45%;
-  /* Muted Gray Accent */
-  --primary-foreground: 210 40% 98%;
-  --border: 210 20% 20%;
-  --input: 210 20% 20%;
+  --background: 216 24% 97%;
+  --foreground: 222 35% 12%;
+  --primary: 215 25% 32%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 215 25% 32%;
 }
 
-/* Premium public-form surface system. Theme colors remain accents; controls stay
-   calm, legible surfaces instead of inheriting saturated border colors. */
 [data-theme] {
   --form-surface: 0 0% 100%;
   --form-copy: 222 47% 11%;
-  --form-muted: 215 16% 42%;
+  --form-muted: 215 16% 40%;
   --form-control: 0 0% 100%;
-  --form-control-border: 214 24% 84%;
+  --form-control-border: 214 24% 82%;
   background-color: hsl(var(--background)) !important;
   color: hsl(var(--foreground)) !important;
 }
 
 [data-theme="dark-mode"] {
-  --form-surface: 222 38% 10%;
+  --form-surface: 222 34% 10%;
   --form-copy: 210 40% 98%;
   --form-muted: 215 20% 72%;
-  --form-control: 222 30% 15%;
-  --form-control-border: 217 24% 29%;
+  --form-control: 222 28% 14%;
+  --form-control-border: 217 22% 28%;
+}
+
+.public-form-shell {
+  font-size: 1rem;
+}
+
+/* Public pages are intentionally flat. This also neutralizes utility shadows
+   on shared Card/Dialog components without changing the authenticated app. */
+.public-form-shell [class*="shadow-"] {
+  box-shadow: none !important;
 }
 
 [data-theme] .form-card {
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   background-color: hsl(var(--form-surface)) !important;
   color: hsl(var(--form-copy)) !important;
-  border-color: hsl(var(--form-control-border) / 0.75) !important;
-  box-shadow: 0 24px 60px -24px rgb(15 23 42 / 0.28), 0 8px 24px -16px rgb(15 23 42 / 0.18);
+  border-color: hsl(var(--form-control-border) / 0.85) !important;
+  box-shadow: none !important;
 }
 
 [data-theme] .form-card label,
@@ -177,26 +123,36 @@
   color: hsl(var(--form-copy)) !important;
 }
 
+[data-theme] .form-card label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
 [data-theme] .form-card input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 [data-theme] .form-card textarea,
 [data-theme] .form-card select {
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
   background-color: hsl(var(--form-control)) !important;
   color: hsl(var(--form-copy)) !important;
   border-color: hsl(var(--form-control-border)) !important;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  box-shadow: none !important;
 }
 
 [data-theme] .form-card input:hover,
 [data-theme] .form-card textarea:hover,
 [data-theme] .form-card select:hover {
-  border-color: hsl(var(--primary) / 0.55) !important;
+  border-color: hsl(var(--primary) / 0.65) !important;
 }
 
 [data-theme] .form-card input:focus,
 [data-theme] .form-card textarea:focus,
 [data-theme] .form-card select:focus {
   border-color: hsl(var(--primary)) !important;
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.13) !important;
+  outline: 3px solid hsl(var(--primary) / 0.14) !important;
+  outline-offset: 1px;
+  box-shadow: none !important;
 }
 
 [data-theme] .form-card input::placeholder,

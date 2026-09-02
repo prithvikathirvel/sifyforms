@@ -90,9 +90,9 @@ function FieldsByWidth({
   const getGridClass = (width: string) => {
     switch (width) {
       case 'half':
-        return 'grid grid-cols-2 gap-4';
+        return 'grid grid-cols-1 gap-5 sm:grid-cols-2';
       case 'third':
-        return 'grid grid-cols-3 gap-4';
+        return 'grid grid-cols-1 gap-5 sm:grid-cols-3';
       default:
         return 'space-y-6';
     }
@@ -2406,7 +2406,7 @@ export default function PublicFormPage() {
   if (loadError || !form) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <Card className="w-full max-w-md">
+        <Card className="shadow-none w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">Form Not Found</h2>
@@ -2422,7 +2422,7 @@ export default function PublicFormPage() {
   if (alreadyVoted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-        <Card className="w-full max-w-md">
+        <Card className="shadow-none w-full max-w-md">
           <CardContent className="pt-6 text-center space-y-3">
             <XCircle className="h-16 w-16 mx-auto text-amber-500 mb-2" />
             <h2 className="text-2xl font-semibold">Already Voted</h2>
@@ -2441,7 +2441,7 @@ export default function PublicFormPage() {
       if (!assessmentResult) {
         return (
           <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-            <Card className="w-full max-w-md">
+            <Card className="shadow-none w-full max-w-md">
               <CardContent className="pt-6 text-center space-y-4">
                 <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin" />
                 <h2 className="text-xl font-semibold">Evaluating your answers…</h2>
@@ -2457,7 +2457,7 @@ export default function PublicFormPage() {
 
       return (
         <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-          <Card className="w-full max-w-lg">
+          <Card className="shadow-none w-full max-w-lg">
             <CardHeader className="text-center border-b pb-4">
               <div className={`text-5xl font-bold mb-1 ${passColor}`}>{assessmentResult.percentage}%</div>
               <div className={`text-lg font-semibold ${passColor}`}>{assessmentResult.passed ? '✓ Passed' : '✗ Failed'}</div>
@@ -2505,7 +2505,7 @@ export default function PublicFormPage() {
     if (formType === 'voting' && form?.settings?.voting?.showResultsAfterVoting) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-          <Card className="w-full max-w-lg">
+          <Card className="shadow-none w-full max-w-lg">
             <CardHeader className="text-center border-b pb-4">
               <CheckCircle className="h-10 w-10 mx-auto text-green-500 mb-2" />
               <h2 className="text-xl font-semibold">Vote Recorded!</h2>
@@ -2550,7 +2550,7 @@ export default function PublicFormPage() {
     // Default thank-you screen
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-        <Card className="w-full max-w-md">
+        <Card className="shadow-none w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
             <h2 className="text-2xl font-semibold mb-2">Thank You!</h2>
@@ -2615,7 +2615,7 @@ export default function PublicFormPage() {
         <FormBranding section={form.settings?.header} variant="header" formId={form.id} />
         <div className="p-4">
         <div className="max-w-2xl mx-auto py-8">
-          <Card>
+          <Card className="shadow-none">
             <CardHeader>
               <CardTitle className="min-w-0 break-words text-2xl">{previewConfig.title || 'Review Your Information'}</CardTitle>
               {previewConfig.description && (
@@ -2754,7 +2754,7 @@ export default function PublicFormPage() {
 
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md shadow-xl">
+        <Card className="shadow-none w-full max-w-md">
           <CardHeader className="text-center space-y-1 pb-4">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
               <CreditCard className="h-6 w-6 text-primary" />
@@ -2836,10 +2836,10 @@ export default function PublicFormPage() {
       data-theme={form?.settings?.theme || 'default'}
     >
       <FormBranding section={form.settings?.header} variant="header" formId={form.id} />
-      <div className="px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-      <div className={layout.orientation === 'horizontal' ? 'mx-auto w-full max-w-[1400px]' : 'max-w-2xl mx-auto'}>
-        <Card className="form-card border-border">
-          <CardHeader>
+      <div className="px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+      <div className={layout.orientation === 'horizontal' ? 'mx-auto w-full max-w-[1400px]' : 'mx-auto max-w-3xl'}>
+        <Card className="shadow-none form-card border-border">
+          <CardHeader className="px-5 pb-2 pt-6 sm:px-7 sm:pt-7">
             <CardTitle className="min-w-0 break-words text-2xl">{form.name}</CardTitle>
             {form.description && (
               <CardDescription className="break-words">{form.description}</CardDescription>
@@ -2868,7 +2868,7 @@ export default function PublicFormPage() {
               </div>
             )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 pb-6 pt-4 sm:px-7 sm:pb-7">
             {submissionError && (
               <div role="alert" className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/[0.06] px-4 py-3 text-sm text-destructive">
                 <div>
@@ -3024,7 +3024,7 @@ export default function PublicFormPage() {
 
         <FormBranding section={form.settings?.footer} variant="footer" formId={form.id} />
 
-        <div className="mt-4 flex items-center justify-center">
+        <div className="mt-5 flex items-center justify-center pb-2">
           <PoweredBySify />
         </div>
       </div>
@@ -3094,7 +3094,7 @@ export default function PublicFormPage() {
       {/* Payment Confirmation dialog */}
       {paymentConfirmOpen && paymentConfirmInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 space-y-6">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <CreditCard className="h-5 w-5 text-primary" />
@@ -3141,7 +3141,7 @@ export default function PublicFormPage() {
       {/* Payment in Progress overlay */}
       {paymentInProgress && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center space-y-6">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 text-center space-y-6">
             {paymentStatus !== 'failed' ? (
               <>
                 {/* Spinner with icon */}
