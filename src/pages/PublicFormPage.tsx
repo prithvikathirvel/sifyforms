@@ -563,7 +563,7 @@ export default function PublicFormPage() {
     pendingSubmissionDataRef.current = null;
   };
 
-  const { register, handleSubmit, formState: { errors }, setError: setFieldError, setValue, watch, trigger, getValues, reset } = useForm({
+  const { register, unregister, clearErrors, handleSubmit, formState: { errors }, setError: setFieldError, setValue, watch, trigger, getValues, reset } = useForm({
     mode: 'onTouched',
     shouldUnregister: false,
   });
@@ -781,6 +781,33 @@ export default function PublicFormPage() {
     },
     [fieldsToShow, formValues]
   );
+
+  // react-hook-form retains registered controls after React unmounts them. A
+  // conditionally hidden required field would therefore keep blocking submit.
+  // Unregister hidden branches globally (including fields on another step),
+  // clear their answers, and let the control register again if it becomes visible.
+  useEffect(() => {
+    if (!form) return;
+    const hiddenIds = form.schema.fields
+      .filter((field) => !evaluateShowWhen(field.showWhen, formValues as Record<string, unknown>, field))
+      .map((field) => field.id);
+    if (hiddenIds.length === 0) return;
+    hiddenIds.forEach((fieldId) => unregister(fieldId));
+    clearErrors(hiddenIds);
+    const removeHiddenKeys = <T,>(state: Record<string, T>) => {
+      const next = { ...state };
+      let changed = false;
+      hiddenIds.forEach((fieldId) => {
+        if (fieldId in next) { delete next[fieldId]; changed = true; }
+      });
+      return changed ? next : state;
+    };
+    setUniquenessErrors(removeHiddenKeys);
+    setUniquenessSuccess(removeHiddenKeys);
+    setExternalValidationErrors(removeHiddenKeys);
+    setExternalValidationSuccess(removeHiddenKeys);
+    setExternalValidationLoading(removeHiddenKeys);
+  }, [form, formValues, unregister, clearErrors]);
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -1259,7 +1286,9 @@ export default function PublicFormPage() {
           // Basic mode - use dynamicConfig.options
 
           const optionsMap = linking.dynamicConfig.options as Record<string, any[]>;
-          newOptions = optionsMap[String(sourceFieldValue)] || field.options || [];
+          const sourceKeys = Array.isArray(sourceFieldValue) ? sourceFieldValue.map(String) : [String(sourceFieldValue ?? '')];
+          const mappedOptions = sourceKeys.flatMap((sourceKey) => optionsMap[sourceKey] || []);
+          newOptions = mappedOptions.length > 0 ? Array.from(new Map(mappedOptions.map((option) => [option.value, option])).values()) : field.options || [];
         } else if ((mode === 'advanced' || mode === 'restriction') && matchingRule?.dynamicOptions) {
           // Condition-based rules (advanced or restriction mode) - use rule.dynamicOptions
 
@@ -1387,6 +1416,7 @@ export default function PublicFormPage() {
     // Table validation rules
     const newTableErrors: Record<string, string[]> = {};
     for (const field of (form.schema?.fields ?? [])) {
+      if (!evaluateShowWhen(field.showWhen, data, field)) continue;
       if (field.type !== 'table' || !field.tableValidation?.length) continue;
       const tableValue = data[field.id] as { rows: Record<string, any>[] } | undefined;
       const tableRows = tableValue?.rows ?? [];

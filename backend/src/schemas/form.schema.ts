@@ -396,7 +396,7 @@ export const CreateFormSchema = z.object({
   /** Team that will own the form. Omit to use the organization's General team. */
   teamId: z.string().nullable().optional(),
   name: z.string().min(1, 'Name is required').max(200),
-  description: z.string().optional(),
+  description: z.string().max(16_000, 'Description must be 16,000 characters or fewer').optional(),
   schema: FormSchemaDefinition,
   settings: FormSettingsSchema.optional(),
 }).superRefine((form, ctx) => {
@@ -408,7 +408,7 @@ export const CreateFormSchema = z.object({
 
 export const UpdateFormSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  description: z.string().optional(),
+  description: z.string().max(16_000, 'Description must be 16,000 characters or fewer').optional(),
   schema: FormSchemaDefinition.optional(),
   settings: FormSettingsSchema.optional(),
   isPublished: z.boolean().optional(),

@@ -279,8 +279,9 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
         errors[field.id] = `${field.label} accepts only one option.`;
         continue;
       }
-      // Include every configured static/dynamic option. A submitted label or an
-      // invented option is never accepted merely because it came from a client.
+      // Validate against options available for the CURRENT branch. Accepting the
+      // union of every branch lets a modified client submit an option that was
+      // never displayed for the respondent's parent answer.
       const allowed = new Set<string>();
       const addOptions = (options: any) => {
         if (!Array.isArray(options)) return;
@@ -288,10 +289,21 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
           if (option && option.value !== undefined) allowed.add(String(option.value));
         });
       };
-      addOptions(field.options);
-      if (field.dynamicOptions?.mappings) Object.values(field.dynamicOptions.mappings).forEach(addOptions);
-      if (field.fieldLinking?.dynamicConfig?.options) Object.values(field.fieldLinking.dynamicConfig.options).forEach(addOptions);
-      (field.fieldLinking?.rules || []).forEach((rule: any) => addOptions(rule.dynamicOptions));
+      const linking = field.fieldLinking;
+      let effectiveOptions = field.options;
+      if (linking?.enabled && (linking.mode ?? 'basic') === 'basic' && linking.dynamicConfig?.options) {
+        const source = data[linking.sourceFieldId];
+        const sourceKeys = Array.isArray(source) ? source.map(String) : [String(source ?? '')];
+        const mapped = sourceKeys.flatMap((sourceKey) => linking.dynamicConfig.options[sourceKey] ?? []);
+        if (mapped.length > 0) effectiveOptions = mapped;
+      } else if (linking?.enabled && ['advanced', 'restriction'].includes(linking.mode)) {
+        const matched = (linking.rules || []).find((rule: any) => {
+          const outcomes = (rule.conditions || []).map((condition: any) => evaluateNode(condition, data));
+          return outcomes.length > 0 && (rule.logic === 'or' ? outcomes.some(Boolean) : outcomes.every(Boolean));
+        });
+        if (matched?.dynamicOptions?.length) effectiveOptions = matched.dynamicOptions;
+      }
+      addOptions(effectiveOptions);
       if (allowed.size > 0 && selected.some((option) => !allowed.has(option))) {
         errors[field.id] = `${field.label} contains an invalid option.`;
         continue;

@@ -149,7 +149,7 @@ model Form {
   orgId       String
   name        String
   slug        String
-  description String?
+  description String? @db.Text
 
   /// The team that groups this form. Access is governed by the organization
   /// role and explicit shares, not by the owning team.

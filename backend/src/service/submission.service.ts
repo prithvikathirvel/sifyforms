@@ -5,7 +5,7 @@ import logger from '../utils/logger';
 import { ACTIONS } from '../config/rbac.config';
 import { assertResponseLevel, assertFormAction } from './formAccess.service';
 import { viewSubmission, aggregateSubmissions } from './responseView.service';
-import { validateSubmission } from '../lib/validation';
+import { evaluateShowWhen, validateSubmission } from '../lib/validation';
 import { processAssessment } from '../services/assessment.processor';
 import { checkVotingDuplicate, processVote } from '../services/voting.processor';
 import { CreateSubmissionSchema, UpdateSubmissionInput } from '../schemas/submission.schema';
@@ -36,6 +36,12 @@ export async function saveSurveyPartial(input: unknown) {
   const allowed = new Set(fields.filter((field: any) => !field.disabled && !['display', 'html'].includes(field.type)
     && !(strictAnonymous && ['email', 'phone', 'signature', 'file'].includes(field.type))).map((field: any) => String(field.id)));
   const safeData = Object.fromEntries(Object.entries(parsed.data.data).filter(([key]) => allowed.has(key)));
+  // Partial sessions follow the same conditional-visibility boundary as final
+  // submissions. If an earlier answer hides a branch, stale answers from that
+  // branch must not remain in storage or later analytics.
+  for (const field of fields) {
+    if (!evaluateShowWhen(field.showWhen, safeData)) delete safeData[field.id];
+  }
   const serialized = JSON.stringify(safeData);
   if (serialized.length > 1_000_000) throw createError(413, 'Partial survey response is too large');
   const tokenHash = crypto.createHash('sha256').update(parsed.data.sessionToken).digest('hex');

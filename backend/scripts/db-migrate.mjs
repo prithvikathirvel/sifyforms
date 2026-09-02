@@ -61,6 +61,7 @@ try {
   const fixes = [
     'ALTER TABLE `Form` MODIFY `schema` LONGTEXT NOT NULL',
     'ALTER TABLE `Form` MODIFY `settings` LONGTEXT NOT NULL',
+    'ALTER TABLE `Form` MODIFY `description` TEXT NULL',
     'ALTER TABLE `Submission` MODIFY `data` LONGTEXT NOT NULL',
     'ALTER TABLE `Draft` MODIFY `data` LONGTEXT NOT NULL',
     'ALTER TABLE `Template` MODIFY `schema` LONGTEXT NOT NULL',
