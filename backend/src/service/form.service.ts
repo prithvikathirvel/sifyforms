@@ -74,20 +74,39 @@ function sanitizePublicSchema(schema: Record<string, unknown>): Record<string, u
   };
 }
 
-/** Expose only the assessment flags the respondent UI needs. */
+/** Expose only settings required by the respondent UI; never merchant secrets. */
 function sanitizePublicSettings(settings: Record<string, unknown>): Record<string, unknown> {
-  if (!settings.assessment || typeof settings.assessment !== 'object' || Array.isArray(settings.assessment)) {
-    return settings;
-  }
-  const assessment = settings.assessment as Record<string, unknown>;
-  return {
-    ...settings,
-    assessment: {
+  const safe = { ...settings };
+
+  if (settings.assessment && typeof settings.assessment === 'object' && !Array.isArray(settings.assessment)) {
+    const assessment = settings.assessment as Record<string, unknown>;
+    safe.assessment = {
       showScoreAfterSubmit: assessment.showScoreAfterSubmit === true,
       showCorrectAnswers:
         assessment.showScoreAfterSubmit === true && assessment.showCorrectAnswers === true,
-    },
-  };
+    };
+  }
+
+  if (settings.payment && typeof settings.payment === 'object' && !Array.isArray(settings.payment)) {
+    const payment = settings.payment as Record<string, unknown>;
+    // Razorpay's key ID is publishable and required by Checkout. Secret keys,
+    // webhook secrets, Paytm merchant keys and PayU salts must never reach a
+    // public form response, browser logs, extensions, or network inspection.
+    safe.payment = {
+      enabled: payment.enabled === true,
+      gateway: payment.gateway,
+      tenantId: payment.tenantId,
+      amountType: payment.amountType,
+      staticAmount: payment.staticAmount,
+      amountFieldId: payment.amountFieldId,
+      amountVariableId: payment.amountVariableId,
+      emailFieldId: payment.emailFieldId,
+      mobileFieldId: payment.mobileFieldId,
+      razorpayKeyId: payment.razorpayKeyId,
+    };
+  }
+
+  return safe;
 }
 
 async function generateUniqueSlug(orgId: string): Promise<string> {

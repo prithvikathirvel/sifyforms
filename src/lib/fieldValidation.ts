@@ -57,6 +57,9 @@ export function getFieldValidation(field: FormField) {
   // 3. NEW rules-based validation (Overrides or supplements legacy)
   if (field.rules && field.rules.length > 0) {
     field.rules.forEach((rule, index) => {
+      // Legacy rules omit `enabled`, which means active. Only an explicit false
+      // disables a rule, matching server-side enforcement.
+      if (rule.enabled === false) return;
       const { type, value, message } = rule;
       const defaultMessage = (msg: string) => message || msg;
 

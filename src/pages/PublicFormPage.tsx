@@ -382,7 +382,10 @@ export default function PublicFormPage() {
   const [submitted, setSubmitted] = useState(false);
   const [thankYouMessage, setThankYouMessage] = useState('');
   const [isAdvancing, setIsAdvancing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Loading failures are fatal; submission/payment failures are recoverable and
+  // must never replace a valid form with the misleading “Form Not Found” page.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [lockedSteps, setLockedSteps] = useState<Set<string>>(new Set());
@@ -554,7 +557,7 @@ export default function PublicFormPage() {
     pendingSubmissionDataRef.current = null;
   };
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch, trigger, getValues, reset } = useForm({
+  const { register, handleSubmit, formState: { errors }, setError: setFieldError, setValue, watch, trigger, getValues, reset } = useForm({
     mode: 'onTouched',
     shouldUnregister: false,
   });
@@ -752,7 +755,7 @@ export default function PublicFormPage() {
           schema: normalizedSchema,
         });
       } catch (err: any) {
-        setError(err.response?.data?.error || 'Form not found or not published');
+        setLoadError(err.response?.data?.error || 'Form not found or not published');
       } finally {
         setIsLoading(false);
       }
@@ -1331,6 +1334,7 @@ export default function PublicFormPage() {
 
   const onSubmit = async (data: Record<string, unknown>) => {
     if (!form) return;
+    setSubmissionError(null);
 
     if (!turnstileToken) {
       setTurnstileError('Security verification is required before submitting.');
@@ -1519,9 +1523,18 @@ export default function PublicFormPage() {
           data: submissionData,
           turnstileToken,
         });
-      } catch (submissionError: any) {
-        const msg = submissionError?.response?.data?.error || 'Failed to submit form. Please try again.';
-        setError(msg);
+      } catch (caughtError: any) {
+        const responseData = caughtError?.response?.data;
+        const details = responseData?.details;
+        if (details && !Array.isArray(details) && typeof details === 'object') {
+          Object.entries(details as Record<string, string>).forEach(([fieldId, message]) => {
+            setFieldError(fieldId, { type: 'server', message });
+          });
+        }
+        const msg = responseData?.error === 'Validation failed'
+          ? 'One or more answers did not pass validation.'
+          : responseData?.error || 'Failed to submit form. Please try again.';
+        setSubmissionError(msg);
         // Siteverify tokens are single-use. Always request a fresh token before
         // retrying, including when a later form validation rejects the request.
         setTurnstileToken(null);
@@ -1642,7 +1655,7 @@ export default function PublicFormPage() {
           throw new Error(`Unsupported payment gateway response: ${JSON.stringify(posData)}`);
         } catch (payError: any) {
           const msg = payError?.message || 'Payment failed. Please contact support.';
-          setError(msg);
+          setSubmissionError(msg);
           setIsSubmitting(false);
           return;
         }
@@ -1672,7 +1685,7 @@ export default function PublicFormPage() {
       if (code === 'ALREADY_VOTED') {
         setAlreadyVoted(true);
       } else {
-        setError(msg || 'Failed to submit form. Please try again.');
+        setSubmissionError(msg || 'Failed to submit form. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
@@ -2390,7 +2403,7 @@ export default function PublicFormPage() {
     );
   }
 
-  if (error || !form) {
+  if (loadError || !form) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <Card className="w-full max-w-md">
@@ -2398,7 +2411,7 @@ export default function PublicFormPage() {
             <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">Form Not Found</h2>
             <p className="text-muted-foreground">
-              {error || 'This form does not exist or is not published.'}
+              {loadError || 'This form does not exist or is not published.'}
             </p>
           </CardContent>
         </Card>
@@ -2856,6 +2869,17 @@ export default function PublicFormPage() {
             )}
           </CardHeader>
           <CardContent>
+            {submissionError && (
+              <div role="alert" className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/[0.06] px-4 py-3 text-sm text-destructive">
+                <div>
+                  <p className="font-semibold">We couldn’t submit the form</p>
+                  <p className="mt-0.5 text-xs leading-5 text-destructive/90">{submissionError} Check the highlighted answers and try again.</p>
+                </div>
+                <button type="button" onClick={() => setSubmissionError(null)} className="rounded-md p-1 hover:bg-destructive/10" aria-label="Dismiss submission error">
+                  <XCircle className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             {draftRestored && (
               <div className="mb-4 flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5">
                 <div className="flex items-center gap-2 text-sm text-green-700">

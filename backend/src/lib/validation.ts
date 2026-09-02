@@ -144,14 +144,21 @@ export interface ValidationResult {
 export async function validateSubmission(schema: any, submittedData: Record<string, any>, captchaActual: { text: string; answer: number } | null, captchaSubmitted: any): Promise<ValidationResult> {
   const errors: Record<string, string> = {};
   
-  // 1. Sanitize all incoming data
+  const fields = Array.isArray(schema?.fields) ? schema.fields : [];
+  const variables = Array.isArray(schema?.variables) ? schema.variables : [];
+
+  // Only published field IDs may reach storage. This prevents request tampering
+  // from injecting arbitrary properties or client-computed values. Display-only
+  // and disabled fields are not respondent input and are discarded as well.
+  const acceptedFieldIds = new Set(
+    fields
+      .filter((field: any) => field && !field.disabled && !['display', 'html'].includes(field.type))
+      .map((field: any) => String(field.id))
+  );
   const data: Record<string, any> = {};
   Object.entries(submittedData).forEach(([key, val]) => {
-    data[key] = normalizeValue(val);
+    if (acceptedFieldIds.has(key)) data[key] = normalizeValue(val);
   });
-
-  const fields = schema.fields || [];
-  const variables = schema.variables || [];
 
   // 1. CAPTCHA Check
   if (captchaActual && (Number(captchaSubmitted) !== captchaActual.answer)) {
@@ -164,11 +171,14 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
   
   // 3. Rule Enforcement and Field Validation
   for (const field of fields) {
+    if (!field || !acceptedFieldIds.has(String(field.id))) continue;
     // Check visibility
     const isVisible = evaluateShowWhen(field.showWhen, data);
     if (!isVisible) {
-      // If field is hidden, we might want to strip its data, but let's keep it for now
-      // return;
+      // Hidden answers can be forged independently of the condition in a raw
+      // request. Drop them so they cannot affect reports or downstream systems.
+      delete data[field.id];
+      continue;
     }
 
     const value = data[field.id];
@@ -179,7 +189,76 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
       continue;
     }
 
-    if (isEmpty(value)) continue;
+    if (isEmpty(value)) {
+      const requiredRule = Array.isArray(field.rules)
+        ? field.rules.find((rule: any) => rule?.type === 'required' && rule.enabled !== false)
+        : undefined;
+      if (requiredRule) errors[field.id] = requiredRule.message || `${field.label} is required`;
+      continue;
+    }
+
+    // Core type validation is a server-side security boundary. Browser and
+    // react-hook-form checks improve UX, but can be removed from a forged POST.
+    const stringTypes = new Set(['text', 'email', 'phone', 'select', 'radio', 'date', 'time', 'textarea']);
+    if (stringTypes.has(field.type) && typeof value !== 'string') {
+      errors[field.id] = `${field.label} has an invalid value.`;
+      continue;
+    }
+    if (['checkbox', 'multiselect'].includes(field.type) && (
+      !Array.isArray(value) || value.some((item: any) => typeof item !== 'string')
+    )) {
+      errors[field.id] = `${field.label} must contain a list of selected options.`;
+      continue;
+    }
+    if (typeof value === 'string' && value.length > 100_000) {
+      errors[field.id] = `${field.label} is too long.`;
+      continue;
+    }
+    if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))) {
+      errors[field.id] = 'Please enter a valid email address.';
+      continue;
+    }
+    if ((field.type === 'number' || field.type === 'rating') && !Number.isFinite(Number(value))) {
+      errors[field.id] = `${field.label} must be a valid number.`;
+      continue;
+    }
+    if (field.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+      errors[field.id] = `${field.label} must be a valid date.`;
+      continue;
+    }
+    if (field.type === 'time' && !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(String(value))) {
+      errors[field.id] = `${field.label} must be a valid time.`;
+      continue;
+    }
+
+    if (['select', 'radio', 'checkbox', 'multiselect'].includes(field.type)) {
+      const selected = Array.isArray(value) ? value.map(String) : [String(value)];
+      if (['checkbox', 'multiselect'].includes(field.type) && !Array.isArray(value)) {
+        errors[field.id] = `${field.label} must contain a list of selected options.`;
+        continue;
+      }
+      if (['select', 'radio'].includes(field.type) && Array.isArray(value)) {
+        errors[field.id] = `${field.label} accepts only one option.`;
+        continue;
+      }
+      // Include every configured static/dynamic option. A submitted label or an
+      // invented option is never accepted merely because it came from a client.
+      const allowed = new Set<string>();
+      const addOptions = (options: any) => {
+        if (!Array.isArray(options)) return;
+        options.forEach((option: any) => {
+          if (option && option.value !== undefined) allowed.add(String(option.value));
+        });
+      };
+      addOptions(field.options);
+      if (field.dynamicOptions?.mappings) Object.values(field.dynamicOptions.mappings).forEach(addOptions);
+      if (field.fieldLinking?.dynamicConfig?.options) Object.values(field.fieldLinking.dynamicConfig.options).forEach(addOptions);
+      (field.fieldLinking?.rules || []).forEach((rule: any) => addOptions(rule.dynamicOptions));
+      if (allowed.size > 0 && selected.some((option) => !allowed.has(option))) {
+        errors[field.id] = `${field.label} contains an invalid option.`;
+        continue;
+      }
+    }
 
     // File field validation (DMS references or base64 objects)
     if (field.type === 'file' && field.fileConfig) {
@@ -220,12 +299,18 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
     // Rules
     if (field.rules && field.rules.length > 0) {
       field.rules.forEach((rule: any) => {
-        if (!rule.enabled) return;
+        // Historical rules did not persist `enabled`; absence means active.
+        // Treating undefined as disabled allowed browser-tampered submissions to
+        // bypass cross-field “must match” and every other inspector rule.
+        if (rule.enabled === false) return;
 
         const { type, value: ruleVal, message } = rule;
         const msg = message || 'Invalid format';
 
         switch (type) {
+          case 'required':
+            if (isEmpty(value)) errors[field.id] = message || `${field.label} is required`;
+            break;
           case 'minLength':
             if (String(value).length < Number(ruleVal)) errors[field.id] = msg;
             break;
