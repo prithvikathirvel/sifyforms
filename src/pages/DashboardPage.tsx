@@ -118,7 +118,9 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
 
   useEffect(() => {
+    if (!currentOrg?.id) return;
     let active = true;
+    setStats(EMPTY_STATS);
     dispatch(fetchForms());
     api.get('/forms/stats')
       .then((response) => {
@@ -128,7 +130,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [dispatch]);
+  }, [dispatch, currentOrg?.id]);
 
   const recentForms = [...forms]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())

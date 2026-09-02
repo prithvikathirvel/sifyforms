@@ -71,8 +71,8 @@ function privilegeFrom(permission: unknown): RolePrivilege[] {
 }
 
 /** Count memberships pointing at each role name. */
-async function assignmentCounts(): Promise<Map<string, number>> {
-  const orgRoles = await prisma.orgUser.groupBy({ by: ['role'], _count: true });
+async function assignmentCounts(orgId?: string): Promise<Map<string, number>> {
+  const orgRoles = await prisma.orgUser.groupBy({ by: ['role'], where: orgId ? { orgId } : undefined, _count: true });
   const counts = new Map<string, number>();
   for (const row of orgRoles) {
     counts.set(row.role, row._count);
@@ -80,8 +80,8 @@ async function assignmentCounts(): Promise<Map<string, number>> {
   return counts;
 }
 
-export async function listRoleViews(): Promise<RoleView[]> {
-  const [roles, counts] = await Promise.all([listRoles(true), assignmentCounts()]);
+export async function listRoleViews(orgId?: string): Promise<RoleView[]> {
+  const [roles, counts] = await Promise.all([listRoles(true), assignmentCounts(orgId)]);
 
   return roles
     .map(role => {

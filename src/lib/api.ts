@@ -23,7 +23,16 @@ export const keycloakApi = axios.create({
   },
 });
 
+let organizationScopeController = new AbortController();
+
+/** Abort requests issued for the previous organization before switching scope. */
+export function rotateOrganizationRequestScope(): void {
+  organizationScopeController.abort();
+  organizationScopeController = new AbortController();
+}
+
 api.interceptors.request.use((config) => {
+  config.signal ??= organizationScopeController.signal;
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

@@ -57,9 +57,12 @@ export default function FormsListPage() {
   const { can } = usePermissions();
 
   useEffect(() => {
+    if (!currentOrg?.id) return;
     dispatch(getSession());
     dispatch(fetchForms());
-  }, [dispatch]);
+    setCurrentPage(1);
+    setTeamFilter('all');
+  }, [dispatch, currentOrg?.id]);
 
   useEffect(() => {
     if (currentOrg?.id) dispatch(fetchTeams(currentOrg.id));

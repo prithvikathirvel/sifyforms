@@ -108,7 +108,6 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
       )}
 
       <div
-        aria-hidden="true"
         className={cn(
           'relative h-screen w-[4.25rem] shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
           collapsed ? 'lg:w-[4.25rem]' : 'lg:w-60'

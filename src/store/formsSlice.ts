@@ -13,8 +13,9 @@ export const fetchForms = createAsyncThunk(
   "forms/fetchForms",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await api.get("/forms");
-      return response.data;
+      const requestedOrgId = localStorage.getItem('currentOrgId');
+      const response = await api.get("/forms", requestedOrgId ? { headers: { 'x-org-id': requestedOrgId } } : undefined);
+      return { requestedOrgId, forms: response.data as Form[] };
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
       return rejectWithValue(err.response?.data?.error || "Failed to fetch forms");
@@ -26,8 +27,9 @@ export const fetchForm = createAsyncThunk(
   "forms/fetchForm",
   async (formId: string, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/forms/${formId}`);
-      return response.data;
+      const requestedOrgId = localStorage.getItem('currentOrgId');
+      const response = await api.get(`/forms/${formId}`, requestedOrgId ? { headers: { 'x-org-id': requestedOrgId } } : undefined);
+      return { requestedOrgId, form: response.data as Form };
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
       return rejectWithValue(err.response?.data?.error || "Failed to fetch form");
@@ -149,6 +151,7 @@ const formsSlice = createSlice({
     setCurrentForm: (state, action: PayloadAction<Form | null>) => {
       state.currentForm = action.payload;
     },
+    resetForms: () => ({ ...initialState, isLoading: false }),
     clearError: (state) => {
       state.error = null;
     },
@@ -160,8 +163,10 @@ const formsSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchForms.fulfilled, (state, action) => {
+        // Ignore a slower response started before the user switched orgs.
+        if (action.payload.requestedOrgId !== localStorage.getItem('currentOrgId')) return;
         state.isLoading = false;
-        state.forms = action.payload;
+        state.forms = action.payload.forms;
       })
       .addCase(fetchForms.rejected, (state, action) => {
         state.isLoading = false;
@@ -170,13 +175,16 @@ const formsSlice = createSlice({
       .addCase(fetchForm.pending, (state) => {
         state.isLoading = true;
         state.error = null;
+        state.currentForm = null;
       })
       .addCase(fetchForm.fulfilled, (state, action) => {
+        if (action.payload.requestedOrgId !== localStorage.getItem('currentOrgId')) return;
         state.isLoading = false;
-        state.currentForm = action.payload;
+        state.currentForm = action.payload.form;
       })
       .addCase(fetchForm.rejected, (state, action) => {
         state.isLoading = false;
+        state.currentForm = null;
         state.error = action.payload as string;
       })
       .addCase(createTemplate.pending, (state) => {
@@ -268,5 +276,5 @@ const formsSlice = createSlice({
   },
 });
 
-export const { setCurrentForm, clearError } = formsSlice.actions;
+export const { setCurrentForm, resetForms, clearError } = formsSlice.actions;
 export default formsSlice.reducer;

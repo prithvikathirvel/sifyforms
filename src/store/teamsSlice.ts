@@ -174,6 +174,7 @@ const teamsSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchTeams.fulfilled, (state, action) => {
+        if (action.meta.arg !== localStorage.getItem('currentOrgId')) return;
         state.isLoading = false;
         state.teams = action.payload;
       })

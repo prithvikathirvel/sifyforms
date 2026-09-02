@@ -81,6 +81,7 @@ const orgSlice = createSlice({
       state.organizations = [];
       state.error = null;
       state.isLoading = false;
+      localStorage.removeItem('currentOrgId');
     },
   },
   extraReducers: (builder) => {
@@ -93,11 +94,11 @@ const orgSlice = createSlice({
         state.isLoading = false;
         state.organizations = action.payload;
         const savedOrgId = localStorage.getItem('currentOrgId');
-        if (savedOrgId && !state.currentOrg) {
-          const savedOrg = action.payload.find((o: Organization) => o.id === savedOrgId);
-          if (savedOrg) {
-            state.currentOrg = savedOrg;
-          }
+        if (!state.currentOrg) {
+          const savedOrg = savedOrgId ? action.payload.find((o: Organization) => o.id === savedOrgId) : undefined;
+          state.currentOrg = savedOrg ?? action.payload[0] ?? null;
+          if (state.currentOrg) localStorage.setItem('currentOrgId', state.currentOrg.id);
+          else localStorage.removeItem('currentOrgId');
         }
       })
       .addCase(fetchOrganizations.rejected, (state, action) => {
@@ -131,6 +132,8 @@ const orgSlice = createSlice({
         state.organizations = state.organizations.filter((o: Organization) => o.id !== action.payload);
         if (state.currentOrg?.id === action.payload) {
           state.currentOrg = state.organizations[0] || null;
+          if (state.currentOrg) localStorage.setItem('currentOrgId', state.currentOrg.id);
+          else localStorage.removeItem('currentOrgId');
         }
       });
   },

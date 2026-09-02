@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -564,7 +564,7 @@ export default function PublicFormPage() {
     pendingSubmissionDataRef.current = null;
   };
 
-  const { register, unregister, clearErrors, handleSubmit, formState: { errors }, setError: setFieldError, setValue, watch, trigger, getValues, reset } = useForm({
+  const { register, control, unregister, clearErrors, handleSubmit, formState: { errors }, setError: setFieldError, setValue, watch, trigger, getValues, reset } = useForm({
     mode: 'onTouched',
     shouldUnregister: false,
   });
@@ -2370,15 +2370,22 @@ export default function PublicFormPage() {
       case 'likert':
       case 'ranking':
         return (
-          <>
-            <input type="hidden" {...register(field.id, opts)} />
-            <SurveyFieldControl
-              field={field}
-              value={formValues[field.id]}
-              onChange={(answer) => setValue(field.id, answer, { shouldDirty: true, shouldValidate: true })}
-              disabled={field.disabled}
-            />
-          </>
+          <Controller
+            name={field.id}
+            control={control}
+            rules={opts}
+            render={({ field: controlledField }) => (
+              <SurveyFieldControl
+                field={field}
+                value={controlledField.value}
+                onChange={(answer) => {
+                  controlledField.onChange(answer);
+                  controlledField.onBlur();
+                }}
+                disabled={field.disabled}
+              />
+            )}
+          />
         );
 
       case 'rating': {

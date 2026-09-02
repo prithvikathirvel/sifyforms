@@ -157,10 +157,12 @@ const membersSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchMembers.fulfilled, (state, action) => {
+        if (action.meta.arg !== localStorage.getItem('currentOrgId')) return;
         state.isLoading = false;
         state.members = action.payload;
       })
       .addCase(fetchInvites.fulfilled, (state, action) => {
+        if (action.meta.arg !== localStorage.getItem('currentOrgId')) return;
         state.invites = action.payload;
       })
       .addCase(inviteMember.fulfilled, (state, action) => {

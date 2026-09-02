@@ -4,7 +4,13 @@ import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { setCurrentOrg, fetchOrganizations } from '../../store/orgSlice';
 import { resetTeams } from '../../store/teamsSlice';
 import { resetMembers } from '../../store/membersSlice';
+import { resetForms } from '../../store/formsSlice';
+import { clearSubmissions } from '../../store/submissionsSlice';
+import { resetSharing } from '../../store/formSharingSlice';
+import { resetRoles } from '../../store/rolesSlice';
+import { resetBuilder } from '../../store/builderSlice';
 import { roleLabel } from '../../hooks/usePermissions';
+import { rotateOrganizationRequestScope } from '../../lib/api';
 import type { Organization } from '../../types';
 import { cn } from '../../lib/utils';
 import { ArrowLeftRight, Building2, Check, ChevronsUpDown, Plus } from 'lucide-react';
@@ -48,8 +54,17 @@ export default function OrgSwitcher({ collapsed = false, onCompactNavigate }: Or
       onCompactNavigate?.();
       return;
     }
+    rotateOrganizationRequestScope();
+    // Organization-scoped entities must never survive a workspace switch. In
+    // particular, stale forms from the previous organization produced links
+    // that correctly returned “Form not found” under the new x-org-id header.
     dispatch(resetTeams());
     dispatch(resetMembers());
+    dispatch(resetForms());
+    dispatch(clearSubmissions());
+    dispatch(resetSharing());
+    dispatch(resetRoles());
+    dispatch(resetBuilder());
     dispatch(setCurrentOrg(org));
     navigate('/dashboard');
     onCompactNavigate?.();

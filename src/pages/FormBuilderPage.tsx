@@ -177,7 +177,7 @@ export default function FormBuilderPage() {
   const { formId } = useParams<{ formId: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { currentForm, isLoading: formLoading } = useAppSelector((state) => state.forms);
+  const { currentForm, isLoading: formLoading, error: formError } = useAppSelector((state) => state.forms);
   const { currentOrg } = useAppSelector((state) => state.org);
   const builder = useAppSelector((state) => state.builder);
   const [isSaving, setIsSaving] = useState(false);
@@ -250,10 +250,10 @@ export default function FormBuilderPage() {
   const [isAISubmitting, setIsAISubmitting] = useState(false);
 
   useEffect(() => {
-    if (formId) {
+    if (formId && currentOrg?.id) {
       dispatch(fetchForm(formId));
     }
-  }, [formId, dispatch]);
+  }, [formId, currentOrg?.id, dispatch]);
 
   useEffect(() => {
     if (currentForm) {
@@ -832,10 +832,17 @@ export default function FormBuilderPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (formLoading || !currentForm) {
+  if (formLoading) {
+    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+  if (!currentForm) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 text-center">
+          <h1 className="text-lg font-semibold">Form unavailable in this organization</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{formError || 'The form may belong to another organization or you may not have access.'}</p>
+          <Button type="button" className="mt-5" onClick={() => navigate('/forms')}>Back to forms</Button>
+        </div>
       </div>
     );
   }

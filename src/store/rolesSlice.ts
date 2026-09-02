@@ -117,6 +117,7 @@ const rolesSlice = createSlice({
   name: 'roles',
   initialState,
   reducers: {
+    resetRoles: () => initialState,
     clearRolesError: (state) => {
       state.error = null;
     },
@@ -128,6 +129,7 @@ const rolesSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchRoles.fulfilled, (state, action) => {
+        if (action.meta.arg !== localStorage.getItem('currentOrgId')) return;
         state.isLoading = false;
         state.roles = action.payload.roles;
         state.permissions = action.payload.permissions;
@@ -142,5 +144,5 @@ const rolesSlice = createSlice({
   },
 });
 
-export const { clearRolesError } = rolesSlice.actions;
+export const { clearRolesError, resetRoles } = rolesSlice.actions;
 export default rolesSlice.reducer;

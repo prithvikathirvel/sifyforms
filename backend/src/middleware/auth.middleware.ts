@@ -146,7 +146,6 @@ export async function orgMiddleware(
         },
       },
     });
-    console.log('orgUser:', orgUser);
     const org = await prisma.organization.findUnique({
       where: { id: orgId },
     });

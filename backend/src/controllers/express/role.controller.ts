@@ -25,7 +25,7 @@ function handleError(res: Response, label: string, error: any): void {
 export async function listRoles(req: AuthRequest, res: Response): Promise<void> {
   try {
     const [roles, permissions] = await Promise.all([
-      roleService.listRoleViews(),
+      roleService.listRoleViews(req.orgId),
       Promise.resolve(roleService.listAvailablePermissions()),
     ]);
     res.status(StatusCodes.OK).json({ roles, permissions });
