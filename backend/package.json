@@ -13,6 +13,7 @@
     "db:studio": "prisma studio",
     "db:seed": "ts-node src/scripts/seedTemplates.ts",
     "rbac:seed": "ts-node src/scripts/seedRbac.ts",
+    "ums:reconcile": "ts-node src/scripts/umsReconcile.ts",
     "db:setup": "node scripts/db-setup.mjs",
     "db:deploy": "node scripts/db-migrate.mjs",
     "db:import-sqlite": "node scripts/db-import-sqlite.mjs"

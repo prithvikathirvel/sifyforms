@@ -1,24 +1,28 @@
-import axios from 'axios';
-
-// The repo carries a legacy @types/axios that shadows axios v1's bundled
-// typings, so `AxiosInstance` is not importable here. Derive it instead.
-type AxiosInstance = ReturnType<typeof axios.create>;
-
-import { RBAC_APP_ID, RBAC_BASE_URL, RBAC_TIMEOUT_MS, RoleName } from '../config/rbac.config';
+import prisma from '../utils/prisma';
+import { RoleName } from '../config/rbac.config';
+import {
+  RBAC_BREAKER_COOLDOWN_MS,
+  RBAC_BREAKER_THRESHOLD,
+  ROLE_CACHE_TTL_MS,
+  UMS_APP_ID,
+} from '../config/ums.config';
+import * as ums from './ums.client';
 import { createError } from '../utils/errors';
 import logger from '../utils/logger';
-import { getCallerToken } from '../utils/requestContext';
 
 /**
- * Read-only client for the user-management (RBAC) service.
+ * Role definitions, read from the user-management service.
  *
- * This backend reads role *definitions* from that service - what ADMIN or
- * CREATOR is permitted to do - and nothing else. Who holds which role is owned
- * here (`OrgUser.role`), so a membership change stays a single local write with
- * nothing to keep in step across a service boundary.
+ * That service owns what a role *means*; this application owns who holds it.
+ * Because its role query filters `AND orgId = ?`, which never matches the null
+ * rows an application-level role would have, definitions are materialised per
+ * organization and every read here is organization-scoped.
  *
- * That split is what lets the RBAC service stay unmodified: only its existing
- * `GET /role/:appId` endpoint is used.
+ * Availability is the hard requirement: definitions change perhaps monthly, so
+ * an unreachable user-management service must not stop this application
+ * authorizing requests. Three layers cover that - an in-memory TTL cache served
+ * stale on failure, a durable last-known-good copy that survives a restart, and
+ * a breaker that stops hammering a service that is already down.
  */
 
 export interface RbacRole {
@@ -36,102 +40,159 @@ interface Privilege {
   actions: string[];
 }
 
-let client: AxiosInstance | null = null;
+// ---------------------------------------------------------------------------
+// Cache
+// ---------------------------------------------------------------------------
 
-function http(): AxiosInstance {
-  if (!client) {
-    client = axios.create({
-      baseURL: `${RBAC_BASE_URL}/api`,
-      timeout: RBAC_TIMEOUT_MS,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-app-id': RBAC_APP_ID,
-      },
-    });
-  }
-  return client;
+interface CacheEntry {
+  at: number;
+  roles: RbacRole[];
 }
 
 /**
- * Credentials for a call to the RBAC service.
- *
- * That service verifies a Keycloak JWT against JWKS and requires the token's
- * email to belong to this application - it has no service-account bypass. So
- * when a request is in flight the right credential is the caller's own token,
- * already verified by this backend's auth middleware.
- *
- * `RBAC_SERVICE_TOKEN` covers the cases with no caller: the seed script and any
- * background job.
+ * Keyed by organization. A single global slot would serve one organization's
+ * definitions to another the moment a second organization exists.
  */
-function serviceHeaders(): Record<string, string> {
-  const token = getCallerToken() ?? process.env.RBAC_SERVICE_TOKEN;
-  return token ? { authorization: `Bearer ${token}`, idtoken: token } : {};
-}
+const roleCache = new Map<string, CacheEntry>();
 
-function unwrap<T>(payload: any): T {
-  // Handlers return either `{ code, data }` or the bare value.
-  return (payload?.data !== undefined ? payload.data : payload) as T;
-}
-
-function fail(operation: string, error: any): never {
-  const status = error?.response?.status;
-  const message = error?.response?.data?.message ?? error?.message ?? 'Unknown error';
-  logger.error(`RbacClient --> ${operation} --> Error`, { status, message });
-  throw createError(
-    status && status < 500 ? status : 502,
-    `RBAC service error during ${operation}: ${message}`
-  );
+export function invalidateRoleCache(orgId?: string): void {
+  if (orgId) roleCache.delete(orgId);
+  else roleCache.clear();
 }
 
 // ---------------------------------------------------------------------------
-// Role definitions
+// Circuit breaker
 // ---------------------------------------------------------------------------
 
-let roleCache: { at: number; roles: RbacRole[] } | null = null;
-const ROLE_CACHE_TTL_MS = 60_000;
+let consecutiveFailures = 0;
+let breakerOpenUntil = 0;
 
-/** All roles defined for this application. Cached briefly; definitions rarely change. */
-export async function listRoles(forceRefresh = false): Promise<RbacRole[]> {
-  if (!forceRefresh && roleCache && Date.now() - roleCache.at < ROLE_CACHE_TTL_MS) {
-    return roleCache.roles;
-  }
-  try {
-    const res = await http().get(`/role/${encodeURIComponent(RBAC_APP_ID)}`, {
-      headers: serviceHeaders(),
+function recordSuccess(): void {
+  consecutiveFailures = 0;
+  breakerOpenUntil = 0;
+}
+
+function recordFailure(): void {
+  consecutiveFailures += 1;
+  if (consecutiveFailures >= RBAC_BREAKER_THRESHOLD) {
+    breakerOpenUntil = Date.now() + RBAC_BREAKER_COOLDOWN_MS;
+    logger.error('RbacClient --> breaker open', {
+      failures: consecutiveFailures,
+      cooldownMs: RBAC_BREAKER_COOLDOWN_MS,
     });
-    const body = res.data as any;
-    const roles: RbacRole[] = body?.roles ?? unwrap<RbacRole[]>(body) ?? [];
-    roleCache = { at: Date.now(), roles };
-    return roles;
-  } catch (error) {
-    return fail('listRoles', error);
   }
 }
 
-export function invalidateRoleCache(): void {
-  roleCache = null;
+// ---------------------------------------------------------------------------
+// Durable last-known-good copy
+// ---------------------------------------------------------------------------
+
+async function persist(orgId: string, roles: RbacRole[]): Promise<void> {
+  try {
+    const payload = JSON.stringify(roles);
+    await prisma.roleDefinitionCache.upsert({
+      where: { appId_orgId: { appId: UMS_APP_ID, orgId } },
+      update: { payload, fetchedAt: new Date() },
+      create: { appId: UMS_APP_ID, orgId, payload },
+    });
+  } catch (error: any) {
+    // The durable copy is an optimisation; failing to write it must not fail the request.
+    logger.warn('RbacClient --> persist --> failed', { orgId, message: error?.message });
+  }
 }
 
-/** Resolve a role name (ADMIN, CREATOR, ...) to its id in the RBAC service. */
-export async function resolveRoleId(roleName: RoleName | string): Promise<string> {
-  let roles = await listRoles();
+async function loadPersisted(orgId: string): Promise<RbacRole[] | null> {
+  try {
+    const row = await prisma.roleDefinitionCache.findUnique({
+      where: { appId_orgId: { appId: UMS_APP_ID, orgId } },
+    });
+    if (!row) return null;
+    const parsed = JSON.parse(row.payload);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (error: any) {
+    logger.warn('RbacClient --> loadPersisted --> failed', { orgId, message: error?.message });
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reads
+// ---------------------------------------------------------------------------
+
+/** Role definitions for one organization. */
+export async function listRoles(orgId: string, forceRefresh = false): Promise<RbacRole[]> {
+  if (!orgId) {
+    throw createError(400, 'Organization ID required to resolve role definitions');
+  }
+
+  const cached = roleCache.get(orgId);
+  if (!forceRefresh && cached && Date.now() - cached.at < ROLE_CACHE_TTL_MS) {
+    return cached.roles;
+  }
+
+  if (Date.now() < breakerOpenUntil) {
+    const fallback = cached?.roles ?? (await loadPersisted(orgId));
+    if (fallback) return fallback;
+    throw createError(503, 'Role definitions are temporarily unavailable. Please try again shortly.');
+  }
+
+  try {
+    const roles = (await ums.listRolesForOrg(orgId)) as RbacRole[];
+    recordSuccess();
+    roleCache.set(orgId, { at: Date.now(), roles });
+    void persist(orgId, roles);
+    return roles;
+  } catch (error: any) {
+    recordFailure();
+
+    if (cached) {
+      logger.warn('RbacClient --> listRoles --> serving stale definitions', {
+        orgId,
+        ageMs: Date.now() - cached.at,
+        message: error?.message,
+      });
+      return cached.roles;
+    }
+
+    const persisted = await loadPersisted(orgId);
+    if (persisted) {
+      logger.warn('RbacClient --> listRoles --> serving persisted definitions', {
+        orgId,
+        message: error?.message,
+      });
+      roleCache.set(orgId, { at: Date.now(), roles: persisted });
+      return persisted;
+    }
+
+    // Never a 403 here: telling someone their permissions were revoked when the
+    // definition store is merely unreachable is worse than admitting an outage.
+    throw createError(
+      503,
+      `Role definitions are unavailable for this organization (${error?.message ?? 'unknown error'})`
+    );
+  }
+}
+
+/** Resolve a role name (OWNER, CREATOR, ...) to its id within one organization. */
+export async function resolveRoleId(roleName: RoleName | string, orgId: string): Promise<string> {
+  let roles = await listRoles(orgId);
   let match = roles.find(r => r.name === roleName);
   if (!match) {
-    // A role seeded after this process warmed its cache would otherwise fail.
-    roles = await listRoles(true);
+    // A role created after this process warmed its cache would otherwise fail.
+    roles = await listRoles(orgId, true);
     match = roles.find(r => r.name === roleName);
   }
   if (!match) {
     throw createError(
       500,
-      `Role "${roleName}" is not defined for application "${RBAC_APP_ID}". Run "npm run rbac:seed".`
+      `Role "${roleName}" is not defined for this organization. Run "npm run rbac:seed -- --org ${orgId}".`
     );
   }
   return match.id;
 }
 
-export async function getRoleById(roleId: string): Promise<RbacRole | null> {
-  const roles = await listRoles();
+export async function getRoleById(roleId: string, orgId: string): Promise<RbacRole | null> {
+  const roles = await listRoles(orgId);
   return roles.find(r => r.id === roleId) ?? null;
 }
 
@@ -150,36 +211,26 @@ export interface RoleDefinitionInput {
   privilege: RolePrivilege[];
 }
 
-function rolePayload(input: RoleDefinitionInput) {
+function rolePayload(input: RoleDefinitionInput): ums.UmsRolePayload {
   return {
     roleName: input.roleName,
-    appId: RBAC_APP_ID,
     description: input.description,
-    // The service validates every feature and action against what the
-    // application has registered, so a typo fails here rather than silently
-    // creating a role that grants nothing.
-    permission: { appId: RBAC_APP_ID, privilege: input.privilege },
+    permission: { appId: UMS_APP_ID, privilege: input.privilege },
   };
 }
 
-export async function createRole(input: RoleDefinitionInput): Promise<void> {
-  try {
-    await http().post('/role', rolePayload(input), { headers: serviceHeaders() });
-    invalidateRoleCache();
-  } catch (error) {
-    fail('createRole', error);
-  }
+export async function createRole(input: RoleDefinitionInput, orgId: string): Promise<void> {
+  await ums.createRole(orgId, rolePayload(input));
+  invalidateRoleCache(orgId);
 }
 
-export async function updateRole(roleId: string, input: RoleDefinitionInput): Promise<void> {
-  try {
-    await http().put(`/role/${encodeURIComponent(roleId)}`, rolePayload(input), {
-      headers: serviceHeaders(),
-    });
-    invalidateRoleCache();
-  } catch (error) {
-    fail('updateRole', error);
-  }
+export async function updateRole(
+  roleId: string,
+  input: RoleDefinitionInput,
+  orgId: string
+): Promise<void> {
+  await ums.updateRole(orgId, roleId, rolePayload(input));
+  invalidateRoleCache(orgId);
 }
 
 /**
@@ -188,13 +239,9 @@ export async function updateRole(roleId: string, input: RoleDefinitionInput): Pr
  * The endpoint is a toggle rather than a setter, so callers check the current
  * state first; sending it twice would put the role back where it started.
  */
-export async function toggleRoleActive(roleId: string): Promise<void> {
-  try {
-    await http().patch(`/role/${encodeURIComponent(roleId)}`, {}, { headers: serviceHeaders() });
-    invalidateRoleCache();
-  } catch (error) {
-    fail('toggleRoleActive', error);
-  }
+export async function toggleRoleActive(roleId: string, orgId: string): Promise<void> {
+  await ums.toggleRole(orgId, roleId);
+  invalidateRoleCache(orgId);
 }
 
 // ---------------------------------------------------------------------------

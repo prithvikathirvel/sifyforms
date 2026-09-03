@@ -4,9 +4,11 @@ import { CreateOrgInput, UpdateOrgInput } from '../schemas/org.schema';
 import {
   DEFAULT_ORG_OWNER_ROLE,
   ROLES,
-  RoleName,
 } from '../config/rbac.config';
-import { resolveRoleId } from './rbac.client';
+import { UMS_ROLE_MIRROR_ENABLED } from '../config/ums.config';
+import { invalidateRoleCache, resolveRoleId } from './rbac.client';
+import { provisionOrg } from './ums.provisioning';
+import { cancelPendingFor, enqueueQuietly } from './ums.outbox';
 import { assertRoleAssignable, rolesGrantingAdmin } from './role.service';
 import { createDefaultTeam } from './team.service';
 import { invalidatePermissions } from './permission.service';
@@ -15,15 +17,26 @@ import logger from '../utils/logger';
 
 // Roles are data now, not a constant, so a role created in the UI is usable
 // immediately rather than after a code change.
-async function assertOrgRole(role: string): Promise<string> {
-  await assertRoleAssignable(role);
+async function assertOrgRole(role: string, orgId: string): Promise<string> {
+  await assertRoleAssignable(role, orgId);
   return role;
 }
 
+/** Record a membership in the user-management service, without ever failing the caller. */
+function mirrorMember(orgId: string, userId: string, roleName: string): void {
+  if (!UMS_ROLE_MIRROR_ENABLED) return;
+  void enqueueQuietly('MEMBER_SYNC', orgId, { userId, roleName });
+}
+
 /**
- * Create an organization. Whoever creates it becomes its Organization Admin via
- * an explicit membership row, so authorization never has to special-case the
- * owner - `ownerId` is retained only to mark who may not be removed.
+ * Create an organization.
+ *
+ * The local row must exist first, because its id is what the user-management
+ * service is told about and what every later `x-org-id` carries. Registration
+ * and role materialisation then happen before anyone can use the organization,
+ * since without role definitions every permission check inside it would resolve
+ * to nothing. A failure at any point removes the local row rather than leaving
+ * a workspace that looks real and grants nothing.
  */
 export async function createOrg(input: CreateOrgInput, userId: string) {
   const existing = await orgDao.findOrgBySlug(input.slug);
@@ -31,24 +44,48 @@ export async function createOrg(input: CreateOrgInput, userId: string) {
     throw createError(400, 'Organization slug already exists');
   }
 
-  const adminRoleId = await resolveRoleId(DEFAULT_ORG_OWNER_ROLE);
-
   const org = await orgDao.createOrg({
     name: input.name,
     slug: input.slug,
     industry: input.industry ?? null,
     ownerId: userId,
+    provisioningStatus: 'PROVISIONING',
   });
 
-  await orgDao.createOrgMember(org.id, userId, DEFAULT_ORG_OWNER_ROLE, adminRoleId, null);
+  let ownerRoleId: string;
+  try {
+    await provisionOrg(org.id, org.name);
+    ownerRoleId = await resolveRoleId(DEFAULT_ORG_OWNER_ROLE, org.id);
+  } catch (error: any) {
+    await orgDao.deleteOrg(org.id).catch(cleanupError => {
+      logger.error('OrgService --> createOrg --> cleanup failed', {
+        orgId: org.id,
+        message: cleanupError?.message,
+      });
+    });
+    invalidateRoleCache(org.id);
+    logger.error('OrgService --> createOrg --> provisioning failed', {
+      slug: input.slug,
+      message: error?.message,
+    });
+    throw createError(
+      error?.statusCode && error.statusCode < 500 ? error.statusCode : 502,
+      `Could not set up the organization: ${error?.message ?? 'user-management service unavailable'}`
+    );
+  }
+
+  await orgDao.createOrgMember(org.id, userId, DEFAULT_ORG_OWNER_ROLE, ownerRoleId, null);
 
   // Every organization starts with a General team, so a new form always has a
   // team to belong to and is never governed by nothing.
   await createDefaultTeam(org.id, userId);
 
+  await orgDao.setOrgProvisioningStatus(org.id, 'ACTIVE');
+  mirrorMember(org.id, userId, DEFAULT_ORG_OWNER_ROLE);
+
   invalidatePermissions(userId, org.id);
   logger.info('OrgService --> createOrg', { orgId: org.id, ownerId: userId });
-  return org;
+  return { ...org, provisioningStatus: 'ACTIVE' };
 }
 
 export async function listOrgs(userId: string) {
@@ -97,10 +134,23 @@ export async function deleteOrg(orgId: string, _userId: string) {
     throw createError(404, 'Organization not found');
   }
 
+  // The user-management service refuses to delete an organization while role
+  // assignments still reference it, so the members are captured before the
+  // local cascade removes them and the unwind runs in the background.
+  const withUsers = await orgDao.findOrgWithUsersById(orgId);
+  const memberIds = withUsers?.users.map(u => u.user.id) ?? [];
+
+  await orgDao.setOrgProvisioningStatus(orgId, 'DELETING');
+  if (UMS_ROLE_MIRROR_ENABLED) {
+    await cancelPendingFor(orgId);
+    await enqueueQuietly('ORG_DELETE', orgId, { memberIds });
+  }
+
   // Teams and memberships all live in this database and cascade away with the
   // organization row.
   await orgDao.deleteOrg(orgId);
   invalidatePermissions(undefined, orgId);
+  invalidateRoleCache(orgId);
 
   return { message: 'Organization deleted successfully' };
 }
@@ -131,7 +181,7 @@ async function assertNotLastAdmin(
   targetUserId: string,
   nextRole: string | null
 ): Promise<void> {
-  const adminRoles = await rolesGrantingAdmin();
+  const adminRoles = await rolesGrantingAdmin(orgId);
   if (nextRole !== null && adminRoles.includes(nextRole)) return;
 
   const org = await orgDao.findOrgWithUsersById(orgId);
@@ -160,7 +210,7 @@ export async function updateOrgUserRole(
   targetUserId: string,
   role: string
 ) {
-  const roleName = await assertOrgRole(role);
+  const roleName = await assertOrgRole(role, orgId);
 
   const org = await orgDao.findOrgOwnerById(orgId);
   if (!org) {
@@ -176,9 +226,10 @@ export async function updateOrgUserRole(
 
   await assertNotLastAdmin(orgId, targetUserId, roleName);
 
-  const roleId = await resolveRoleId(roleName);
+  const roleId = await resolveRoleId(roleName, orgId);
   await orgDao.updateOrgMemberRole(orgId, targetUserId, roleName, roleId);
   invalidatePermissions(targetUserId, orgId);
+  mirrorMember(orgId, targetUserId, roleName);
 
   return { message: 'Role updated successfully', role: roleName };
 }
@@ -206,6 +257,9 @@ export async function removeUser(orgId: string, _requesterId: string, targetUser
   const teamIds = await teamDao.deleteMembershipsForUserInOrg(orgId, targetUserId);
   await orgDao.deleteOrgMember(orgId, targetUserId);
   invalidatePermissions(targetUserId, orgId);
+  if (UMS_ROLE_MIRROR_ENABLED) {
+    void enqueueQuietly('MEMBER_REMOVE', orgId, { userId: targetUserId });
+  }
 
   logger.info('OrgService --> removeUser', { orgId, targetUserId, teamsLeft: teamIds.length });
   return { message: 'User removed successfully' };

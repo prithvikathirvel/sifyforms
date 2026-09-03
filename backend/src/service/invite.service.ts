@@ -5,7 +5,9 @@ import { InviteStatus, InviteWithOrg } from '../dao/interfaces/InviteDao';
 import {
   DEFAULT_ORG_MEMBER_ROLE,
 } from '../config/rbac.config';
+import { UMS_ROLE_MIRROR_ENABLED } from '../config/ums.config';
 import { resolveRoleId } from './rbac.client';
+import { enqueueQuietly } from './ums.outbox';
 import { assertRoleAssignable } from './role.service';
 import { invalidatePermissions } from './permission.service';
 import { createError } from '../utils/errors';
@@ -25,8 +27,8 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-async function assertOrgRole(role: string): Promise<string> {
-  await assertRoleAssignable(role);
+async function assertOrgRole(role: string, orgId: string): Promise<string> {
+  await assertRoleAssignable(role, orgId);
   return role;
 }
 
@@ -37,7 +39,7 @@ export async function createInvite(
   role: string = DEFAULT_ORG_MEMBER_ROLE
 ) {
   const normalizedEmail = normalizeEmail(email);
-  const roleName = await assertOrgRole(role);
+  const roleName = await assertOrgRole(role, orgId);
 
   const org = await orgDao.findOrgById(orgId);
   if (!org) {
@@ -60,7 +62,7 @@ export async function createInvite(
 
   // Resolve the role up front: a dangling roleId would only surface at accept
   // time, long after the admin could do anything about it.
-  const roleId = await resolveRoleId(roleName);
+  const roleId = await resolveRoleId(roleName, orgId);
 
   const invite = await inviteDao.upsertInvite({
     email: normalizedEmail,
@@ -119,12 +121,15 @@ export async function acceptInvite(inviteId: string, userId: string, userEmail: 
   }
 
   const roleName = invite.role || DEFAULT_ORG_MEMBER_ROLE;
-  const roleId = invite.roleId ?? (await resolveRoleId(roleName));
+  const roleId = invite.roleId ?? (await resolveRoleId(roleName, invite.orgId));
 
   // One local write: the membership row IS the role assignment.
   await orgDao.createOrgMember(invite.orgId, userId, roleName, roleId, invite.invitedBy);
   await inviteDao.updateInviteStatus(inviteId, 'ACCEPTED');
   invalidatePermissions(userId, invite.orgId);
+  if (UMS_ROLE_MIRROR_ENABLED) {
+    void enqueueQuietly('MEMBER_SYNC', invite.orgId, { userId, roleName });
+  }
 
   logger.info('InviteService --> acceptInvite', { inviteId, userId, orgId: invite.orgId });
   return { message: 'Invitation accepted', org: invite.org, role: roleName };

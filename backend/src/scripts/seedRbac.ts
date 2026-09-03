@@ -1,137 +1,82 @@
-import axios from 'axios';
 import dotenv from 'dotenv';
-import {
-  RBAC_APP_ID,
-  RBAC_BASE_URL,
-  FEATURE_ACTIONS,
-  ROLE_DEFINITIONS,
-  ROLES,
-  RoleName,
-} from '../config/rbac.config';
 
 dotenv.config();
 
+import prisma from '../utils/prisma';
+import { UMS_APP_ID, UMS_BASE_URL } from '../config/ums.config';
+import { hasServiceCredentials } from '../service/ums.client';
+import { provisionOrg } from '../service/ums.provisioning';
+import { listRoles } from '../service/rbac.client';
+
 /**
- * Seeds this application's features, actions and roles into the RBAC service.
+ * Materialise this application's features and role definitions in the
+ * user-management service, for one organization or for all of them.
  *
- * Idempotent: features and roles that already exist are updated rather than
- * duplicated, so it is safe to re-run after changing rbac.config.ts.
+ *   npm run rbac:seed                 # every organization in this database
+ *   npm run rbac:seed -- --org <id>   # just one
  *
- *   npm run rbac:seed
+ * Idempotent: an organization that already has its roles is left untouched, so
+ * permission edits made by an administrator survive a re-run.
  */
 
-const token = process.env.RBAC_SERVICE_TOKEN;
-
-const http = axios.create({
-  baseURL: `${RBAC_BASE_URL}/api`,
-  timeout: 15_000,
-  headers: {
-    'Content-Type': 'application/json',
-    'x-app-id': RBAC_APP_ID,
-    ...(token ? { authorization: `Bearer ${token}`, idtoken: token } : {}),
-  },
-});
-
 function describe(error: any): string {
-  return error?.response?.data?.message ?? error?.message ?? String(error);
+  return error?.message ?? String(error);
 }
 
-async function seedFeatures(): Promise<void> {
-  console.log(`\nFeatures for "${RBAC_APP_ID}"`);
-
-  let existing: { name: string; actions?: { key: string; value: string }[] }[] = [];
-  try {
-    const res = await http.get(`/feature/app/${encodeURIComponent(RBAC_APP_ID)}`);
-    existing = (res.data as any)?.features ?? [];
-  } catch (error) {
-    console.log(`  (could not list existing features: ${describe(error)})`);
-  }
-  const existingByName = new Map(existing.map(f => [f.name, f]));
-
-  for (const [feature, actions] of Object.entries(FEATURE_ACTIONS)) {
-    const current = existingByName.get(feature);
-
-    if (!current) {
-      try {
-        await http.post('/feature', { appId: RBAC_APP_ID, feature, actions });
-        console.log(`  + ${feature} (${actions.length} actions)`);
-      } catch (error) {
-        console.log(`  ! ${feature}: ${describe(error)}`);
-      }
-      continue;
-    }
-
-    // Feature exists - add only the actions it is missing.
-    const have = new Set((current.actions ?? []).map(a => a.key));
-    const missing = actions.filter(a => !have.has(a.key));
-    if (missing.length === 0) {
-      console.log(`  = ${feature} (up to date)`);
-      continue;
-    }
-    for (const action of missing) {
-      try {
-        await http.post(`/feature/${encodeURIComponent(feature)}/actions`, {
-          appId: RBAC_APP_ID,
-          ...action,
-        });
-        console.log(`  + ${feature}.${action.key}`);
-      } catch (error) {
-        console.log(`  ! ${feature}.${action.key}: ${describe(error)}`);
-      }
-    }
-  }
+function argValue(flag: string): string | undefined {
+  const index = process.argv.indexOf(flag);
+  return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
-async function seedRoles(): Promise<void> {
-  console.log(`\nRoles for "${RBAC_APP_ID}"`);
-
-  let existing: { id: string; name: string }[] = [];
-  try {
-    const res = await http.get(`/role/${encodeURIComponent(RBAC_APP_ID)}`);
-    existing = (res.data as any)?.roles ?? [];
-  } catch (error) {
-    console.log(`  (could not list existing roles: ${describe(error)})`);
+async function targets(): Promise<{ id: string; name: string }[]> {
+  const only = argValue('--org');
+  if (only) {
+    const org = await prisma.organization.findUnique({
+      where: { id: only },
+      select: { id: true, name: true },
+    });
+    if (!org) throw new Error(`No organization "${only}" in this database`);
+    return [org];
   }
-  const existingByName = new Map(existing.map(r => [r.name, r]));
-
-  for (const roleName of Object.values(ROLES) as RoleName[]) {
-    const definition = ROLE_DEFINITIONS[roleName];
-    const payload = {
-      roleName,
-      appId: RBAC_APP_ID,
-      description: definition.description,
-      permission: { appId: RBAC_APP_ID, privilege: definition.privilege },
-    };
-
-    const current = existingByName.get(roleName);
-    try {
-      if (current) {
-        await http.put(`/role/${encodeURIComponent(current.id)}`, payload);
-        console.log(`  ~ ${roleName} (updated)`);
-      } else {
-        await http.post('/role', payload);
-        console.log(`  + ${roleName}`);
-      }
-    } catch (error) {
-      console.log(`  ! ${roleName}: ${describe(error)}`);
-    }
-  }
+  return prisma.organization.findMany({ select: { id: true, name: true } });
 }
 
 async function main(): Promise<void> {
-  console.log(`Seeding RBAC at ${RBAC_BASE_URL} for app "${RBAC_APP_ID}"`);
-  if (!token) {
-    console.log('Note: RBAC_SERVICE_TOKEN is not set. Writes will fail if the service requires auth.');
+  console.log(`Seeding "${UMS_APP_ID}" at ${UMS_BASE_URL}`);
+  if (!hasServiceCredentials()) {
+    console.log(
+      'Note: UMS_SERVICE_USER_EMAIL / UMS_SERVICE_USER_PASSWORD are not set, and there is no\n' +
+        '      request in flight to borrow a token from. Writes will be rejected.'
+    );
   }
 
-  await seedFeatures();
-  await seedRoles();
+  const orgs = await targets();
+  if (orgs.length === 0) {
+    console.log('\nNo organizations yet. Create one in the app; it is provisioned automatically.');
+    return;
+  }
 
-  console.log('\nDone. Verify with:');
-  console.log(`  curl -H "x-app-id: ${RBAC_APP_ID}" ${RBAC_BASE_URL}/api/role/${RBAC_APP_ID}`);
+  let failures = 0;
+  for (const org of orgs) {
+    process.stdout.write(`\n${org.name} (${org.id})\n`);
+    try {
+      await provisionOrg(org.id, org.name);
+      const roles = await listRoles(org.id, true);
+      console.log(`  roles: ${roles.map(r => r.name).join(', ') || '(none)'}`);
+    } catch (error) {
+      failures += 1;
+      console.log(`  ! ${describe(error)}`);
+    }
+  }
+
+  if (failures > 0) {
+    throw new Error(`${failures} organization(s) could not be seeded`);
+  }
 }
 
-main().catch(error => {
-  console.error('Seed failed:', describe(error));
-  process.exit(1);
-});
+main()
+  .catch(error => {
+    console.error('\nSeed failed:', describe(error));
+    process.exitCode = 1;
+  })
+  .finally(() => prisma.$disconnect());

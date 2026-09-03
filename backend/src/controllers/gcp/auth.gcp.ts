@@ -12,8 +12,8 @@ export const registerUser = functions.http('registerUser', async (req: any, res:
   try {
     logger.info('GCF --> registerUser --> Request', { body: req.body, headers: req.headers });
     if (await gcfValidate(req, res, SignUpSchema)) return;
-    await authService.register(req.body);
-    res.status(StatusCodes.CREATED).json({ response: { message: 'User registered successfully' } });
+    const result = await authService.signUp(req.body);
+    res.status(StatusCodes.CREATED).json({ message: 'Account created successfully', ...result });
   } catch (error: any) {
     logger.error('GCF --> registerUser --> Error', error);
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({ message: error.message || 'Internal server error' });
@@ -46,7 +46,8 @@ export const updateProfile = functions.http('updateProfile', async (req: any, re
     logger.info('GCF --> updateProfile --> Request', { body: req.body, headers: req.headers });
     if (await gcfAuthMiddleware(req as AuthRequest, res)) return;
     if (await gcfValidate(req, res, UpdateProfileSchema)) return;
-    await authService.updateProfile((req as AuthRequest).user!.id, req.body);
+    const token = String(req.headers?.authorization ?? '').replace(/^Bearer /, '');
+    await authService.updateProfile((req as AuthRequest).user!.id, token, req.body);
     res.status(StatusCodes.OK).json({ response: { message: 'Profile updated successfully' } });
   } catch (error: any) {
     logger.error('GCF --> updateProfile --> Error', error);

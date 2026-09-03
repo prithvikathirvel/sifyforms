@@ -791,9 +791,12 @@ export interface Template {
 
 export interface AuthState {
   user: User | null;
-  keycloakUser: User | null;
+  /** Account details as the user-management service holds them. */
+  accountUser: User | null;
+  /** Access token, mirrored from the in-memory store in lib/api for rendering decisions. */
   token: string | null;
-  refreshToken: string | null;
+  /** False until the initial silent refresh has settled, so guards do not redirect too early. */
+  bootstrapped: boolean;
   isLoading: boolean;
   error: string | null;
   needsOrgSetup: boolean | null;

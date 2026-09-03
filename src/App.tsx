@@ -4,7 +4,7 @@ import { store } from './store';
 import { useAppDispatch, useAppSelector } from './hooks/useAppDispatch';
 import { useEffect, useState } from 'react';
 import { fetchOrganizations } from './store/orgSlice';
-import { getSession, logout } from './store/authSlice';
+import { getSession, logout, restoreSession } from './store/authSlice';
 import { Loader2 } from 'lucide-react';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -25,17 +25,41 @@ import RequirePermission from './components/layout/RequirePermission';
 import UpdateProfilePage from './pages/UpdateProfilePage';
 import { ToastProvider } from './components/ui/toast';
 
-// Token only � used for /org/setup
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { token } = useAppSelector((state) => state.auth);
-  if (!token) return <Navigate to="/auth/login" replace />;
+/**
+ * The access token lives in memory, so a reload starts with no session at all.
+ * Exchange the refresh cookie once, up front. Public pages render immediately;
+ * only the guarded routes wait for the result, otherwise a reload would bounce
+ * a signed-in user to the login screen.
+ */
+function SessionBootstrap({ children }: { children: React.ReactNode }) {
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    dispatch(restoreSession());
+  }, [dispatch]);
+
   return <>{children}</>;
 }
 
+function FullPageSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
+
+// Token only � used for /org/setup
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { token, bootstrapped } = useAppSelector((state) => state.auth);
+  if (!bootstrapped) return <FullPageSpinner />;
+  if (!token) return <Navigate to="/auth/login" replace />;
+  return <>{children}</>;
+}
 // Token + org � used for all pages that need an org
 function OrgRoute({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
-  const { token, user } = useAppSelector((state) => state.auth);
+  const { token, user, bootstrapped } = useAppSelector((state) => state.auth);
   const { currentOrg, isLoading } = useAppSelector((state) => state.org);
   const [hasFetched, setHasFetched] = useState(false);
   const [sessionFailed, setSessionFailed] = useState(false);
@@ -72,6 +96,7 @@ function OrgRoute({ children }: { children: React.ReactNode }) {
     fetchData();
   }, [token, sessionFailed]);
 
+  if (!bootstrapped) return <FullPageSpinner />;
   if (!token) return <Navigate to="/auth/login" replace />;
   if (sessionFailed) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -91,6 +116,7 @@ function App() {
     <Provider store={store}>
       <ToastProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <SessionBootstrap>
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
@@ -125,6 +151,7 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </SessionBootstrap>
       </BrowserRouter>
       </ToastProvider>
     </Provider>

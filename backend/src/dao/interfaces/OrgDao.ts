@@ -5,6 +5,8 @@ export interface OrgRecord {
   logo: string | null;
   industry: string | null;
   ownerId: string;
+  provisioningStatus: string;
+  umsSyncedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,6 +53,7 @@ export interface CreateOrgData {
   logo?: string | null;
   industry?: string | null;
   ownerId: string;
+  provisioningStatus?: string;
 }
 
 export interface UpdateOrgData {
@@ -67,6 +70,8 @@ export interface OrgDao {
   findOrgById(id: string): Promise<OrgDetailRecord | null>;
   findOrgOwnerById(id: string): Promise<{ id: string; ownerId: string } | null>;
   updateOrg(id: string, data: UpdateOrgData): Promise<OrgRecord>;
+  /** PROVISIONING | ACTIVE | FAILED | DELETING. Stamps `umsSyncedAt` when set to ACTIVE. */
+  setOrgProvisioningStatus(id: string, status: string): Promise<void>;
   deleteOrg(id: string): Promise<void>;
   findOrgWithUsersById(id: string): Promise<OrgWithUsersRecord | null>;
   findOrgMember(

@@ -5,10 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const RemoveItemsFromLocalStorage = (isRefreshTokenRemoved: boolean = true) => {
+/**
+ * Clear everything tied to a session.
+ *
+ * Tokens are no longer kept here - the access token lives in memory and the
+ * refresh token in an httpOnly cookie - so the leftover keys are removed to
+ * clean up sessions started before that change.
+ */
+export const RemoveItemsFromLocalStorage = () => {
   localStorage.removeItem('token');
-  if (isRefreshTokenRemoved) {
-    localStorage.removeItem('refreshToken');
-  }
+  localStorage.removeItem('refreshToken');
   localStorage.removeItem('currentOrgId');
 };

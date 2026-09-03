@@ -16,7 +16,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
-import { registerUser, register as registerAuth, clearError } from '../../store/authSlice';
+import { register as registerAuth, clearError } from '../../store/authSlice';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -154,20 +154,14 @@ export default function SignupPage() {
           .map((pair) => [pair.key.trim(), pair.value])
       );
 
-      const result = await dispatch(registerUser({ ...rest, additionalDetails }));
+      const result = await dispatch(registerAuth({ ...rest, additionalDetails }));
 
-      if (registerUser.fulfilled.match(result)) {
-        const payload = result.payload as { userDetails?: { id?: string } };
-        const keycloakId = payload.userDetails?.id as string;
-        const regResult = await dispatch(registerAuth({ ...rest, additionalDetails, id: keycloakId }));
-
-        if (registerAuth.fulfilled.match(regResult)) {
-          setSuccessMsg('Account created successfully!');
-          setTimeout(() => {
-            setSuccessMsg('');
-            navigate('/auth/login');
-          }, 2500);
-        }
+      if (registerAuth.fulfilled.match(result)) {
+        setSuccessMsg('Account created successfully!');
+        setTimeout(() => {
+          setSuccessMsg('');
+          navigate('/auth/login');
+        }, 2500);
       }
     } finally {
       setSubmitting(false);

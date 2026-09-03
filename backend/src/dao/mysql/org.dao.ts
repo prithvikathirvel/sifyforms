@@ -50,6 +50,16 @@ export class MySQLOrgDao implements OrgDao {
     return prisma.organization.update({ where: { id }, data });
   }
 
+  async setOrgProvisioningStatus(id: string, status: string): Promise<void> {
+    await prisma.organization.update({
+      where: { id },
+      data: {
+        provisioningStatus: status,
+        ...(status === 'ACTIVE' ? { umsSyncedAt: new Date() } : {}),
+      },
+    });
+  }
+
   async deleteOrg(id: string): Promise<void> {
     await prisma.organization.delete({ where: { id } });
   }

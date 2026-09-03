@@ -25,6 +25,9 @@ export class FirestoreOrgDao implements OrgDao {
   async updateOrg(_id: string, _data: UpdateOrgData): Promise<OrgRecord> {
     throw new Error('FirestoreOrgDao.updateOrg not implemented');
   }
+  async setOrgProvisioningStatus(_id: string, _status: string): Promise<void> {
+    throw new Error('FirestoreOrgDao.setOrgProvisioningStatus not implemented');
+  }
   async deleteOrg(_id: string): Promise<void> {
     throw new Error('FirestoreOrgDao.deleteOrg not implemented');
   }

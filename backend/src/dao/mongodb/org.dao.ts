@@ -25,6 +25,9 @@ export class MongoOrgDao implements OrgDao {
   async updateOrg(_id: string, _data: UpdateOrgData): Promise<OrgRecord> {
     throw new Error('MongoOrgDao.updateOrg not implemented');
   }
+  async setOrgProvisioningStatus(_id: string, _status: string): Promise<void> {
+    throw new Error('MongoOrgDao.setOrgProvisioningStatus not implemented');
+  }
   async deleteOrg(_id: string): Promise<void> {
     throw new Error('MongoOrgDao.deleteOrg not implemented');
   }

@@ -94,15 +94,16 @@ export async function getEffectivePermissions(
     return hit.value;
   }
 
-  const [orgMember, definitions] = await Promise.all([
-    orgDao.findOrgMember(orgId, userId),
-    listRoles(),
-  ]);
+  const orgMember = await orgDao.findOrgMember(orgId, userId);
 
   const actions = new Set<string>();
   const roles: string[] = [];
 
   if (orgMember) {
+    // Only reached for an actual member, so a failure to read definitions is a
+    // genuine outage and propagates as 503. A non-member resolves to an empty
+    // action set without ever touching the user-management service.
+    const definitions = await listRoles(orgId);
     roles.push(orgMember.role);
     const definition = findDefinition(definitions, orgMember.role, orgMember.roleId);
     for (const action of actionsFromPermission(definition?.permission)) {

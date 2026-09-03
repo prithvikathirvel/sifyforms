@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
-import { updateProfile, fetchKeycloakUserByEmail } from '../store/authSlice';
+import { updateProfile, fetchAccountDetails } from '../store/authSlice';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -45,9 +45,8 @@ function FieldError({ message }: { message?: string }) {
 export default function UpdateProfilePage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { keycloakUser, user, isLoading, error } = useAppSelector((state) => state.auth);
-  const extendedUser = keycloakUser as (NonNullable<typeof keycloakUser> & ExtendedProfile) | null;
-  const accountEmail = user?.email || extendedUser?.email;
+  const { accountUser, isLoading, error } = useAppSelector((state) => state.auth);
+  const extendedUser = accountUser as (NonNullable<typeof accountUser> & ExtendedProfile) | null;
   const [kvPairs, setKvPairs] = useState<{ key: string; value: string }[]>([]);
 
   const addKvPair = () => setKvPairs((prev) => [...prev, { key: '', value: '' }]);
@@ -56,8 +55,8 @@ export default function UpdateProfilePage() {
     setKvPairs((prev) => prev.map((pair, idx) => (idx === i ? { ...pair, [field]: val } : pair)));
 
   useEffect(() => {
-    if (accountEmail) dispatch(fetchKeycloakUserByEmail(accountEmail));
-  }, [accountEmail, dispatch]);
+    dispatch(fetchAccountDetails());
+  }, [dispatch]);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),

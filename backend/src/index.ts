@@ -16,6 +16,10 @@ import dmsRoutes from './routes/dms.routes';
 
 import rateLimit from 'express-rate-limit';
 
+import { startOutboxWorker } from './service/ums.outbox';
+import { hasServiceCredentials } from './service/ums.client';
+import { KEYCLOAK_ISSUER } from './config/ums.config';
+
 dotenv.config();
 
 const app = express();
@@ -70,6 +74,20 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  if (!KEYCLOAK_ISSUER) {
+    console.error(
+      'KEYCLOAK_ISSUER is not set. Every request will be rejected: the token issuer must ' +
+        'come from configuration, never from the token being verified.'
+    );
+  }
+  if (!hasServiceCredentials()) {
+    console.warn(
+      'UMS_SERVICE_USER_EMAIL / UMS_SERVICE_USER_PASSWORD are not set. Requests still work ' +
+        '(the caller\'s own token is used), but background mirroring to the user-management ' +
+        'service cannot run.'
+    );
+  }
+  startOutboxWorker();
 });
 
 export default app;

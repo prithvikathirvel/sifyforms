@@ -13,8 +13,8 @@ export const registerUser = async (event: APIGatewayProxyEvent): Promise<APIGate
     const body = parseBody(event);
     const validated = lambdaValidate(body, SignUpSchema);
     if (isLambdaError(validated)) return validated;
-    await authService.register(validated);
-    return lambdaResponse(StatusCodes.CREATED, { response: { message: 'User registered successfully' } });
+    const result = await authService.signUp(validated);
+    return lambdaResponse(StatusCodes.CREATED, { message: 'Account created successfully', ...result });
   } catch (error: any) {
     logger.error('Lambda --> registerUser --> Error', error);
     return lambdaError(error);
@@ -53,7 +53,8 @@ export const updateProfile = async (event: APIGatewayProxyEvent): Promise<APIGat
     const body = parseBody(event);
     const validated = lambdaValidate(body, UpdateProfileSchema);
     if (isLambdaError(validated)) return validated;
-    await authService.updateProfile(auth.user.id, validated);
+    const token = String(event.headers?.Authorization ?? event.headers?.authorization ?? '').replace(/^Bearer /, '');
+    await authService.updateProfile(auth.user.id, token, validated);
     return lambdaResponse(StatusCodes.OK, { response: { message: 'Profile updated successfully' } });
   } catch (error: any) {
     logger.error('Lambda --> updateProfile --> Error', error);

@@ -1,43 +1,51 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import api, { keycloakApi } from '../lib/api';
+import api, { refreshSession, setAccessToken } from '../lib/api';
 import type { AuthState, User } from '../types';
 import { RemoveItemsFromLocalStorage } from '../lib/utils';
 
 const initialState: AuthState = {
   user: null,
-  keycloakUser: null,
-  token: localStorage.getItem('token') || null,
-  refreshToken: localStorage.getItem('refreshToken') || null,
+  accountUser: null,
+  token: null,
+  bootstrapped: false,
   isLoading: false,
   error: null,
   needsOrgSetup: null,
 };
 
-/* Keycloak User Registration */
-export const registerUser = createAsyncThunk(
-  'user/registerUser',
-  async (data: { email: string; password: string; firstName?: string; lastName?: string; phone?: string; username?: string; gender?: string; address?: string; additionalDetails: {[key: string]: any}
-  }, { rejectWithValue }) => {
-    try {
-      const response = await keycloakApi.post('/user/', data);
-      return response.data;
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Registration failed');
-    }
-  }
-);
-/* Form Builder User Registration */
+function message(error: unknown, fallback: string): string {
+  const err = error as { response?: { data?: { error?: string; message?: string } } };
+  return err.response?.data?.error ?? err.response?.data?.message ?? fallback;
+}
+
+/**
+ * Create an account.
+ *
+ * One call. The account used to be created in two - once against the
+ * user-management service from the browser, once against this backend - and a
+ * failure in between left a person able to sign in and be refused forever.
+ */
 export const register = createAsyncThunk(
   'auth/register',
-  async (data:  { id: string; email: string; password: string; firstName?: string; lastName?: string; phone?: string; username?: string; gender?: string; address?: string; additionalDetails: {[key: string]: any}}, { rejectWithValue }) => {
+  async (
+    data: {
+      email: string;
+      password: string;
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      username: string;
+      gender?: string;
+      address?: string;
+      additionalDetails?: Record<string, unknown>;
+    },
+    { rejectWithValue }
+  ) => {
     try {
       const response = await api.post('/auth/register', data);
-      localStorage.setItem('token', response.data.token);
       return response.data;
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Registration failed');
+      return rejectWithValue(message(error, 'Registration failed'));
     }
   }
 );
@@ -46,24 +54,31 @@ export const login = createAsyncThunk(
   'auth/login',
   async (data: { email: string; password: string }, { rejectWithValue }) => {
     try {
-      const loginResponse = await keycloakApi.post('/user/login', data);
-      const payload = loginResponse.data?.data ?? loginResponse.data;
-      localStorage.setItem('token', payload.accessToken);
-      localStorage.setItem('refreshToken', payload.refreshToken);
+      const response = await api.post('/auth/login', data);
+      setAccessToken(response.data.accessToken);
       return {
-        token: payload.accessToken,
-        refreshToken: payload.refreshToken,
-        user: {
-          ...payload.user,
-          name: payload.user.username,
-        } as import('../types').User,
+        token: response.data.accessToken as string,
+        user: response.data.user as User | null,
       };
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Login failed');
+      return rejectWithValue(message(error, 'Login failed'));
     }
   }
 );
+
+/**
+ * Resume a session on page load.
+ *
+ * The access token is not persisted anywhere the page can read, so the only way
+ * back into a session after a reload is to exchange the refresh cookie.
+ */
+export const restoreSession = createAsyncThunk('auth/restoreSession', async (_, { rejectWithValue }) => {
+  try {
+    return await refreshSession();
+  } catch {
+    return rejectWithValue(null);
+  }
+});
 
 export const getSession = createAsyncThunk(
   'auth/getSession',
@@ -77,26 +92,32 @@ export const getSession = createAsyncThunk(
       }
       return session;
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Session fetch failed');
+      return rejectWithValue(message(error, 'Session fetch failed'));
     }
   }
 );
 
 export const logout = createAsyncThunk('auth/logout', async () => {
+  try {
+    await api.post('/auth/logout');
+  } catch {
+    // The local session is cleared regardless: a failure to revoke upstream
+    // must never leave someone apparently signed in.
+  }
+  setAccessToken(null);
   RemoveItemsFromLocalStorage();
   return null;
 });
 
-export const fetchKeycloakUserByEmail = createAsyncThunk(
-  'auth/fetchKeycloakUserByEmail',
-  async (email: string, { rejectWithValue }) => {
+/** Account details as the user-management service holds them, for the profile screen. */
+export const fetchAccountDetails = createAsyncThunk(
+  'auth/fetchAccountDetails',
+  async (_: void, { rejectWithValue }) => {
     try {
-      const response = await keycloakApi.get(`/user/${email}`);
-      return response.data?.data ?? response.data;
+      const response = await api.get('/auth/account');
+      return response.data;
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string; error?: string } } };
-      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to fetch user details');
+      return rejectWithValue(message(error, 'Failed to fetch user details'));
     }
   }
 );
@@ -108,16 +129,12 @@ export const updateProfile = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      // Step 1: Update Keycloak user
-      const keycloakResponse = await keycloakApi.put('/user', data);
-
-      // Step 2: Only after Keycloak succeeds, update app DB
-      await api.put('/auth/profile', data);
-
-      return keycloakResponse.data?.data ?? keycloakResponse.data;
+      // The backend updates the user-management service first and only mirrors
+      // the change locally once that succeeded.
+      const response = await api.put('/auth/profile', data);
+      return response.data?.user ?? data;
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string; error?: string } } };
-      return rejectWithValue(err.response?.data?.message || err.response?.data?.error || 'Failed to update profile');
+      return rejectWithValue(message(error, 'Failed to update profile'));
     }
   }
 );
@@ -139,25 +156,10 @@ const authSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(register.fulfilled, (state, action) => {
+      .addCase(register.fulfilled, (state) => {
         state.isLoading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
       })
       .addCase(register.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(registerUser.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(registerUser.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-      })
-      .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })
@@ -167,13 +169,21 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.keycloakUser = action.payload.user;  // ? preserved, never overwritten
         state.token = action.payload.token;
-        state.refreshToken = action.payload.refreshToken;
+        state.bootstrapped = true;
+        if (action.payload.user) state.accountUser = action.payload.user;
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      .addCase(restoreSession.fulfilled, (state, action) => {
+        state.token = action.payload as string;
+        state.bootstrapped = true;
+      })
+      .addCase(restoreSession.rejected, (state) => {
+        state.token = null;
+        state.bootstrapped = true;
       })
       .addCase(getSession.pending, (state) => {
         state.isLoading = true;
@@ -199,13 +209,14 @@ const authSlice = createSlice({
       })
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
-        state.keycloakUser = null;
+        state.accountUser = null;
         state.token = null;
-        state.refreshToken = null;
+        state.needsOrgSetup = null;
+        state.bootstrapped = true;
       })
-      .addCase(fetchKeycloakUserByEmail.fulfilled, (state, action) => {
+      .addCase(fetchAccountDetails.fulfilled, (state, action) => {
         if (action.payload) {
-          state.keycloakUser = action.payload;
+          state.accountUser = action.payload;
         }
       })
       .addCase(updateProfile.pending, (state) => {

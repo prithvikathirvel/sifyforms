@@ -20,11 +20,10 @@ import logger from '../utils/logger';
 /**
  * Role definitions.
  *
- * These live in the RBAC service and are shared by every organization on this
- * application - its `roles` table is unique on (name, appId), with no owner
- * column. So a role created here is visible to all organizations. That is a
- * known limitation, accepted for now; scoping roles per organization needs
- * either a change in that service or a local role table.
+ * These live in the user-management service, scoped to one organization: its
+ * role query filters by `orgId`, so each organization owns its own copy of the
+ * definitions and can diverge from the seeded template without affecting
+ * anyone else.
  *
  * Assignments remain local, so nothing here touches who holds what.
  */
@@ -71,8 +70,8 @@ function privilegeFrom(permission: unknown): RolePrivilege[] {
 }
 
 /** Count memberships pointing at each role name. */
-async function assignmentCounts(orgId?: string): Promise<Map<string, number>> {
-  const orgRoles = await prisma.orgUser.groupBy({ by: ['role'], where: orgId ? { orgId } : undefined, _count: true });
+async function assignmentCounts(orgId: string): Promise<Map<string, number>> {
+  const orgRoles = await prisma.orgUser.groupBy({ by: ['role'], where: { orgId }, _count: true });
   const counts = new Map<string, number>();
   for (const row of orgRoles) {
     counts.set(row.role, row._count);
@@ -80,8 +79,8 @@ async function assignmentCounts(orgId?: string): Promise<Map<string, number>> {
   return counts;
 }
 
-export async function listRoleViews(orgId?: string): Promise<RoleView[]> {
-  const [roles, counts] = await Promise.all([listRoles(true), assignmentCounts(orgId)]);
+export async function listRoleViews(orgId: string): Promise<RoleView[]> {
+  const [roles, counts] = await Promise.all([listRoles(orgId, true), assignmentCounts(orgId)]);
 
   return roles
     .map(role => {
@@ -104,16 +103,16 @@ export async function listRoleViews(orgId?: string): Promise<RoleView[]> {
 }
 
 /** Names assignable to a member. */
-export async function assignableRoleNames(): Promise<string[]> {
-  const roles = await listRoleViews();
+export async function assignableRoleNames(orgId: string): Promise<string[]> {
+  const roles = await listRoleViews(orgId);
   return roles.filter(r => r.isActive).map(r => r.name);
 }
 
 /**
  * Reject a role that is not assignable.
  */
-export async function assertRoleAssignable(role: string): Promise<void> {
-  const allowed = await assignableRoleNames();
+export async function assertRoleAssignable(role: string, orgId: string): Promise<void> {
+  const allowed = await assignableRoleNames(orgId);
   if (!allowed.includes(role)) {
     throw createError(
       400,
@@ -167,28 +166,31 @@ function cleanPrivilege(privilege: RolePrivilege[]): RolePrivilege[] {
     .filter(p => p.actions.length > 0);
 }
 
-export async function createRole(input: RoleInput) {
+export async function createRole(input: RoleInput, orgId: string) {
   validate(input);
   const name = input.name.trim();
 
-  const existing = await listRoleViews();
+  const existing = await listRoleViews(orgId);
   if (existing.some(r => r.name.toLowerCase() === name.toLowerCase())) {
     throw createError(409, `A role named "${name}" already exists`);
   }
 
-  await rbacCreateRole({
-    roleName: name,
-    description: input.description?.trim() || '',
-    privilege: cleanPrivilege(input.privilege),
-  });
+  await rbacCreateRole(
+    {
+      roleName: name,
+      description: input.description?.trim() || '',
+      privilege: cleanPrivilege(input.privilege),
+    },
+    orgId
+  );
 
-  logger.info('RoleService --> createRole', { name });
+  logger.info('RoleService --> createRole', { orgId, name });
   return { message: `Role "${name}" created`, name };
 }
 
-export async function updateRole(roleId: string, input: RoleInput) {
+export async function updateRole(roleId: string, input: RoleInput, orgId: string) {
   validate(input);
-  const roles = await listRoleViews();
+  const roles = await listRoleViews(orgId);
   const role = roles.find(r => r.id === roleId);
   if (!role) throw createError(404, 'Role not found');
 
@@ -206,33 +208,39 @@ export async function updateRole(roleId: string, input: RoleInput) {
     throw createError(409, `A role named "${name}" already exists`);
   }
 
-  await rbacUpdateRole(roleId, {
-    roleName: role.isSystem ? role.name : name,
-    description: input.description?.trim() || '',
-    privilege: cleanPrivilege(input.privilege),
-  });
+  await rbacUpdateRole(
+    roleId,
+    {
+      roleName: role.isSystem ? role.name : name,
+      description: input.description?.trim() || '',
+      privilege: cleanPrivilege(input.privilege),
+    },
+    orgId
+  );
 
   // Permissions are cached per user; a definition change invalidates all of them.
-  invalidatePermissions();
-  logger.info('RoleService --> updateRole', { roleId, name: role.name });
+  invalidatePermissions(undefined, orgId);
+  logger.info('RoleService --> updateRole', { orgId, roleId, name: role.name });
   return { message: `Role "${role.name}" updated` };
 }
 
 /**
  * Retire a role, or bring it back.
  *
- * There is no delete in the RBAC service, and deleting would orphan every
- * membership naming it, so retiring is the right shape: it disappears from the
- * pickers while existing holders keep working until they are moved.
+ * There is no delete in the user-management service, and deleting would orphan
+ * every membership naming it, so retiring is the right shape: it disappears
+ * from the pickers while existing holders keep working until they are moved.
  */
-export async function setRoleActive(roleId: string, active: boolean) {
-  const roles = await listRoleViews();
+export async function setRoleActive(roleId: string, active: boolean, orgId: string) {
+  const roles = await listRoleViews(orgId);
   const role = roles.find(r => r.id === roleId);
   if (!role) throw createError(404, 'Role not found');
 
   if (role.isSystem && !active) {
     throw createError(400, `"${role.name}" is a built-in role and cannot be retired`);
   }
+  // Retiring a role that still has holders would silently reduce them to no
+  // permissions at all: the service hides inactive roles from its role list.
   if (!active && role.assignedCount > 0) {
     throw createError(
       400,
@@ -243,13 +251,13 @@ export async function setRoleActive(roleId: string, active: boolean) {
     return { message: `Role is already ${active ? 'active' : 'retired'}` };
   }
 
-  await toggleRoleActive(roleId);
-  invalidatePermissions();
+  await toggleRoleActive(roleId, orgId);
+  invalidatePermissions(undefined, orgId);
   return { message: `Role "${role.name}" ${active ? 'restored' : 'retired'}` };
 }
 
 /** Actions that let a role administer the organization, for the last-admin guard. */
-export async function rolesGrantingAdmin(): Promise<string[]> {
-  const roles = await listRoleViews();
+export async function rolesGrantingAdmin(orgId: string): Promise<string[]> {
+  const roles = await listRoleViews(orgId);
   return roles.filter(r => r.actions.includes(ACTIONS.MANAGE_ROLES)).map(r => r.name);
 }

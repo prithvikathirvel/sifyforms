@@ -111,9 +111,8 @@ router.delete(
 );
 
 // --- roles ------------------------------------------------------------------
-// Definitions are shared across every organization on this application (the
-// RBAC service has no owner column on roles), so managing them is gated behind
-// MANAGE_ROLES rather than being open to any member.
+// Each organization holds its own copy of the role definitions in the
+// user-management service, so editing them affects only this organization.
 router.get(
   '/:orgId/roles',
   orgMiddleware,
