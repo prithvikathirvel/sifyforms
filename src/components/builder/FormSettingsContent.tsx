@@ -327,6 +327,9 @@ function BrandingSectionEditor({
   );
 }
 
+const SETTINGS_TAB_CLASS =
+  'h-9 w-auto shrink-0 justify-start rounded-md border border-transparent px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=active]:border-primary/20 data-[state=active]:bg-primary/10 data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:shadow-none md:w-full';
+
 export default function FormSettingsContent({ formId }: FormSettingsContentProps) {
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
@@ -344,51 +347,51 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
         <p className="hidden px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">
           Sections
         </p>
-        <TabsList className="scrollbar-compact flex h-auto w-full flex-row justify-start gap-1.5 overflow-x-auto bg-transparent p-2.5 md:flex-col md:overflow-y-auto md:p-3">
-                <TabsTrigger value="general" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+        <TabsList className="scrollbar-compact flex h-auto w-full flex-row justify-start gap-1 overflow-x-auto bg-transparent p-3 md:flex-col md:overflow-y-auto">
+                <TabsTrigger value="general" className={SETTINGS_TAB_CLASS}>
                   <Settings className="mr-2 h-4 w-4" />
                   General
                 </TabsTrigger>
-                <TabsTrigger value="after-submit" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                <TabsTrigger value="after-submit" className={SETTINGS_TAB_CLASS}>
                   <Check className="mr-2 h-4 w-4" />
                   After submission
                 </TabsTrigger>
-                <TabsTrigger value="access" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                <TabsTrigger value="access" className={SETTINGS_TAB_CLASS}>
                   <Shield className="h-4 w-4 mr-2" />
                   Access & Security
                 </TabsTrigger>
-                <TabsTrigger value="team" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                <TabsTrigger value="team" className={SETTINGS_TAB_CLASS}>
                   <Users className="h-4 w-4 mr-2" />
                   Team & Sharing
                 </TabsTrigger>
-                <TabsTrigger value="appearance" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                <TabsTrigger value="appearance" className={SETTINGS_TAB_CLASS}>
                   <Palette className="h-4 w-4 mr-2" />
                   Appearance
                 </TabsTrigger>
-                <TabsTrigger value="authentication" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                <TabsTrigger value="authentication" className={SETTINGS_TAB_CLASS}>
                   <KeyRound className="h-4 w-4 mr-2" />
                   Authentication
                 </TabsTrigger>
-                <TabsTrigger value="payment" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                <TabsTrigger value="payment" className={SETTINGS_TAB_CLASS}>
                   <CreditCard className="h-4 w-4 mr-2" />
                   Payment
                 </TabsTrigger>
-                <TabsTrigger value="assessment" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                <TabsTrigger value="assessment" className={SETTINGS_TAB_CLASS}>
                   <ClipboardCheck className="h-4 w-4 mr-2" />
                   Assessment
                 </TabsTrigger>
-                <TabsTrigger value="voting" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                <TabsTrigger value="voting" className={SETTINGS_TAB_CLASS}>
                   <BarChart2 className="h-4 w-4 mr-2" />
                   Voting
                 </TabsTrigger>
-                <TabsTrigger value="survey" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                <TabsTrigger value="survey" className={SETTINGS_TAB_CLASS}>
                   <BarChart2 className="h-4 w-4 mr-2" />
                   Survey
                 </TabsTrigger>
               </TabsList>
             </aside>
 
-            <div className="min-w-0 flex-1 bg-card [&>[role=tabpanel]]:px-5 [&>[role=tabpanel]]:py-7 sm:[&>[role=tabpanel]]:px-8 lg:[&>[role=tabpanel]]:px-10 lg:[&>[role=tabpanel]]:py-9 xl:[&>[role=tabpanel]]:px-12">
+            <div className="min-w-0 flex-1 bg-card [&>[role=tabpanel]]:mx-auto [&>[role=tabpanel]]:w-full [&>[role=tabpanel]]:max-w-4xl [&>[role=tabpanel]]:px-5 [&>[role=tabpanel]]:py-6 sm:[&>[role=tabpanel]]:px-8 sm:[&>[role=tabpanel]]:py-8 lg:[&>[role=tabpanel]]:px-10">
               <TabsContent value="general" className="m-0 space-y-7">
                 <div className="border-b border-border/70 pb-5">
                   <h2 className="text-base font-semibold text-foreground">General settings</h2>

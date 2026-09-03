@@ -29,32 +29,32 @@ export default function SettingsPanel({ formId }: { formId?: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-      <header className="flex h-[52px] shrink-0 items-center border-b border-border bg-card px-3 sm:px-4">
-        <div className="mr-4 hidden min-w-0 sm:block">
-          <h1 className="text-[13px] font-semibold text-foreground">Settings</h1>
+      <header className="shrink-0 border-b border-border bg-card">
+        <div className="flex items-center justify-between gap-6 px-4 sm:px-6">
+          <nav className="-mb-px flex items-center gap-6" role="tablist" aria-label="Settings workspace">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => setTab(id)}
+                className={cn(
+                  'flex items-center gap-2 border-b-2 py-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                  tab === id
+                    ? 'border-primary text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon className="h-4 w-4" strokeWidth={1.75} />
+                {label}
+              </button>
+            ))}
+          </nav>
+          <p className="hidden truncate text-xs text-muted-foreground lg:block">
+            {tab === 'layout' ? 'Structure, pages, and respondent navigation' : 'Behavior, access, appearance, and completion'}
+          </p>
         </div>
-        <nav className="flex items-center gap-1 rounded-lg border border-border bg-muted/35 p-1" aria-label="Settings workspace">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              aria-pressed={tab === id}
-              className={cn(
-                'flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12px] font-semibold transition-colors',
-                tab === id
-                  ? 'border-primary/20 bg-card text-primary shadow-sm'
-                  : 'border-transparent text-muted-foreground hover:bg-card/70 hover:text-foreground'
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {label}
-            </button>
-          ))}
-        </nav>
-        <p className="ml-auto hidden text-[11px] text-muted-foreground lg:block">
-          {tab === 'layout' ? 'Structure, pages, and respondent navigation' : 'Behavior, access, appearance, and completion'}
-        </p>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-background">
