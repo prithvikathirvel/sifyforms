@@ -48,14 +48,17 @@ export function FormWorkspaceTable({ forms, orgSlug, getTeamName }: FormWorkspac
             <FileText className="h-3.5 w-3.5" strokeWidth={1.8} />
           </span>
           <div className="min-w-0">
-            <button
-              type="button"
-              onClick={() => navigate(`/forms/${form.id}/edit`)}
-              className="block max-w-full truncate text-left text-[12px] font-semibold text-foreground transition-colors hover:text-primary"
-              title={`Edit ${form.name}`}
-            >
-              {form.name}
-            </button>
+            {form.access?.canEdit !== false ? (
+              <button type="button" onClick={() => navigate(`/forms/${form.id}/edit`)} className="block max-w-full truncate text-left text-[12px] font-semibold text-foreground transition-colors hover:text-primary" title={`Edit ${form.name}`}>
+                {form.name}
+              </button>
+            ) : (form.access?.canViewResponses !== false || form.access?.canViewResults === true) ? (
+              <button type="button" onClick={() => navigate(`/forms/${form.id}/submissions`)} className="block max-w-full truncate text-left text-[12px] font-semibold text-foreground transition-colors hover:text-primary" title={`Open results for ${form.name}`}>
+                {form.name}
+              </button>
+            ) : (
+              <span className="block max-w-full truncate text-[12px] font-semibold text-foreground" title={form.name}>{form.name}</span>
+            )}
             <p className="mt-0.5 flex items-center gap-1 truncate text-[9px] font-medium text-muted-foreground md:hidden">
               <Users className="h-2.5 w-2.5 shrink-0" />
               <span className="truncate">{getTeamName(form)}</span>

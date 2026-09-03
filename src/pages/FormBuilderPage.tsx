@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
 import { fetchForm, updateForm, publishForm, duplicateForm, saveFormAsTemplate } from '../store/formsSlice';
+import { fetchFormAccess } from '../store/formSharingSlice';
 import {
   initializeBuilder,
   addField,
@@ -179,6 +180,8 @@ export default function FormBuilderPage() {
   const dispatch = useAppDispatch();
   const { currentForm, isLoading: formLoading, error: formError } = useAppSelector((state) => state.forms);
   const { currentOrg } = useAppSelector((state) => state.org);
+  const formAccess = useAppSelector((state) => formId ? state.formSharing.access[formId] : undefined);
+  const formAccessError = useAppSelector((state) => state.formSharing.error);
   const builder = useAppSelector((state) => state.builder);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -252,6 +255,7 @@ export default function FormBuilderPage() {
   useEffect(() => {
     if (formId && currentOrg?.id) {
       dispatch(fetchForm(formId));
+      dispatch(fetchFormAccess(formId));
     }
   }, [formId, currentOrg?.id, dispatch]);
 
@@ -832,7 +836,7 @@ export default function FormBuilderPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (formLoading) {
+  if (formLoading || (currentForm && !formAccess && !formAccessError)) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
   if (!currentForm) {
@@ -842,6 +846,24 @@ export default function FormBuilderPage() {
           <h1 className="text-lg font-semibold">Form unavailable in this organization</h1>
           <p className="mt-2 text-sm text-muted-foreground">{formError || 'The form may belong to another organization or you may not have access.'}</p>
           <Button type="button" className="mt-5" onClick={() => navigate('/forms')}>Back to forms</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!formAccess?.canEdit) {
+    const canOpenResults = formAccess?.level !== undefined && formAccess.level !== 'NONE';
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 text-center">
+          <h1 className="text-lg font-semibold">View-only access</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            You can access this form, but your role or share does not allow editing it.
+          </p>
+          <div className="mt-5 flex justify-center gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate('/forms')}>Back to forms</Button>
+            {canOpenResults && <Button type="button" onClick={() => navigate(`/forms/${formId}/submissions`)}>Open results</Button>}
+          </div>
         </div>
       </div>
     );

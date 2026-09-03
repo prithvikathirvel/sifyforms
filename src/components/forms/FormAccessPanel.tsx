@@ -58,12 +58,14 @@ export default function FormAccessPanel({ formId }: Props) {
 
   useEffect(() => {
     dispatch(fetchFormAccess(formId));
-    dispatch(fetchFormShares(formId));
-    if (orgId) {
-      dispatch(fetchTeams(orgId));
-      dispatch(fetchMembers(orgId));
-    }
+    if (orgId) dispatch(fetchTeams(orgId));
   }, [dispatch, formId, orgId]);
+
+  useEffect(() => {
+    if (!access?.canShare || !orgId) return;
+    dispatch(fetchFormShares(formId));
+    dispatch(fetchMembers(orgId));
+  }, [access?.canShare, dispatch, formId, orgId]);
 
   const teamOptions = flattenTeams(teams);
   const policyLocked = access?.policy !== undefined && shares !== undefined;

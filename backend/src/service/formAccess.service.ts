@@ -156,6 +156,23 @@ export async function getFormAccess(
   };
 }
 
+/**
+ * A protected form definition may be loaded by an editor or by someone who has
+ * explicit/role-based response access (the submissions workspace needs field
+ * labels). Organization membership alone is never sufficient.
+ */
+export async function assertFormReadable(
+  userId: string,
+  orgId: string,
+  formId: string
+): Promise<FormAccess> {
+  const access = await getFormAccess(userId, orgId, formId);
+  if (!access.canEdit && access.level === 'NONE') {
+    throw createError(403, 'You do not have access to this form');
+  }
+  return access;
+}
+
 /** Throws 403 unless the user's response access reaches `required`. */
 export async function assertResponseLevel(
   userId: string,

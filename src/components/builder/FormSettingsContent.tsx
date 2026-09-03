@@ -3,7 +3,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Checkbox as UICheckbox } from '../ui/checkbox';
-import { X, Check, Shield, Palette, CreditCard, KeyRound, ClipboardCheck, BarChart2, Loader2, Users, Upload } from 'lucide-react';
+import { X, Check, Settings, Shield, Palette, CreditCard, KeyRound, ClipboardCheck, BarChart2, Loader2, Users, Upload } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { updateSettings } from '../../store/builderSlice';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
@@ -331,7 +331,7 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
   const currentOrg = useAppSelector((state) => state.org.currentOrg);
-  const [activeTab, setActiveTab] = useState('after-submit');
+  const [activeTab, setActiveTab] = useState('general');
   const origin = window.location.origin;
   const paymentRedirectUrl = formId ? `${origin}/payment/${formId}/status` : '';
   const paymentCancelUrl = formId ? `${origin}/payment/${formId}/status?cancelled=true` : '';
@@ -340,52 +340,105 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-full w-full flex-col bg-card md:flex-row">
-      <aside className="w-full shrink-0 border-b border-border/70 bg-muted/20 md:sticky md:top-0 md:h-[calc(100vh-6.25rem)] md:w-52 md:self-start md:border-b-0 md:border-r">
+      <aside className="w-full shrink-0 border-b border-border bg-muted/40 md:sticky md:top-0 md:h-[calc(100vh-6.25rem)] md:w-60 md:self-start md:border-b-0 md:border-r">
         <p className="hidden px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">
           Sections
         </p>
-        <TabsList className="scrollbar-compact flex h-auto w-full flex-row justify-start gap-1 overflow-x-auto bg-transparent p-2 md:flex-col md:overflow-y-auto md:p-3">
-                <TabsTrigger value="after-submit" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
-                  <Check className="h-4 w-4 mr-2" />
+        <TabsList className="scrollbar-compact flex h-auto w-full flex-row justify-start gap-1.5 overflow-x-auto bg-transparent p-2.5 md:flex-col md:overflow-y-auto md:p-3">
+                <TabsTrigger value="general" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                  <Settings className="mr-2 h-4 w-4" />
+                  General
+                </TabsTrigger>
+                <TabsTrigger value="after-submit" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
+                  <Check className="mr-2 h-4 w-4" />
                   After submission
                 </TabsTrigger>
-                <TabsTrigger value="access" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
+                <TabsTrigger value="access" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
                   <Shield className="h-4 w-4 mr-2" />
                   Access & Security
                 </TabsTrigger>
-                <TabsTrigger value="team" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
+                <TabsTrigger value="team" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
                   <Users className="h-4 w-4 mr-2" />
                   Team & Sharing
                 </TabsTrigger>
-                <TabsTrigger value="appearance" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
+                <TabsTrigger value="appearance" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
                   <Palette className="h-4 w-4 mr-2" />
                   Appearance
                 </TabsTrigger>
-                <TabsTrigger value="authentication" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
+                <TabsTrigger value="authentication" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
                   <KeyRound className="h-4 w-4 mr-2" />
                   Authentication
                 </TabsTrigger>
-                <TabsTrigger value="payment" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
+                <TabsTrigger value="payment" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Payment
                 </TabsTrigger>
-                <TabsTrigger value="assessment" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
+                <TabsTrigger value="assessment" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
                   <ClipboardCheck className="h-4 w-4 mr-2" />
                   Assessment
                 </TabsTrigger>
-                <TabsTrigger value="voting" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
+                <TabsTrigger value="voting" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
                   <BarChart2 className="h-4 w-4 mr-2" />
                   Voting
                 </TabsTrigger>
-                <TabsTrigger value="survey" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
+                <TabsTrigger value="survey" className="w-auto shrink-0 justify-start border border-transparent px-3 data-[state=active]:border-primary/25 data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary md:w-full">
                   <BarChart2 className="h-4 w-4 mr-2" />
                   Survey
                 </TabsTrigger>
               </TabsList>
             </aside>
 
-            <div className="min-w-0 flex-1 bg-card [&>[role=tabpanel]]:p-5 sm:[&>[role=tabpanel]]:p-6">
-              <TabsContent value="after-submit" className="m-0 space-y-6">
+            <div className="min-w-0 flex-1 bg-card [&>[role=tabpanel]]:px-5 [&>[role=tabpanel]]:py-7 sm:[&>[role=tabpanel]]:px-8 lg:[&>[role=tabpanel]]:px-10 lg:[&>[role=tabpanel]]:py-9 xl:[&>[role=tabpanel]]:px-12">
+              <TabsContent value="general" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">General settings</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Control the form’s availability and basic response metadata.</p>
+                </div>
+
+                <section className="space-y-5 rounded-xl border border-border p-5 sm:p-6">
+                  <div>
+                    <Label className="text-sm font-semibold">Form availability</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">Choose whether respondents can access this form and optionally schedule when it closes.</p>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 border-t border-border/70 pt-4">
+                    <div>
+                      <Label htmlFor="general-active-toggle" className="cursor-pointer text-sm font-medium">Allow form submissions</Label>
+                      <p className="mt-0.5 text-xs text-muted-foreground">When disabled, public visitors cannot view or submit this form.</p>
+                    </div>
+                    <UICheckbox id="general-active-toggle" checked={builder.settings.isFormActive !== false} onCheckedChange={(checked: boolean) => dispatch(updateSettings({ isFormActive: checked }))} />
+                  </div>
+                  <div className="space-y-2 border-t border-border/70 pt-4">
+                    <Label className="text-sm font-medium">Expiration date and time</Label>
+                    <p className="text-xs text-muted-foreground">Automatically stop accepting responses at this date and time.</p>
+                    <Input
+                      type="datetime-local"
+                      value={(() => {
+                        const value = builder.settings.expirationDateTime;
+                        if (!value) return '';
+                        const date = new Date(value);
+                        if (Number.isNaN(date.getTime())) return value.slice(0, 16);
+                        const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                        return local.toISOString().slice(0, 16);
+                      })()}
+                      onChange={(event) => dispatch(updateSettings({ expirationDateTime: event.target.value ? new Date(event.target.value).toISOString() : undefined }))}
+                    />
+                  </div>
+                </section>
+
+                <section className="flex items-center justify-between gap-4 rounded-xl border border-border p-5 sm:p-6">
+                  <div>
+                    <Label htmlFor="timestamp-toggle" className="cursor-pointer text-sm font-semibold">Record submission time</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">Store the received timestamp with every completed response.</p>
+                  </div>
+                  <UICheckbox id="timestamp-toggle" checked={builder.settings.collectTimestamp !== false} onCheckedChange={(checked: boolean) => dispatch(updateSettings({ collectTimestamp: checked }))} />
+                </section>
+              </TabsContent>
+
+              <TabsContent value="after-submit" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">After-submit template</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Design the confirmation, processing, and result experience shown after submission.</p>
+                </div>
                 <section className="space-y-3">
                   <div><Label className="text-sm font-semibold">Completion experience</Label><p className="mt-1 text-xs text-muted-foreground">Choose the page shown after submission and while results are processing.</p></div>
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -440,7 +493,11 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
               {/* Who inside the organization may edit this form and read its
                   responses. Distinct from "Access & Security", which governs the
                   public visitors filling it in. */}
-              <TabsContent value="team" className="mt-0">
+              <TabsContent value="team" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">Team and sharing</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Choose the owning team and control who can work with this form and its responses.</p>
+                </div>
                 {formId ? (
                   <FormAccessPanel formId={formId} />
                 ) : (
@@ -450,44 +507,12 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                 )}
               </TabsContent>
 
-              <TabsContent value="access" className="mt-0 space-y-6">
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-card">
-                  <div>
-                    <Label htmlFor="active-toggle" className="text-sm font-medium cursor-pointer">Allow Form Submissions</Label>
-                    <p className="text-xs text-muted-foreground">When disabled, public visitors cannot view or submit this form.</p>
-                  </div>
-                  <UICheckbox
-                    id="active-toggle"
-                    checked={builder.settings.isFormActive !== false}
-                    onCheckedChange={(checked: boolean) => dispatch(updateSettings({ isFormActive: checked }))}
-                  />
+              <TabsContent value="access" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">Access and security</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Configure storage and safeguards for public respondents.</p>
                 </div>
-
-                <div className="space-y-3 p-3 border rounded-lg bg-card">
-                  <div>
-                    <Label className="text-sm font-medium">Expiration Date & Time (Optional)</Label>
-                    <p className="text-xs text-muted-foreground mb-3">Automatically disable the form at this specific date and time.</p>
-                  </div>
-                  <Input
-                    type="datetime-local"
-                    value={(() => {
-                      const val = builder.settings.expirationDateTime;
-                      if (!val) return '';
-                      // Convert stored UTC ISO string back to local datetime-local format
-                      const d = new Date(val);
-                      if (isNaN(d.getTime())) return val.slice(0, 16); // fallback for plain strings
-                      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-                      return local.toISOString().slice(0, 16);
-                    })()}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      // Store as UTC ISO string so server comparison is timezone-safe
-                      dispatch(updateSettings({ expirationDateTime: val ? new Date(val).toISOString() : undefined }));
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-4 rounded-lg border bg-card p-3">
+                <div className="flex items-center justify-between gap-4 rounded-xl border bg-card p-5 sm:p-6">
                   <div>
                     <Label className="text-sm font-medium">Bot protection</Label>
                     <p className="text-xs text-muted-foreground">Cloudflare Turnstile protects every public submission automatically.</p>
@@ -569,7 +594,11 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
 
               </TabsContent>
 
-              <TabsContent value="authentication" className="mt-0 space-y-5">
+              <TabsContent value="authentication" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">Authentication</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Verify respondents and configure secure save-and-resume behavior.</p>
+                </div>
                 {(() => {
                   const fields = builder.schema?.fields || [];
                   const auth = builder.settings.authentication;
@@ -672,7 +701,11 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                 })()}
               </TabsContent>
 
-              <TabsContent value="appearance" className="mt-0 space-y-6">
+              <TabsContent value="appearance" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">Appearance</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Set the theme, branding, and respondent review experience.</p>
+                </div>
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Theme</Label>
                   <p className="text-xs text-muted-foreground">Select a color scheme for the public form.</p>
@@ -824,7 +857,11 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                 </div>
               </TabsContent>
 
-              <TabsContent value="payment" className="mt-0 space-y-5">
+              <TabsContent value="payment" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">Payment</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Collect and process payments as part of the submission flow.</p>
+                </div>
                 {(() => {
                   const fields = builder.schema?.fields || [];
                   const payment = builder.settings.payment;
@@ -1096,7 +1133,11 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                   );
                 })()}
               </TabsContent>
-              <TabsContent value="assessment" className="mt-0 space-y-5">
+              <TabsContent value="assessment" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">Assessment</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Score responses and control how assessment results are presented.</p>
+                </div>
                 {(() => {
                   const assessment = builder.settings.assessment;
                   const updateAssessment = (updates: Partial<NonNullable<typeof assessment>>) =>
@@ -1174,7 +1215,11 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                 })()}
               </TabsContent>
 
-              <TabsContent value="voting" className="mt-0 space-y-5">
+              <TabsContent value="voting" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">Voting</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Configure poll participation, duplicate prevention, and result visibility.</p>
+                </div>
                 {(() => {
                   const voting = builder.settings.voting;
                   const updateVoting = (updates: Partial<NonNullable<typeof voting>>) =>
@@ -1257,7 +1302,11 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                 })()}
               </TabsContent>
 
-              <TabsContent value="survey" className="mt-0 space-y-5">
+              <TabsContent value="survey" className="m-0 space-y-7">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">Survey</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Configure respondent identity, navigation, and survey-specific behavior.</p>
+                </div>
                 {(() => {
                   const isSurvey = builder.settings.formType === 'survey';
                   const survey = builder.settings.survey ?? { identityMode: 'anonymous' as const, saveIncomplete: true as const };

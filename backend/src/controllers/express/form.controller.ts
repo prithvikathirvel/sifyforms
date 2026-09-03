@@ -43,6 +43,7 @@ export async function getForm(req: AuthRequest, res: Response): Promise<void> {
   try {
     const formId = getParamString(req.params.formId);
     logger.info('Express --> getForm --> Request', { formId, orgId: req.orgId });
+    await formAccessService.assertFormReadable(req.user!.id, req.orgId as string, formId);
     const result = await formService.getForm(formId, req.orgId as string);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
@@ -55,6 +56,7 @@ export async function updateForm(req: AuthRequest, res: Response): Promise<void>
   try {
     const formId = getParamString(req.params.formId);
     logger.info('Express --> updateForm --> Request', { formId, orgId: req.orgId });
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.EDIT_FORM);
     const result = await formService.updateForm(formId, req.orgId as string, req.body as UpdateFormInput);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
@@ -67,6 +69,7 @@ export async function deleteForm(req: AuthRequest, res: Response): Promise<void>
   try {
     const formId = getParamString(req.params.formId);
     logger.info('Express --> deleteForm --> Request', { formId, orgId: req.orgId });
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.DELETE_FORM);
     const result = await formService.deleteForm(formId, req.orgId as string);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
@@ -79,6 +82,7 @@ export async function duplicateForm(req: AuthRequest, res: Response): Promise<vo
   try {
     const formId = getParamString(req.params.formId);
     logger.info('Express --> duplicateForm --> Request', { formId, orgId: req.orgId });
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.EDIT_FORM);
     const result = await formService.duplicateForm(formId, req.orgId as string, req.user!.id, req.body.name);
     res.status(StatusCodes.CREATED).json(result);
   } catch (error: any) {
@@ -91,6 +95,7 @@ export async function publishForm(req: AuthRequest, res: Response): Promise<void
   try {
     const formId = getParamString(req.params.formId);
     logger.info('Express --> publishForm --> Request', { formId, orgId: req.orgId });
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.PUBLISH_FORM);
     const result = await formService.publishForm(formId, req.orgId as string);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
@@ -149,6 +154,7 @@ export async function editFormWithAI(req: AuthRequest, res: Response): Promise<v
       return;
     }
     logger.info('Express --> editFormWithAI --> Request', { formId, orgId: req.orgId });
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.EDIT_FORM);
     const result = await formService.editFormWithAI(formId, req.orgId as string, prompt, sessionId);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
@@ -176,6 +182,7 @@ export async function moveForm(req: AuthRequest, res: Response): Promise<void> {
   try {
     const formId = getParamString(req.params.formId);
     logger.info('Express --> moveForm --> Request', { formId, teamId: req.body.teamId });
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.MOVE_FORM);
     const result = await formService.moveForm(formId, req.orgId as string, req.body.teamId ?? null);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
@@ -188,6 +195,7 @@ export async function setResponsePolicy(req: AuthRequest, res: Response): Promis
   try {
     const formId = getParamString(req.params.formId);
     logger.info('Express --> setResponsePolicy --> Request', { formId, policy: req.body.policy });
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.SHARE_FORM);
     const result = await formService.setResponsePolicy(formId, req.orgId as string, req.body.policy);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
@@ -213,6 +221,7 @@ export async function getFormAccess(req: AuthRequest, res: Response): Promise<vo
 export async function listFormShares(req: AuthRequest, res: Response): Promise<void> {
   try {
     const formId = getParamString(req.params.formId);
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.SHARE_FORM);
     const result = await formShareService.listShares(formId, req.orgId as string);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
@@ -225,6 +234,7 @@ export async function createFormShare(req: AuthRequest, res: Response): Promise<
   try {
     const formId = getParamString(req.params.formId);
     logger.info('Express --> createFormShare --> Request', { formId, body: req.body });
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.SHARE_FORM);
     const result = await formShareService.createShare(
       formId, req.orgId as string, req.user!.id, req.body
     );
@@ -239,6 +249,7 @@ export async function revokeFormShare(req: AuthRequest, res: Response): Promise<
   try {
     const formId = getParamString(req.params.formId);
     const shareId = getParamString(req.params.shareId);
+    await formAccessService.assertFormAction(req.user!.id, req.orgId as string, formId, ACTIONS.SHARE_FORM);
     const result = await formShareService.revokeShare(formId, req.orgId as string, shareId);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {

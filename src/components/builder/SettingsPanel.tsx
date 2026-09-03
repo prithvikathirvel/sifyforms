@@ -29,11 +29,11 @@ export default function SettingsPanel({ formId }: { formId?: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-      <header className="flex h-11 shrink-0 items-center border-b border-border bg-card px-3 sm:px-4">
+      <header className="flex h-[52px] shrink-0 items-center border-b border-border bg-card px-3 sm:px-4">
         <div className="mr-4 hidden min-w-0 sm:block">
           <h1 className="text-[13px] font-semibold text-foreground">Settings</h1>
         </div>
-        <nav className="flex h-full items-center gap-5" aria-label="Settings workspace">
+        <nav className="flex items-center gap-1 rounded-lg border border-border bg-muted/35 p-1" aria-label="Settings workspace">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -41,8 +41,10 @@ export default function SettingsPanel({ formId }: { formId?: string }) {
               onClick={() => setTab(id)}
               aria-pressed={tab === id}
               className={cn(
-                'relative flex h-full items-center gap-1.5 px-0.5 text-[12px] font-semibold transition-colors',
-                tab === id ? 'text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary' : 'text-muted-foreground hover:text-foreground'
+                'flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12px] font-semibold transition-colors',
+                tab === id
+                  ? 'border-primary/20 bg-card text-primary shadow-sm'
+                  : 'border-transparent text-muted-foreground hover:bg-card/70 hover:text-foreground'
               )}
             >
               <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
