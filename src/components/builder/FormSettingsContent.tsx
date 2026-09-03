@@ -3,7 +3,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Checkbox as UICheckbox } from '../ui/checkbox';
-import { X, Check, Settings, Shield, Palette, CreditCard, KeyRound, ClipboardCheck, BarChart2, Loader2, Users, Upload } from 'lucide-react';
+import { X, Check, Shield, Palette, CreditCard, KeyRound, ClipboardCheck, BarChart2, Loader2, Users, Upload } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { updateSettings } from '../../store/builderSlice';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
@@ -331,7 +331,7 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
   const currentOrg = useAppSelector((state) => state.org.currentOrg);
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState('after-submit');
   const origin = window.location.origin;
   const paymentRedirectUrl = formId ? `${origin}/payment/${formId}/status` : '';
   const paymentCancelUrl = formId ? `${origin}/payment/${formId}/status?cancelled=true` : '';
@@ -339,55 +339,55 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
   const updatePostSubmit = (updates: Partial<PostSubmitSettings>) => dispatch(updateSettings({ postSubmit: { ...postSubmit, ...updates } }));
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex w-full flex-col md:flex-row">
-      <div className="w-full shrink-0 border-b bg-muted/20 md:w-56 md:border-b-0 md:border-r">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-full w-full flex-col bg-card md:flex-row">
+      <aside className="w-full shrink-0 border-b border-border/70 bg-muted/20 md:sticky md:top-0 md:h-[calc(100vh-6.25rem)] md:w-52 md:self-start md:border-b-0 md:border-r">
         <p className="hidden px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">
           Sections
         </p>
-        <TabsList className="flex h-auto w-full flex-row justify-start gap-1 bg-transparent p-2 md:flex-col md:p-3">
-                <TabsTrigger value="general" className="w-full justify-start data-[state=active]:bg-background">
-                  <Settings className="h-4 w-4 mr-2" />
-                  General
+        <TabsList className="scrollbar-compact flex h-auto w-full flex-row justify-start gap-1 overflow-x-auto bg-transparent p-2 md:flex-col md:overflow-y-auto md:p-3">
+                <TabsTrigger value="after-submit" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
+                  <Check className="h-4 w-4 mr-2" />
+                  After submission
                 </TabsTrigger>
-                <TabsTrigger value="access" className="w-full justify-start data-[state=active]:bg-background">
+                <TabsTrigger value="access" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
                   <Shield className="h-4 w-4 mr-2" />
                   Access & Security
                 </TabsTrigger>
-                <TabsTrigger value="team" className="w-full justify-start data-[state=active]:bg-background">
+                <TabsTrigger value="team" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
                   <Users className="h-4 w-4 mr-2" />
                   Team & Sharing
                 </TabsTrigger>
-                <TabsTrigger value="appearance" className="w-full justify-start data-[state=active]:bg-background">
+                <TabsTrigger value="appearance" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
                   <Palette className="h-4 w-4 mr-2" />
                   Appearance
                 </TabsTrigger>
-                <TabsTrigger value="authentication" className="w-full justify-start data-[state=active]:bg-background">
+                <TabsTrigger value="authentication" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
                   <KeyRound className="h-4 w-4 mr-2" />
                   Authentication
                 </TabsTrigger>
-                <TabsTrigger value="payment" className="w-full justify-start data-[state=active]:bg-background">
+                <TabsTrigger value="payment" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Payment
                 </TabsTrigger>
-                <TabsTrigger value="assessment" className="w-full justify-start data-[state=active]:bg-background">
+                <TabsTrigger value="assessment" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
                   <ClipboardCheck className="h-4 w-4 mr-2" />
                   Assessment
                 </TabsTrigger>
-                <TabsTrigger value="voting" className="w-full justify-start data-[state=active]:bg-background">
+                <TabsTrigger value="voting" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
                   <BarChart2 className="h-4 w-4 mr-2" />
                   Voting
                 </TabsTrigger>
-                <TabsTrigger value="survey" className="w-full justify-start data-[state=active]:bg-background">
+                <TabsTrigger value="survey" className="w-auto shrink-0 justify-start data-[state=active]:bg-background md:w-full">
                   <BarChart2 className="h-4 w-4 mr-2" />
                   Survey
                 </TabsTrigger>
               </TabsList>
-            </div>
-            
-            <div className="min-w-0 flex-1 p-5 sm:p-7 lg:p-8">
-              <TabsContent value="general" className="mt-0 space-y-6">
+            </aside>
+
+            <div className="min-w-0 flex-1 bg-card [&>[role=tabpanel]]:p-5 sm:[&>[role=tabpanel]]:p-6">
+              <TabsContent value="after-submit" className="m-0 space-y-6">
                 <section className="space-y-3">
-                  <div><Label className="text-sm font-semibold">After-submit template</Label><p className="mt-1 text-xs text-muted-foreground">Used by thank-you, processing, assessment result, and poll result screens.</p></div>
+                  <div><Label className="text-sm font-semibold">Completion experience</Label><p className="mt-1 text-xs text-muted-foreground">Choose the page shown after submission and while results are processing.</p></div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {([
                       ['minimal', 'Minimal', 'Quiet confirmation with a neutral layout.'],

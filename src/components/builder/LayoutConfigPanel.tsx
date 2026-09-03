@@ -134,7 +134,7 @@ export default function LayoutConfigPanel({
   const unassignedFields = fields.filter((f) => !assignedIds.has(f.id));
 
   return (
-    <div className="space-y-7">
+    <div className="grid min-h-full grid-cols-1 content-start bg-card lg:grid-cols-2 [&>section]:border-b [&>section]:border-border/70 [&>section]:p-5 sm:[&>section]:p-6 lg:[&>section:nth-child(odd)]:border-r lg:[&>section:only-child]:col-span-2 lg:[&>section:only-child]:!border-r-0">
       {/* ── Form type ─────────────────────────────────────────── */}
       <section>
         <SectionLabel title="Form type" hint="Choose how respondents move through your form." />
@@ -241,7 +241,7 @@ export default function LayoutConfigPanel({
 
       {/* ── Steps configuration (multi-step only) ─────────────── */}
       {isMultiStep && (
-        <section>
+        <section className="lg:col-span-2 lg:!border-r-0">
           <div className="mb-3 flex items-center justify-between gap-3">
             <SectionLabel title="Steps" hint="Organize fields into the order respondents see them." />
             <Button variant="outline" size="sm" onClick={onAddStep} className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]">
@@ -254,7 +254,7 @@ export default function LayoutConfigPanel({
             {steps.map((step, index) => {
               const stepFieldIds = new Set(step.fieldIds);
               return (
-                <Card key={step.id} className="border shadow-sm">
+                <Card key={step.id} className="rounded-lg border border-border shadow-none">
                   <CardContent className="p-4">
                     <div className="space-y-4">
                       {/* Header row: number, title, controls */}
