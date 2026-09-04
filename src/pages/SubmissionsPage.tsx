@@ -9,22 +9,17 @@ import { RESPONSE_LEVEL_LABEL } from '../hooks/usePermissions';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { Input } from '../components/ui/input';
 import { DataTable, type DataTableColumn } from '../components/ui/data-table';
 import { Pagination } from '../components/ui/pagination';
+import SubmissionsTable from '../components/submissions/SubmissionsTable';
 import { Tooltip } from '../components/ui/tooltip';
-import SubmissionViewer from '../components/ui/SubmissionViewer';
 import api from '../lib/api';
 import type { AssessmentResult, VotingResult } from '../types';
 import {
   ArrowLeft,
   Download,
-  Trash2,
   Eye,
-  Search,
   Loader2,
-  Inbox,
-  X,
   BarChart2,
   Trophy,
   ClipboardCheck,
@@ -32,13 +27,9 @@ import {
   RefreshCw,
   EyeOff,
   Lock,
-  CalendarDays,
   CheckCircle2,
   Copy,
   FileText,
-  Globe2,
-  Hash,
-  Monitor,
   Award,
   Percent,
   Target,
@@ -67,35 +58,6 @@ function shortDate(dateString: string | null) {
   });
 }
 
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return '-';
-  if (Array.isArray(value)) {
-    if (value.length === 0) return '-';
-    if (typeof value[0] === 'object' && value[0] !== null) {
-      const names = value
-        .map((item) => {
-          if (!item || typeof item !== 'object') return undefined;
-          const record = item as Record<string, unknown>;
-          return typeof record.filename === 'string'
-            ? record.filename
-            : typeof record.name === 'string'
-              ? record.name
-              : undefined;
-        })
-        .filter((name): name is string => Boolean(name));
-      if (names.length > 0) return `📎 ${names.join(', ')}`;
-      return `${value.length} file${value.length > 1 ? 's' : ''}`;
-    }
-    return value.join(', ');
-  }
-  if (typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (typeof record.filename === 'string') return `📎 ${record.filename}`;
-    if (typeof record.name === 'string') return `📎 ${record.name}`;
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
 
 // ── Assessment Analytics Panel ───────────────────────────────────────────────
 
@@ -751,8 +713,6 @@ export default function SubmissionsPage() {
   const { submissions, pagination, isLoading, error } = useAppSelector((state) => state.submissions);
   const { currentForm } = useAppSelector((state) => state.forms);
   const access = useAppSelector((state) => (formId ? state.formSharing.access[formId] : undefined));
-  const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('submissions');
 
@@ -791,26 +751,18 @@ export default function SubmissionsPage() {
     if (!formId) return;
     await dispatch(deleteSubmission({ formId, submissionId }));
     setDeleteConfirm(null);
-    if (selectedSubmission === submissionId) setSelectedSubmission(null);
   };
 
   const handlePageChange = (page: number) => {
-    if (formId) {
-      setSelectedSubmission(null);
-      dispatch(fetchSubmissions({ formId, page }));
-    }
+    if (formId) dispatch(fetchSubmissions({ formId, page, limit: pagination.limit }));
   };
 
-  const filteredSubmissions = submissions.filter((submission) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return Object.entries(submission.data).some(([fieldId, value]) => {
-      const label = currentForm?.schema.fields.find((field) => field.id === fieldId)?.label || fieldId;
-      return label.toLowerCase().includes(query) || formatValue(value).toLowerCase().includes(query);
-    });
-  });
+  const handleLimitChange = (limit: number) => {
+    // Back to page one: keeping the page number while the page size changes
+    // lands people somewhere they did not ask to be.
+    if (formId) dispatch(fetchSubmissions({ formId, page: 1, limit }));
+  };
 
-  const selectedSub = submissions.find((submission) => submission.id === selectedSubmission);
 
   if (isLoading && submissions.length === 0) {
     return (
@@ -854,26 +806,6 @@ export default function SubmissionsPage() {
       { id: 'audit-log', label: 'Audit log', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
     ] : []),
   ];
-
-  const responseNumber = (submissionId: string) => {
-    const index = submissions.findIndex((submission) => submission.id === submissionId);
-    const offset = (pagination.page - 1) * pagination.limit + Math.max(index, 0);
-    return Math.max(pagination.total - offset, 1);
-  };
-
-  const previewField = (fieldId: string) =>
-    currentForm?.schema.fields.find((field) => field.id === fieldId);
-
-  const previewLabel = (fieldId: string) => previewField(fieldId)?.label || 'Answer';
-
-  const previewValue = (fieldId: string, value: unknown) => {
-    const field = previewField(fieldId);
-    if (field?.options) {
-      const labelFor = (item: unknown) => field.options?.find((option) => option.value === String(item))?.label ?? String(item);
-      return Array.isArray(value) ? value.map(labelFor).join(', ') : labelFor(value);
-    }
-    return formatValue(value);
-  };
 
   return (
     <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
@@ -977,218 +909,18 @@ export default function SubmissionsPage() {
         {currentTab === 'audit-log' && formId && <div className="scrollbar-subtle h-full overflow-y-auto"><AuditLogTab formId={formId} /></div>}
 
         {currentTab === 'submissions' && canSeeRows && (
-          <div className="grid h-full min-h-0 gap-3 p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(19rem,0.78fr)_minmax(0,1.22fr)] lg:p-5 xl:grid-cols-[minmax(22rem,0.7fr)_minmax(0,1.3fr)]">
-            <section className={`${selectedSub ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col overflow-hidden rounded-xl border border-border/90 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.025)]`} aria-label="Submission list">
-              <div className="shrink-0 border-b border-border/70 px-3.5 py-3">
-                <div className="mb-2.5 flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="font-display text-xs font-bold text-foreground">Submissions</h2>
-                    <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">
-                      {searchQuery ? `${filteredSubmissions.length} matches on this page` : `${pagination.total} total responses`}
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-border bg-ink-50 px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
-                    Page {pagination.page}
-                  </span>
-                </div>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    aria-label="Search submissions on this page"
-                    placeholder="Search responses…"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    className="h-9 rounded-lg border-ink-200 bg-ink-50/60 pl-9 pr-9 text-[11px] focus-visible:border-ink-400 focus-visible:ring-4 focus-visible:ring-primary/[0.06] focus-visible:ring-offset-0"
-                  />
-                  {searchQuery && (
-                    <button type="button" onClick={() => setSearchQuery('')} aria-label="Clear submission search" className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-card hover:text-foreground">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto p-2">
-                {error ? (
-                  <div className="m-2 rounded-lg border border-destructive/20 bg-destructive/[0.05] px-3 py-4 text-center text-xs font-medium text-destructive">{error}</div>
-                ) : filteredSubmissions.length === 0 ? (
-                  <div className="flex h-full min-h-48 items-center justify-center px-5 text-center">
-                    <div>
-                      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-ink-50 text-ink-400">
-                        <Inbox className="h-4 w-4" strokeWidth={1.7} />
-                      </span>
-                      <p className="mt-3 text-xs font-semibold text-foreground">{searchQuery ? 'No matching responses' : 'No submissions yet'}</p>
-                      <p className="mt-1 text-[10px] font-medium text-muted-foreground">{searchQuery ? 'Try another search term.' : 'New responses will appear here.'}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {filteredSubmissions.map((submission) => {
-                      const previewEntries = Object.entries(submission.data).slice(0, 2);
-                      const number = responseNumber(submission.id);
-                      const isSelected = selectedSubmission === submission.id;
-                      return (
-                        <div
-                          key={submission.id}
-                          className={`group flex items-start gap-1 rounded-lg border p-1 transition-colors ${
-                            isSelected
-                              ? 'border-primary/15 bg-primary/[0.045]'
-                              : 'border-transparent hover:border-border hover:bg-ink-50/75'
-                          }`}
-                        >
-                          <button type="button" onClick={() => setSelectedSubmission(submission.id)} className="min-w-0 flex-1 rounded-md px-2 py-2 text-left">
-                            <div className="flex min-w-0 items-center justify-between gap-2">
-                              <span className="flex min-w-0 items-center gap-2">
-                                <span className="text-[11px] font-semibold text-foreground">Response #{number}</span>
-                                {!submission.isRead && <span className="rounded-full border border-primary/10 bg-primary/[0.07] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-primary">New</span>}
-                              </span>
-                              {submission.processingStatus === 'done' && (
-                                <span className="flex shrink-0 items-center gap-1 text-[9px] font-medium text-muted-foreground">
-                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Processed
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-2 space-y-1">
-                              {previewEntries.map(([fieldId, value]) => (
-                                <p key={fieldId} className="truncate text-[10px] font-medium text-muted-foreground">
-                                  <span className="text-ink-600">{previewLabel(fieldId)}:</span> {previewValue(fieldId, value)}
-                                </p>
-                              ))}
-                            </div>
-                            <p className="mt-2 flex items-center gap-1 text-[9px] font-medium text-muted-foreground">
-                              <CalendarDays className="h-3 w-3" /> {formatDate(submission.createdAt)}
-                            </p>
-                          </button>
-                          {canDeleteRows && (
-                            <Tooltip content="Delete submission" side="left" tone="dark">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`Delete response ${number}`}
-                                onClick={() => setDeleteConfirm(submission.id)}
-                                className="h-8 w-8 shrink-0 rounded-md text-muted-foreground opacity-70 hover:bg-destructive/[0.06] hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </Tooltip>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {pagination.totalPages > 1 && (
-                <div className="shrink-0 border-t border-border/70 px-3 pb-3">
-                  <Pagination
-                    page={pagination.page}
-                    totalPages={pagination.totalPages}
-                    totalItems={pagination.total}
-                    itemLabel="submissions"
-                    onPageChange={handlePageChange}
-                    className="pt-3"
-                  />
-                </div>
-              )}
-            </section>
-
-            <section className={`${selectedSub ? 'flex' : 'hidden lg:flex'} min-h-0 flex-col overflow-hidden rounded-xl border border-border/90 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.025)]`} aria-label="Submission details">
-              {selectedSub ? (
-                <>
-                  <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/70 px-4 py-3.5 sm:px-5">
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <h2 className="font-display text-sm font-bold text-foreground">Response #{responseNumber(selectedSub.id)}</h2>
-                        {!selectedSub.isRead && <Badge variant="outline" className="border-primary/10 bg-primary/[0.06] text-primary">New</Badge>}
-                      </div>
-                      <p className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
-                        <CalendarDays className="h-3 w-3" /> {formatDate(selectedSub.createdAt)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {canDeleteRows && (
-                        <Tooltip content="Delete submission" side="bottom" tone="dark">
-                          <Button type="button" variant="ghost" size="icon" onClick={() => setDeleteConfirm(selectedSub.id)} aria-label="Delete submission" className="h-8 w-8 rounded-md text-muted-foreground hover:bg-destructive/[0.06] hover:text-destructive">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </Tooltip>
-                      )}
-                      <Tooltip content="Copy submission ID" side="bottom" tone="light">
-                        <Button type="button" variant="ghost" size="icon" onClick={() => void navigator.clipboard.writeText(selectedSub.id)} aria-label="Copy submission ID" className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                      </Tooltip>
-                      <Tooltip content="Back to submission list" side="bottom" tone="dark">
-                        <Button type="button" variant="ghost" size="icon" onClick={() => setSelectedSubmission(null)} aria-label="Close submission details" className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
-                          <ArrowLeft className="h-4 w-4 lg:hidden" />
-                          <X className="hidden h-4 w-4 lg:block" />
-                        </Button>
-                      </Tooltip>
-                    </div>
-                  </div>
-
-                  <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-                    <div className="mx-auto max-w-4xl space-y-5">
-                      <section>
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <h3 className="font-display text-xs font-bold text-foreground">Submitted answers</h3>
-                          <span className="text-[9px] font-medium text-muted-foreground">{Object.keys(selectedSub.data).length} answered field{Object.keys(selectedSub.data).length === 1 ? '' : 's'}</span>
-                        </div>
-                        <SubmissionViewer
-                          fields={currentForm?.schema.fields || []}
-                          data={selectedSub.data}
-                          redactedFields={selectedSub.redactedFields}
-                        />
-                      </section>
-
-                      <section className="border-t border-border/70 pt-4">
-                        <h3 className="mb-3 font-display text-xs font-bold text-foreground">Submission metadata</h3>
-                        <div className="grid gap-2.5 sm:grid-cols-2">
-                          <MetadataItem icon={<Hash className="h-3.5 w-3.5" />} label="Submission ID" value={selectedSub.id} mono />
-                          <MetadataItem icon={<CalendarDays className="h-3.5 w-3.5" />} label="Submitted" value={formatDate(selectedSub.createdAt)} />
-                          <MetadataItem icon={<Globe2 className="h-3.5 w-3.5" />} label="IP address" value={selectedSub.ip || 'Not recorded'} />
-                          <MetadataItem
-                            icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                            label="Processing"
-                            value={selectedSub.processingStatus
-                              ? selectedSub.processingStatus.charAt(0).toUpperCase() + selectedSub.processingStatus.slice(1)
-                              : 'Not available'}
-                          />
-                          {selectedSub.userAgent && (
-                            <div className="rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5 sm:col-span-2">
-                              <p className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground"><Monitor className="h-3.5 w-3.5" /> Browser</p>
-                              <p className="mt-1 break-words text-[10px] font-medium leading-4 text-ink-700">{selectedSub.userAgent}</p>
-                            </div>
-                          )}
-                          {selectedSub.tags.length > 0 && (
-                            <div className="rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5 sm:col-span-2">
-                              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Tags</p>
-                              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {selectedSub.tags.map((tag) => <span key={tag} className="rounded-full border border-border bg-card px-2 py-0.5 text-[9px] font-semibold text-ink-600">{tag}</span>)}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </section>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex h-full items-center justify-center px-6 text-center">
-                  <div>
-                    <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-ink-50 text-ink-400">
-                      <Eye className="h-5 w-5" strokeWidth={1.6} />
-                    </span>
-                    <p className="mt-3 text-xs font-semibold text-foreground">Select a submission</p>
-                    <p className="mt-1 text-[10px] font-medium text-muted-foreground">Choose a response from the list to review its answers.</p>
-                  </div>
-                </div>
-              )}
-            </section>
-          </div>
+          <SubmissionsTable
+            fields={currentForm?.schema.fields || []}
+            submissions={submissions}
+            pagination={pagination}
+            isLoading={isLoading}
+            error={error}
+            canDelete={canDeleteRows}
+            onPageChange={handlePageChange}
+            onLimitChange={handleLimitChange}
+            onDelete={(id) => setDeleteConfirm(id)}
+            onExport={access?.level === 'EXPORT' ? (format) => void handleExport(format) : undefined}
+          />
         )}
       </main>
 
@@ -1209,15 +941,6 @@ export default function SubmissionsPage() {
           </Card>
         </div>
       )}
-    </div>
-  );
-}
-
-function MetadataItem({ icon, label, value, mono = false }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5">
-      <p className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{icon}{label}</p>
-      <p className={`mt-1 truncate text-[10px] font-semibold text-ink-700 ${mono ? 'font-mono' : ''}`} title={value}>{value}</p>
     </div>
   );
 }
