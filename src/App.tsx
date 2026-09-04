@@ -25,6 +25,7 @@ import RolesPage from './pages/RolesPage';
 import RequirePermission from './components/layout/RequirePermission';
 import UpdateProfilePage from './pages/UpdateProfilePage';
 import { ToastProvider } from './components/ui/toast';
+import SessionExpiryWatcher from './components/auth/SessionExpiryWatcher';
 
 /**
  * The access token lives in memory, so a reload starts with no session at all.
@@ -125,6 +126,7 @@ function App() {
       <ToastProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL}>
         <SessionBootstrap>
+        <SessionExpiryWatcher />
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />

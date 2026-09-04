@@ -109,7 +109,12 @@ export async function verifyTurnstileToken(
   }
   const usesTestSecret = CLOUDFLARE_TEST_SECRETS.has(secret);
   if (usesTestSecret && process.env.TURNSTILE_ALLOW_TEST_KEYS !== 'true') {
-    throw createError(503, 'Cloudflare Turnstile test credentials are not allowed in this environment');
+    // Both of these are operator mistakes, but the person who sees the message
+    // is a respondent trying to submit a form. The vendor's product name tells
+    // them nothing; the log line below carries the detail for whoever can act
+    // on it.
+    logger.error('Turnstile test credentials are not allowed in this environment');
+    throw createError(503, 'Security verification is not configured');
   }
 
   const allowedHostnames = (process.env.TURNSTILE_EXPECTED_HOSTNAMES || '')
@@ -117,7 +122,8 @@ export async function verifyTurnstileToken(
     .map((hostname) => hostname.trim().toLowerCase())
     .filter(Boolean);
   if (!usesTestSecret && allowedHostnames.length === 0) {
-    throw createError(503, 'Cloudflare Turnstile frontend hostnames are not configured');
+    logger.error('TURNSTILE_EXPECTED_HOSTNAMES is not configured');
+    throw createError(503, 'Security verification is not configured');
   }
 
   const responseToken = token?.trim();

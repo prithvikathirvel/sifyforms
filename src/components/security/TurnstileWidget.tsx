@@ -41,13 +41,13 @@ function loadTurnstile(): Promise<TurnstileApi> {
   scriptPromise = new Promise<TurnstileApi>((resolve, reject) => {
     const resolveApi = () => {
       if (window.turnstile) resolve(window.turnstile);
-      else reject(new Error('Turnstile did not initialize'));
+      else reject(new Error('Security check could not start'));
     };
 
     const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
     if (existing) {
       existing.addEventListener('load', resolveApi, { once: true });
-      existing.addEventListener('error', () => reject(new Error('Turnstile failed to load')), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Security check could not load')), { once: true });
       return;
     }
 
@@ -57,7 +57,7 @@ function loadTurnstile(): Promise<TurnstileApi> {
     script.async = true;
     script.defer = true;
     script.addEventListener('load', resolveApi, { once: true });
-    script.addEventListener('error', () => reject(new Error('Turnstile failed to load')), { once: true });
+    script.addEventListener('error', () => reject(new Error('Security check could not load')), { once: true });
     document.head.appendChild(script);
   });
 
@@ -143,7 +143,7 @@ export function TurnstileWidget({
       ) : (
         <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
           <ShieldCheck className="h-3.5 w-3.5 text-primary" strokeWidth={1.9} />
-          Protected by Cloudflare Turnstile
+          Powered by Cloudflare
         </p>
       )}
     </div>

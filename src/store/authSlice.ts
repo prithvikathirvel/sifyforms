@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import api, { refreshSession, setAccessToken } from '../lib/api';
+import api, { bootstrapSession, resetSessionBootstrap, setAccessToken } from '../lib/api';
+import { clearSessionMarker, markSessionStarted, notifySessionEnded } from '../lib/session';
 import type { AuthState, User } from '../types';
 import { RemoveItemsFromLocalStorage } from '../lib/utils';
 import { apiErrorMessage, apiErrorPayload, payloadMessage, isCancelledPayload } from '../lib/apiError';
@@ -83,9 +84,13 @@ export const login = createAsyncThunk(
  */
 export const restoreSession = createAsyncThunk('auth/restoreSession', async (_, { rejectWithValue }) => {
   try {
-    return await refreshSession();
-  } catch {
-    return rejectWithValue(null);
+    return await bootstrapSession();
+  } catch (error) {
+    // Distinguish "the server said no" from "we could not ask". Only the first
+    // means the person is signed out; the second is a connection problem, and
+    // clearing the session over it would log someone out for a flaky network.
+    const status = (error as { response?: { status?: number } })?.response?.status;
+    return rejectWithValue({ expired: status === 401 || status === 403 });
   }
 });
 
@@ -115,6 +120,8 @@ export const logout = createAsyncThunk('auth/logout', async () => {
   }
   setAccessToken(null);
   RemoveItemsFromLocalStorage();
+  resetSessionBootstrap();
+  clearSessionMarker();
   return null;
 });
 
@@ -180,6 +187,9 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.token = action.payload.token;
         state.bootstrapped = true;
+        // A fresh sign-in supersedes whatever the page-load exchange concluded.
+        resetSessionBootstrap();
+        markSessionStarted();
         if (action.payload.user) state.accountUser = action.payload.user;
       })
       .addCase(login.rejected, (state, action) => {
@@ -189,10 +199,15 @@ const authSlice = createSlice({
       .addCase(restoreSession.fulfilled, (state, action) => {
         state.token = action.payload as string;
         state.bootstrapped = true;
+        markSessionStarted();
       })
-      .addCase(restoreSession.rejected, (state) => {
+      .addCase(restoreSession.rejected, (state, action) => {
         state.token = null;
         state.bootstrapped = true;
+        const payload = action.payload as { expired?: boolean } | undefined;
+        // Only announce an ending to someone who had a session to lose. A
+        // first-time visitor landing on the login page is not "expired".
+        if (payload?.expired) notifySessionEnded('expired');
       })
       .addCase(getSession.pending, (state) => {
         state.isLoading = true;

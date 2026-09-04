@@ -19,6 +19,8 @@ import { cn } from '../../lib/utils';
 import { FormBranding } from '../ui/FormBranding';
 import SurveyFieldControl from '../fields/SurveyFieldControl';
 import { UploadRulesProvider } from '../../hooks/useUploadRules';
+import { fieldDomId, scrollToFirstError } from '../../lib/fieldFocus';
+import { FieldError, FieldPending, FieldSuccess } from '../ui/field-feedback';
 
 interface FormPreviewProps {
   schema: FormSchema;
@@ -477,6 +479,11 @@ export default function FormPreview({
 
   const setValue = (id: string, v: unknown) => {
     setValues((prev) => ({ ...prev, [id]: v }));
+    // Answering counts as touching. Blur alone is not enough: radios, stars,
+    // sliders, matrices and file pickers are answered by clicking, and several
+    // of them never fire a blur at all, so their errors used to stay hidden
+    // until the whole form was submitted.
+    setTouched((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
     // Clear any previous external-validation result when the value changes.
     setExtValidation((prev) => {
       if (!prev[id]) return prev;
@@ -524,7 +531,18 @@ export default function FormPreview({
     }
     const error = touched[field.id] ? validateField(field, values[field.id]) : null;
     return (
-      <div key={field.id} className={cn('space-y-2', isHorizontal && spanClass(field))}>
+      <div
+        key={field.id}
+        id={fieldDomId(field.id)}
+        data-field-invalid={error ? 'true' : undefined}
+        className={cn(
+          'scroll-mt-24 space-y-2',
+          isHorizontal && spanClass(field),
+          // Same marker the published form uses, so what the builder sees while
+          // designing is what a respondent will see.
+          error && 'rounded-r-md border-l-2 border-destructive pl-3 -ml-3',
+        )}
+      >
         <Label>
           {settings.formType === 'survey' && settings.survey?.showQuestionNumbers !== false && <span className="mr-1 text-muted-foreground">{visibleFields.findIndex((item) => item.id === field.id) + 1}.</span>}
           {field.label}
@@ -544,8 +562,8 @@ export default function FormPreview({
           formId={formId}
           dmsEnabled
         />
-        {field.helpText && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
-        {error && <p className="text-[13px] text-destructive">{error}</p>}
+        {field.helpText && !error && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
+        {error && <FieldError fieldId={field.id} message={error} />}
         {field.externalValidation?.enabled && field.externalValidation.trigger === 'manual' && (
           <Button
             type="button"
@@ -563,13 +581,9 @@ export default function FormPreview({
             {field.externalValidation.buttonLabel || 'Verify'}
           </Button>
         )}
-        {extValidation[field.id]?.loading && (
-          <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Validating…
-          </p>
-        )}
+        {extValidation[field.id]?.loading && <FieldPending message="Checking…" />}
         {extValidation[field.id] && !extValidation[field.id].loading && extValidation[field.id].ok && (
-          <p className="text-[13px] font-medium text-green-600">✓ {extValidation[field.id].message}</p>
+          <FieldSuccess message={extValidation[field.id].message || 'Verified'} />
         )}
         {renderSupportDocuments(field)}
       </div>
@@ -609,15 +623,20 @@ export default function FormPreview({
   const handleNext = () => {
     if (!isMultiStep) return;
     // Validate the current step before advancing.
-    let hasError = false;
+    const failed: string[] = [];
     const nextTouched = { ...touched };
     stepFields.forEach((f) => {
       if (f.type === 'display' || f.type === 'html') return;
       nextTouched[f.id] = true;
-      if (validateField(f, values[f.id])) hasError = true;
+      if (validateField(f, values[f.id])) failed.push(String(f.id));
     });
     setTouched(nextTouched);
-    if (hasError) return;
+    if (failed.length > 0) {
+      // Marking fields touched is not feedback if the person cannot see the
+      // marks. Scroll to the first one.
+      scrollToFirstError(failed, fields.map((f) => String(f.id)));
+      return;
+    }
     setCurrentStepIndex((i) => Math.min(i + 1, steps.length - 1));
   };
 

@@ -3,10 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CircleAlert, Eye, EyeOff, Loader2, LockKeyhole, Mail } from 'lucide-react';
+import { CircleAlert, Clock, Eye, EyeOff, Loader2, LockKeyhole, Mail } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { login, getSession, clearError } from '../../store/authSlice';
 import { payloadFieldErrors } from '../../lib/apiError';
+import { SESSION_END_MESSAGE, takeSessionEndReason } from '../../lib/session';
 import { toast } from '../../components/ui/toast';
 import { setCurrentOrg } from '../../store/orgSlice';
 import { Button } from '../../components/ui/button';
@@ -27,6 +28,9 @@ export default function LoginPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { isLoading, error } = useAppSelector((state) => state.auth);
+  // Read once, on mount: the reason is consumed so a later reload of the login
+  // page does not repeat a message about a session that ended long ago.
+  const [sessionEnded] = useState(() => takeSessionEndReason());
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -97,6 +101,18 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <CardContent className="space-y-4 px-6 pb-7 sm:px-8">
+            {/* Set when a session ended during a full page navigation, which
+                destroys the in-app dialog before it can be read. Without this,
+                an expiry mid-request looks like being logged out at random. */}
+            {sessionEnded && (
+              <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div>
+                  <p className="text-[13px] font-semibold text-amber-900">{SESSION_END_MESSAGE[sessionEnded].title}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-amber-800">{SESSION_END_MESSAGE[sessionEnded].description}</p>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-[13px] font-semibold text-foreground">Email address</Label>
               <div className="relative">

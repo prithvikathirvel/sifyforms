@@ -16,6 +16,8 @@ import { toast } from '../components/ui/toast';
 import api from '../lib/api';
 import { getFieldValidation } from '../lib/fieldValidation';
 import { evaluateShowWhen, evaluateLinkingConditions } from '../lib/ruleEngine';
+import { fieldDomId, scrollToFirstError, stepIndexOfField } from '../lib/fieldFocus';
+import { ErrorSummary, FieldError, FieldPending, FieldSuccess } from '../components/ui/field-feedback';
 import { CalculationEngine } from '../lib/calculationEngine';
 import FileUpload from '../components/ui/FileUpload';
 import DmsFileUpload from '../components/ui/DmsFileUpload';
@@ -213,12 +215,28 @@ function FieldsByWidth({
 
   const renderFieldItem = (field: FormField) => {
     const opts = validationOpts(field, formValues);
+    // One field, one truth about whether it is currently wrong. The three
+    // sources — schema validation, the uniqueness check, and the external
+    // lookup — used to each render their own paragraph, so a field could show
+    // two contradictory messages at once. First one wins, in the order a
+    // respondent would encounter them.
+    const errorMessage = (errors[field.id]?.message as string | undefined)
+      || uniquenessErrors[field.id]
+      || (!externalValidationLoading[field.id] ? externalValidationErrors[field.id] : undefined);
+    const isInvalid = Boolean(errorMessage);
 
     return (
       <div
         key={field.id}
-        id={`field-${field.id}`}
-        className={orientation === 'horizontal' ? `space-y-2 ${spanClass(field)}` : 'space-y-2'}
+        id={fieldDomId(field.id)}
+        data-field-invalid={isInvalid ? 'true' : undefined}
+        // A left rule instead of a red box: it marks the field unmistakably at
+        // a glance while scrolling, without repainting the whole control and
+        // without depending on colour alone to carry the message.
+        className={[
+          orientation === 'horizontal' ? `space-y-2 ${spanClass(field)}` : 'space-y-2',
+          isInvalid ? 'scroll-mt-24 rounded-r-md border-l-2 border-destructive pl-3 -ml-3' : 'scroll-mt-24',
+        ].join(' ')}
       >
         <Label>
           {showQuestionNumbers && <span className="mr-1 text-muted-foreground">{fields.findIndex((item) => item.id === field.id) + 1}.</span>}
@@ -245,44 +263,24 @@ function FieldsByWidth({
             {field.externalValidation.buttonLabel || 'Verify'}
           </Button>
         )}
-        {field.helpText && (
+        {field.helpText && !isInvalid && (
           <p className="text-sm text-muted-foreground">{field.helpText}</p>
-        )}
-        {errors[field.id] && (
-          <p className="text-sm text-destructive">
-            {errors[field.id]?.message as string}
-          </p>
         )}
 
         {renderSupportDocuments(field)}
         {renderCustomAlerts()}
         {/* Custom alerts render nothing visible - they show as popups when conditions match */}
 
-        {uniquenessErrors[field.id] && (
-          <p className="text-sm text-destructive">
-            {uniquenessErrors[field.id]}
-          </p>
-        )}
-        {uniquenessSuccess[field.id] && !uniquenessErrors[field.id] && (
-          <p className="text-sm text-green-600 font-medium">
-            ✓ This value is unique
-          </p>
-        )}
-        {externalValidationLoading[field.id] && (
-          <p className="text-sm text-plum-600 font-medium flex items-center">
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Validating...
-          </p>
-        )}
-        {!externalValidationLoading[field.id] && externalValidationErrors[field.id] && (
-          <p className="text-sm text-destructive">
-            {externalValidationErrors[field.id]}
-          </p>
-        )}
-        {!externalValidationLoading[field.id] && externalValidationSuccess[field.id] && !externalValidationErrors[field.id] && (
-          <p className="text-sm text-green-600 font-medium">
-            ✓ {externalValidationSuccess[field.id]}
-          </p>
-        )}
+        {/* Exactly one status line, always in the same place. */}
+        {isInvalid ? (
+          <FieldError fieldId={field.id} message={errorMessage as string} />
+        ) : externalValidationLoading[field.id] ? (
+          <FieldPending message="Checking…" />
+        ) : externalValidationSuccess[field.id] ? (
+          <FieldSuccess message={externalValidationSuccess[field.id]} />
+        ) : uniquenessSuccess[field.id] ? (
+          <FieldSuccess message="This value is available" />
+        ) : null}
       </div>
     );
   };
@@ -572,7 +570,15 @@ export default function PublicFormPage() {
   };
 
   const { register, control, unregister, clearErrors, handleSubmit, formState: { errors }, setError: setFieldError, setValue, watch, trigger, getValues, reset } = useForm({
+    // `onTouched` alone only validates a control after it has been blurred, and
+    // a control can only be blurred if it is a real focusable input. Half the
+    // question types here are custom widgets backed by a hidden input, which
+    // never receives focus and therefore never blurs — those fields stayed
+    // silent until submit. `reValidateMode: 'onChange'` is what makes the
+    // message go away the instant it is fixed, which is the half of field-time
+    // validation people actually notice.
     mode: 'onTouched',
+    reValidateMode: 'onChange',
     shouldUnregister: false,
   });
   const formValues = watch() || {};
@@ -1606,15 +1612,14 @@ export default function PublicFormPage() {
         });
       } catch (caughtError: any) {
         const responseData = caughtError?.response?.data;
-        const details = responseData?.details;
-        if (details && !Array.isArray(details) && typeof details === 'object') {
-          Object.entries(details as Record<string, string>).forEach(([fieldId, message]) => {
-            setFieldError(fieldId, { type: 'server', message });
-          });
-        }
-        const msg = responseData?.error === 'Validation failed'
-          ? 'One or more answers did not pass validation.'
-          : responseData?.error || 'Failed to submit form. Please try again.';
+        // Put the server's complaint on the question it is about. A server-side
+        // rule the browser could not know about (uniqueness, a cross-field
+        // check) should read exactly like a client-side one: a line under the
+        // question, not a banner the person has to translate into an action.
+        const serverFieldErrors = applyServerFieldErrors(responseData);
+        const msg = serverFieldErrors.length > 0
+          ? null
+          : (responseData?.error || 'Failed to submit form. Please try again.');
         setSubmissionError(msg);
         // Siteverify tokens are single-use. Always request a fresh token before
         // retrying, including when a later form validation rejects the request.
@@ -1761,12 +1766,11 @@ export default function PublicFormPage() {
         }, 2000);
       }
     } catch (error: any) {
-      const code = error?.response?.data?.code;
-      const msg = error?.response?.data?.error;
-      if (code === 'ALREADY_VOTED') {
+      const responseData = error?.response?.data;
+      if (responseData?.code === 'ALREADY_VOTED') {
         setAlreadyVoted(true);
-      } else {
-        setSubmissionError(msg || 'Failed to submit form. Please try again.');
+      } else if (applyServerFieldErrors(responseData).length === 0) {
+        setSubmissionError(responseData?.error || 'Failed to submit form. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
@@ -2406,7 +2410,7 @@ export default function PublicFormPage() {
               <button
                 key={star}
                 type="button"
-                onClick={() => setValue(field.id, star)}
+                onClick={() => setValue(field.id, star, { shouldValidate: true, shouldTouch: true, shouldDirty: true })}
                 className="p-1"
               >
                 <Star
@@ -2427,7 +2431,7 @@ export default function PublicFormPage() {
           <TableField
             field={field}
             value={watch(field.id) as any}
-            onChange={(val: { rows: Record<string, string | number>[] }) => setValue(field.id, val as any, { shouldDirty: true })}
+            onChange={(val: { rows: Record<string, string | number>[] }) => setValue(field.id, val as any, { shouldValidate: true, shouldTouch: true, shouldDirty: true })}
             disabled={field.disabled}
             formValues={formValues}
             validationErrors={tableValidationErrors[field.id] ?? []}
@@ -2468,6 +2472,92 @@ export default function PublicFormPage() {
     }
   };
 
+  /**
+   * Put the server's validation errors on the questions they belong to.
+   *
+   * The API answers in two shapes: `details` as a map of field id to message
+   * (the submission validator) and `details` as an array of Zod issues (the
+   * generic request-validation middleware). Both are handled here so the
+   * caller never has to care which one it got.
+   *
+   * Returns the ids that were matched to a real question. When that list is
+   * empty the failure was not about any particular answer — a rejected
+   * security check, a closed form, a network fault — and the caller falls back
+   * to the banner, which is the right place for a message with no field to
+   * attach to.
+   */
+  const applyServerFieldErrors = (responseData: any): string[] => {
+    const details = responseData?.details;
+    if (!details) return [];
+
+    const known = new Set((form?.schema?.fields ?? []).map((field: FormField) => String(field.id)));
+    const matched: string[] = [];
+
+    const put = (fieldId: string, message: string) => {
+      if (!known.has(fieldId) || !message) return;
+      setFieldError(fieldId, { type: 'server', message });
+      matched.push(fieldId);
+    };
+
+    if (Array.isArray(details)) {
+      // Zod issues: the field id is the last addressable segment of the path.
+      details.forEach((issue: any) => {
+        const path = Array.isArray(issue?.path) ? issue.path : [];
+        const fieldId = String(path[path.length - 1] ?? '');
+        put(fieldId, String(issue?.message ?? ''));
+      });
+    } else if (typeof details === 'object') {
+      Object.entries(details as Record<string, unknown>).forEach(([fieldId, message]) => {
+        put(fieldId, String(message ?? ''));
+      });
+    }
+
+    if (matched.length > 0) {
+      goToFieldWithError(matched);
+    }
+    return matched;
+  };
+
+  /**
+   * Take the respondent to a question that needs fixing.
+   *
+   * On a multi-step form the question is frequently not on screen — it is two
+   * steps back. Switching steps first, then scrolling on the next tick once the
+   * new step has rendered, is the difference between "nothing happened when I
+   * pressed submit" and being shown the problem.
+   */
+  const goToFieldWithError = (fieldIds: string[]) => {
+    if (fieldIds.length === 0) return;
+
+    const order = (form?.schema?.fields ?? []).map((field: FormField) => String(field.id));
+    const steps = isMultiStep ? (layout.steps || []).slice().sort((a, b) => a.order - b.order) : undefined;
+
+    if (steps && steps.length > 0) {
+      const firstInOrder = order.find((id) => fieldIds.includes(id)) ?? fieldIds[0];
+      const target = stepIndexOfField(firstInOrder, steps);
+      if (target >= 0 && target !== currentStepIndex) {
+        setCurrentStepIndex(target);
+        // The step's fields do not exist in the DOM yet; scrollToFirstError
+        // already waits two frames, which is after this state change commits.
+      }
+    }
+
+    scrollToFirstError(fieldIds, order);
+  };
+
+  /**
+   * Every question currently flagged, in the order they appear, labelled.
+   *
+   * Only the fields on screen: naming a question the respondent cannot see and
+   * cannot jump to would be worse than saying nothing.
+   */
+  const errorSummary = useMemo(
+    () => visibleFields
+      .filter((field) => errors[field.id] || uniquenessErrors[field.id] || externalValidationErrors[field.id])
+      .map((field) => ({ fieldId: String(field.id), label: field.label || 'Untitled question' })),
+    [visibleFields, errors, uniquenessErrors, externalValidationErrors],
+  );
+
   const confirmSoftRequired = (fields: FormField[]) => {
     const skipped = fields.filter((field) => field.surveyConfig?.softRequired && (formValues[field.id] === undefined || formValues[field.id] === null || formValues[field.id] === ''));
     return skipped.length === 0 || window.confirm(`${skipped.length === 1 ? skipped[0].label : `${skipped.length} recommended questions`} was left unanswered. Continue anyway?`);
@@ -2491,6 +2581,12 @@ export default function PublicFormPage() {
     }
 
     const valid = await trigger(fields);
+
+    if (!valid) {
+      // Stay on this step and point at what is blocking it.
+      goToFieldWithError(fields.filter((id) => errors[id]));
+      return;
+    }
 
     if (valid) {
       if (currentStepIndex >= totalSteps - 1) {
@@ -2848,7 +2944,13 @@ export default function PublicFormPage() {
       return;
     }
 
-    handleSubmit(onSubmit)(e);
+    // The second argument is the rejection path. Without it a failed submit is
+    // completely silent from the respondent's point of view: the page does not
+    // move, the button just stops doing anything, and the offending question is
+    // usually below the fold.
+    handleSubmit(onSubmit, (formErrors) => {
+      goToFieldWithError(Object.keys(formErrors));
+    })(e);
   };
 
 
@@ -3067,6 +3169,10 @@ export default function PublicFormPage() {
                   )}
                 </div>
               )}
+
+              {/* Shown only after a failed attempt, and only when more than one
+                  answer is wrong. Each entry jumps to its question. */}
+              <ErrorSummary errors={errorSummary} onJump={(id) => goToFieldWithError([id])} />
 
               <div className="flex gap-2 mt-6">
                 {isMultiStep && !isFirstStep && allowBack && (

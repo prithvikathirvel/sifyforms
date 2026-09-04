@@ -543,8 +543,8 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                     <div>
                       <Label htmlFor="bot-protection-toggle" className="cursor-pointer text-sm font-medium">Bot protection</Label>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Cloudflare Turnstile checks every public submission for automated traffic. Most people never
-                        see anything — it runs in the background.
+                        Powered by Cloudflare. Every public submission is checked for automated traffic. Most people
+                        never see anything — it runs in the background.
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2.5">
