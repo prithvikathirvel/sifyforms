@@ -845,14 +845,33 @@ export default function SubmissionsPage() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {/* Your access level, sitting one gap away from two download
+                buttons that look almost exactly like it did. The border and the
+                filled background were doing the persuading: they are the same
+                shapes the outline Button variant uses, so the eye classified it
+                as a control and the hand followed. Now it is plain text at the
+                weight of a caption, with `cursor-default` so even the pointer
+                agrees there is nothing here to press, and an explicit "Your
+                access:" prefix naming what the words describe. */}
             {access && (
-              <Tooltip content={`Response access: ${RESPONSE_LEVEL_LABEL[access.level]}`} side="bottom" tone="light">
-                <span className="hidden h-8 items-center gap-1.5 rounded-lg border border-border bg-ink-50 px-2.5 text-[10px] font-semibold text-ink-600 lg:inline-flex">
+              <Tooltip
+                content={
+                  access.policy !== 'STANDARD'
+                    ? `${RESPONSE_LEVEL_LABEL[access.level]}. This form has extra restrictions on who may read responses.`
+                    : `${RESPONSE_LEVEL_LABEL[access.level]}. Set by whoever shared this form with you.`
+                }
+                side="bottom"
+                tone="light"
+              >
+                <span className="hidden h-8 cursor-default select-none items-center gap-1.5 pr-1 text-[11px] text-muted-foreground lg:inline-flex">
                   {access.level === 'FULL' || access.level === 'EXPORT'
-                    ? <Eye className="h-3.5 w-3.5" />
-                    : <EyeOff className="h-3.5 w-3.5" />}
-                  {RESPONSE_LEVEL_LABEL[access.level]}
-                  {access.policy !== 'STANDARD' && <Lock className="h-3 w-3" />}
+                    ? <Eye className="h-3.5 w-3.5 shrink-0" />
+                    : <EyeOff className="h-3.5 w-3.5 shrink-0" />}
+                  <span>
+                    Your access:{' '}
+                    <span className="font-semibold text-ink-600">{RESPONSE_LEVEL_LABEL[access.level]}</span>
+                  </span>
+                  {access.policy !== 'STANDARD' && <Lock className="h-3 w-3 shrink-0" />}
                 </span>
               </Tooltip>
             )}

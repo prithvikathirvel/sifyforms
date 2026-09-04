@@ -1,15 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CalendarDays,
   Check,
   ChevronDown,
   Columns3,
-  Copy,
   Download,
-  Globe2,
-  Hash,
   Inbox,
-  Monitor,
   Search,
   Trash2,
   X,
@@ -17,7 +12,8 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Tooltip } from '../ui/tooltip';
-import SubmissionViewer from '../ui/SubmissionViewer';
+import SubmissionDetailModal from './SubmissionDetailModal';
+import { useTruncationTooltip } from './useTruncationTooltip';
 import type { FormField, Submission } from '../../types';
 
 /**
@@ -61,6 +57,21 @@ const COLUMN_FRIENDLY_TYPES = new Set([
 ]);
 
 const MAX_DEFAULT_COLUMNS = 4;
+
+/*
+ * Fixed column widths, in pixels, so the table can be wider than its container.
+ *
+ * `width: 100%` is what caused the original problem: with eight questions the
+ * browser dutifully divided the panel eight ways and produced columns too
+ * narrow to read a date in. Naming the widths instead means a column is always
+ * legible and the table simply overflows, which is what horizontal scroll is
+ * for. They also make `table-fixed` layout possible, which is what lets every
+ * cell truncate on one line without measuring anything.
+ */
+const NUMBER_COL_WIDTH = 72;
+const RECEIVED_COL_WIDTH = 176;
+const ANSWER_COL_WIDTH = 224;
+const ACTIONS_COL_WIDTH = 116;
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
@@ -136,6 +147,9 @@ export default function SubmissionsTable({
   const [openSubmissionId, setOpenSubmissionId] = useState<string | null>(null);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const columnMenuRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const truncationTooltip = useTruncationTooltip(scrollRef);
 
   const answerableFields = useMemo(
     () => fields.filter((field) => !['heading', 'paragraph', 'divider', 'spacer', 'html'].includes(field.type)),
@@ -165,6 +179,25 @@ export default function SubmissionsTable({
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [columnMenuOpen]);
 
+  // Whether there is table to the right that has not been reached yet. Read
+  // from the element rather than computed from column counts, because the
+  // container's width depends on the sidebar, the window and the zoom level.
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const update = () => {
+      setCanScrollRight(element.scrollWidth - element.clientWidth - element.scrollLeft > 4);
+    };
+    update();
+    element.addEventListener('scroll', update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => {
+      element.removeEventListener('scroll', update);
+      observer.disconnect();
+    };
+  }, [submissions.length, columns.length]);
+
   const fieldsById = useMemo(() => new Map(fields.map((field) => [field.id, field])), [fields]);
 
   const visible = useMemo(() => {
@@ -180,6 +213,9 @@ export default function SubmissionsTable({
   }, [submissions, searchQuery, fieldsById]);
 
   const open = submissions.find((submission) => submission.id === openSubmissionId) ?? null;
+  // Position within the filtered list, so "older/newer" in the modal walks the
+  // rows the person can actually see rather than the unfiltered page.
+  const openIndex = open ? visible.findIndex((submission) => submission.id === open.id) : -1;
 
   // Responses are newest first, so the newest one on page 1 is number `total`.
   const responseNumber = (submissionId: string) => {
@@ -301,8 +337,18 @@ export default function SubmissionsTable({
           )}
         </div>
 
-        {/* Table */}
-        <div className="scrollbar-subtle min-h-0 flex-1 overflow-auto">
+        {/* The responses.
+            
+            Two width problems have to be solved at once. A table of eight
+            questions cannot fit in a panel, and squeezing it to fit turns every
+            column into a two-character sliver — so the table is allowed to be
+            wider than its container and the container scrolls sideways. But a
+            table you have scrolled sideways loses its anchor: you are looking
+            at column six with no idea which response the row belongs to. So the
+            response number stays pinned to the left edge and the row actions
+            stay pinned to the right, and only the answers move. */}
+        <div className="relative min-h-0 flex-1">
+        <div ref={scrollRef} className="scrollbar-subtle h-full overflow-auto">
           {error ? (
             <div className="m-4 rounded-lg border border-destructive/20 bg-destructive/[0.05] px-4 py-6 text-center text-sm font-medium text-destructive">
               {error}
@@ -311,74 +357,116 @@ export default function SubmissionsTable({
             <EmptyState searching={Boolean(searchQuery.trim())} loading={isLoading} />
           ) : (
             <>
-              {/* Desktop: a real table. */}
-              <table className="hidden w-full border-collapse text-sm md:table">
-                <thead className="sticky top-0 z-10 bg-ink-50/95 backdrop-blur">
-                  <tr className="border-b border-border text-left">
-                    <th scope="col" className="w-16 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">#</th>
-                    <th scope="col" className="w-48 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Received</th>
+              {/* Desktop: a real table, `table-fixed` so the column widths in
+                  the colgroup are honoured exactly and every cell can truncate
+                  predictably. `w-max` lets the total exceed the container. */}
+              <table className="hidden w-max min-w-full table-fixed border-collapse text-sm md:table">
+                <colgroup>
+                  <col style={{ width: NUMBER_COL_WIDTH }} />
+                  <col style={{ width: RECEIVED_COL_WIDTH }} />
+                  {columns.map((field) => <col key={field.id} style={{ width: ANSWER_COL_WIDTH }} />)}
+                  <col style={{ width: ACTIONS_COL_WIDTH }} />
+                </colgroup>
+                <thead className="sticky top-0 z-20">
+                  <tr className="text-left">
+                    <th
+                      scope="col"
+                      style={{ left: 0, width: NUMBER_COL_WIDTH }}
+                      className="sticky z-30 border-b border-r border-border bg-ink-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      #
+                    </th>
+                    <th
+                      scope="col"
+                      style={{ left: NUMBER_COL_WIDTH, width: RECEIVED_COL_WIDTH }}
+                      className="sticky z-30 border-b border-r border-border bg-ink-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      Received
+                    </th>
                     {columns.map((field) => (
-                      <th key={field.id} scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        <span className="line-clamp-2">{field.label || 'Untitled question'}</span>
+                      <th
+                        key={field.id}
+                        scope="col"
+                        className="border-b border-border bg-ink-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                      >
+                        <span className="block truncate" data-truncated-text={field.label || 'Untitled question'}>
+                          {field.label || 'Untitled question'}
+                        </span>
                       </th>
                     ))}
-                    <th scope="col" className="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <th
+                      scope="col"
+                      style={{ right: 0, width: ACTIONS_COL_WIDTH }}
+                      className="sticky z-30 border-b border-l border-border bg-ink-50 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
                       <span className="sr-only">Actions</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((submission) => (
-                    <tr
-                      key={submission.id}
-                      onClick={() => setOpenSubmissionId(submission.id)}
-                      className={`cursor-pointer border-b border-border/60 transition-colors last:border-b-0 hover:bg-ink-50/70 ${
-                        open?.id === submission.id ? 'bg-primary/[0.04]' : ''
-                      }`}
-                    >
-                      <td className="px-4 py-3 align-top">
-                        <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                          {responseNumber(submission.id)}
-                          {!submission.isRead && (
-                            <span
-                              aria-label="Not opened yet"
-                              className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
-                            />
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 align-top">
-                        <span className="block text-foreground">{relativeTime(submission.createdAt)}</span>
-                        <span className="block text-xs text-muted-foreground">{formatDateTime(submission.createdAt)}</span>
-                      </td>
-                      {columns.map((field) => {
-                        const text = plainValue(field, submission.data[field.id]);
-                        const redacted = submission.redactedFields?.includes(field.id);
-                        return (
-                          <td key={field.id} className="max-w-xs px-4 py-3 align-top">
-                            {redacted ? (
-                              <span className="italic text-muted-foreground">Hidden</span>
-                            ) : text ? (
-                              <span className="line-clamp-2 text-foreground" title={text}>{text}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
+                  {visible.map((submission) => {
+                    const isOpen = open?.id === submission.id;
+                    // Sticky cells need their own background or the scrolling
+                    // answers show through them.
+                    const pinnedBg = isOpen ? 'bg-[#F2F4FF]' : 'bg-card group-hover:bg-ink-50';
+                    return (
+                      <tr
+                        key={submission.id}
+                        onClick={() => setOpenSubmissionId(submission.id)}
+                        className={`group cursor-pointer border-b border-border/60 transition-colors last:border-b-0 ${
+                          isOpen ? 'bg-primary/[0.04]' : 'hover:bg-ink-50/70'
+                        }`}
+                      >
+                        <td
+                          style={{ left: 0 }}
+                          className={`sticky z-10 border-r border-border/60 px-4 py-3 align-middle transition-colors ${pinnedBg}`}
+                        >
+                          <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                            {responseNumber(submission.id)}
+                            {!submission.isRead && (
+                              <span aria-label="Not opened yet" className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                             )}
-                          </td>
-                        );
-                      })}
-                      <td className="px-4 py-3 text-right align-top">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={(event) => { event.stopPropagation(); setOpenSubmissionId(submission.id); }}
-                            className="h-8 rounded-lg px-2.5 text-xs font-semibold text-primary hover:bg-primary/[0.07]"
-                          >
-                            View
-                          </Button>
-                          {canDelete && (
-                            <Tooltip content="Delete this response" side="left" tone="dark">
+                          </span>
+                        </td>
+                        <td
+                          style={{ left: NUMBER_COL_WIDTH }}
+                          className={`sticky z-10 border-r border-border/60 px-4 py-3 align-middle transition-colors ${pinnedBg}`}
+                        >
+                          <span className="block truncate text-foreground">{relativeTime(submission.createdAt)}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{formatDateTime(submission.createdAt)}</span>
+                        </td>
+                        {columns.map((field) => {
+                          const text = plainValue(field, submission.data[field.id]);
+                          const redacted = submission.redactedFields?.includes(field.id);
+                          return (
+                            <td key={field.id} className="px-4 py-3 align-middle">
+                              {redacted ? (
+                                <span className="italic text-muted-foreground">Hidden</span>
+                              ) : text ? (
+                                /* One line, cut cleanly. The full value is one
+                                   hover away — see useTruncationTooltip. */
+                                <span className="block truncate text-foreground" data-truncated-text={text}>{text}</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td
+                          style={{ right: 0 }}
+                          className={`sticky z-10 border-l border-border/60 px-3 py-3 text-right align-middle transition-colors ${pinnedBg}`}
+                        >
+                          <div className="flex items-center justify-end gap-0.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(event) => { event.stopPropagation(); setOpenSubmissionId(submission.id); }}
+                              className="h-8 rounded-lg px-2.5 text-xs font-semibold text-primary hover:bg-primary/[0.07]"
+                            >
+                              View
+                            </Button>
+                            {canDelete && (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -389,12 +477,12 @@ export default function SubmissionsTable({
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
 
@@ -436,6 +524,18 @@ export default function SubmissionsTable({
               </ul>
             </>
           )}
+        </div>
+
+        {/* A fade at the right edge is the only honest way to say "there is more
+            table over here" without adding a control nobody asked for. It sits
+            outside the scrolling element so it stays pinned to the edge, and it
+            disappears the moment the end is reached. */}
+        {canScrollRight && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-card via-card/80 to-transparent"
+          />
+        )}
         </div>
 
         {/* Pagination: full width, under the thing it paginates, and it says
@@ -500,15 +600,19 @@ export default function SubmissionsTable({
       </section>
 
       {open && (
-        <SubmissionDetails
+        <SubmissionDetailModal
           submission={open}
           number={responseNumber(open.id)}
           fields={fields}
           canDelete={canDelete}
           onClose={() => setOpenSubmissionId(null)}
           onDelete={() => onDelete(open.id)}
+          onPrevious={openIndex > 0 ? () => setOpenSubmissionId(visible[openIndex - 1].id) : undefined}
+          onNext={openIndex >= 0 && openIndex < visible.length - 1 ? () => setOpenSubmissionId(visible[openIndex + 1].id) : undefined}
         />
       )}
+
+      {truncationTooltip}
     </div>
   );
 }
@@ -551,180 +655,6 @@ function EmptyState({ searching, loading }: { searching: boolean; loading: boole
               : 'Share the form’s link and the answers people send will show up here automatically.'}
         </p>
       </div>
-    </div>
-  );
-}
-
-function SubmissionDetails({
-  submission,
-  number,
-  fields,
-  canDelete,
-  onClose,
-  onDelete,
-}: {
-  submission: Submission;
-  number: number;
-  fields: FormField[];
-  canDelete: boolean;
-  onClose: () => void;
-  onDelete: () => void;
-}) {
-  const [showTechnical, setShowTechnical] = useState(false);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
-  const answered = Object.keys(submission.data).filter(
-    (key) => submission.data[key] !== null && submission.data[key] !== undefined && submission.data[key] !== '',
-  ).length;
-
-  return (
-    <div className="fixed inset-0 z-[150] flex justify-end">
-      <button type="button" aria-label="Close response" onClick={onClose} className="absolute inset-0 bg-ink-950/30" />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="submission-details-title"
-        className="relative z-10 flex h-full w-full max-w-2xl flex-col bg-card shadow-2xl"
-      >
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4">
-          <div className="min-w-0">
-            <h2 id="submission-details-title" className="font-display text-lg font-bold text-foreground">
-              Response {number}
-            </h2>
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <CalendarDays className="h-4 w-4" />
-                {formatDateTime(submission.createdAt)}
-              </span>
-              <span>{answered} question{answered === 1 ? '' : 's'} answered</span>
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {canDelete && (
-              <Tooltip content="Delete this response" side="bottom" tone="dark">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={onDelete}
-                  aria-label="Delete response"
-                  className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-destructive/[0.07] hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </Tooltip>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              aria-label="Close response"
-              className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-        </header>
-
-        <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-5 py-5">
-          <SubmissionViewer fields={fields} data={submission.data} redactedFields={submission.redactedFields} />
-
-          {/* Everything below is true, useful when something has gone wrong,
-              and of no interest on an ordinary day. Collapsed by default. */}
-          <div className="mt-6 border-t border-border pt-4">
-            <button
-              type="button"
-              onClick={() => setShowTechnical((value) => !value)}
-              aria-expanded={showTechnical}
-              className="flex w-full items-center justify-between gap-3 rounded-lg px-1 py-2 text-left text-sm font-semibold text-muted-foreground hover:text-foreground"
-            >
-              Technical details
-              <ChevronDown className={`h-4 w-4 transition-transform ${showTechnical ? 'rotate-180' : ''}`} />
-            </button>
-            {showTechnical && (
-              <dl className="mt-2 grid gap-2 sm:grid-cols-2">
-                <DetailRow icon={<Hash className="h-4 w-4" />} label="Response ID" value={submission.id} mono copyable />
-                <DetailRow icon={<Globe2 className="h-4 w-4" />} label="IP address" value={submission.ip || 'Not recorded'} />
-                <DetailRow
-                  icon={<CalendarDays className="h-4 w-4" />}
-                  label="Submitted"
-                  value={formatDateTime(submission.createdAt)}
-                />
-                <DetailRow
-                  icon={<Check className="h-4 w-4" />}
-                  label="Processing"
-                  value={submission.processingStatus
-                    ? submission.processingStatus.charAt(0).toUpperCase() + submission.processingStatus.slice(1)
-                    : 'Not applicable'}
-                />
-                {submission.userAgent && (
-                  <div className="rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5 sm:col-span-2">
-                    <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <Monitor className="h-4 w-4" /> Browser
-                    </dt>
-                    <dd className="mt-1 break-words text-xs text-ink-700">{submission.userAgent}</dd>
-                  </div>
-                )}
-                {submission.tags.length > 0 && (
-                  <div className="rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5 sm:col-span-2">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tags</dt>
-                    <dd className="mt-1.5 flex flex-wrap gap-1.5">
-                      {submission.tags.map((tag) => (
-                        <span key={tag} className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-medium text-ink-600">
-                          {tag}
-                        </span>
-                      ))}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            )}
-          </div>
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-function DetailRow({
-  icon,
-  label,
-  value,
-  mono = false,
-  copyable = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  mono?: boolean;
-  copyable?: boolean;
-}) {
-  return (
-    <div className="min-w-0 rounded-lg border border-border/70 bg-ink-50/55 px-3 py-2.5">
-      <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {icon}{label}
-      </dt>
-      <dd className="mt-1 flex items-center gap-1.5">
-        <span className={`min-w-0 truncate text-xs text-ink-700 ${mono ? 'font-mono' : ''}`} title={value}>{value}</span>
-        {copyable && (
-          <button
-            type="button"
-            onClick={() => void navigator.clipboard.writeText(value)}
-            aria-label={`Copy ${label}`}
-            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground"
-          >
-            <Copy className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </dd>
     </div>
   );
 }

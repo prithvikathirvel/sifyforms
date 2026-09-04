@@ -147,12 +147,23 @@ export function useRoleOptions() {
 
 // --- response access ----------------------------------------------------------
 
+/*
+ * How much of a form's responses somebody is allowed to see.
+ *
+ * These are descriptions of a state, and they are shown next to real buttons,
+ * so they have to be unmistakably not-buttons. "Full responses and export" was
+ * being read as an instruction and clicked: it is a noun phrase naming a
+ * feature, which is exactly what a button label is. Every entry now starts with
+ * a verb of capability — "Can view…", "Cannot…" — which no button label ever
+ * does, so the grammar itself says this is a fact about you rather than
+ * something to press.
+ */
 export const RESPONSE_LEVEL_LABEL: Record<string, string> = {
-  NONE: 'No access',
-  AGGREGATE: 'Aggregate only',
-  REDACTED: 'Responses, identifying fields hidden',
-  FULL: 'Full responses',
-  EXPORT: 'Full responses and export',
+  NONE: 'Cannot see responses',
+  AGGREGATE: 'Can see totals only',
+  REDACTED: 'Can view, identifying answers hidden',
+  FULL: 'Can view responses',
+  EXPORT: 'Can view and download',
 };
 
 export const RESPONSE_POLICY_OPTIONS = [

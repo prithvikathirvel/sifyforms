@@ -1,6 +1,5 @@
 import { Card } from './card';
 import { Button } from './button';
-import { Label } from './label';
 import { Download, Eye, EyeOff, File, Image, FileText } from 'lucide-react';
 import { toast } from './toast';
 import type { FormField } from '../../types';
@@ -511,31 +510,43 @@ export default function SubmissionViewer({ fields, data, redactedFields }: Submi
     );
   };
 
+  /*
+   * One question per row, in the order they were asked, question above answer.
+   *
+   * The previous layout was a two-column grid of small cards, which reads as a
+   * dashboard rather than a filled-in form: the eye has to move right, then
+   * back and down, and the pairing between a question and its answer is
+   * carried only by proximity. Reading it against the live form to check an
+   * answer meant translating between two different orders.
+   *
+   * One column in form order removes that translation entirely — the answer
+   * sheet scrolls exactly like the form did. Question text is set at the same
+   * 13px as a form label rather than 10px, and the answer is the emphasised
+   * element on the row, because the answer is the thing being read.
+   */
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {fields.map((field) => {
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      {fields.map((field, index) => {
         const value = data[field.id];
         const isRedacted = redactedFields?.includes(field.id) ?? false;
-        const isWide = ['textarea', 'file', 'table', 'signature', 'html'].includes(field.type);
-        if (isRedacted) {
-          return (
-            <div key={field.id} className={`rounded-xl border border-border/70 bg-ink-50/45 p-3.5 ${isWide ? 'md:col-span-2' : ''}`}>
-              <p className="text-[10px] font-semibold text-muted-foreground">{field.label}</p>
-              <p className="mt-2 flex items-center gap-1.5 text-xs italic text-muted-foreground">
-                <EyeOff className="h-3.5 w-3.5" />
-                Hidden — identifying field
-              </p>
-            </div>
-          );
-        }
         return (
-          <div key={field.id} className={`min-w-0 rounded-xl border border-border/70 bg-ink-50/45 p-3.5 ${isWide ? 'md:col-span-2' : ''}`}>
-            <Label className="text-[10px] font-semibold text-muted-foreground">
-              {field.label}
-              {field.required && <span className="ml-1 text-destructive">*</span>}
-            </Label>
-            <div className="mt-2 min-h-6 text-xs text-foreground">
-              {renderFieldValue(field, value)}
+          <div
+            key={field.id}
+            className={`min-w-0 px-4 py-3.5 sm:px-5 ${index > 0 ? 'border-t border-border/60' : ''}`}
+          >
+            <p className="flex items-start gap-1 text-[13px] font-medium leading-5 text-muted-foreground">
+              <span className="min-w-0 break-words">{field.label || 'Untitled question'}</span>
+              {field.required && <span className="text-destructive" aria-label="required">*</span>}
+            </p>
+            <div className="mt-1.5 min-h-5 break-words text-sm leading-6 text-foreground">
+              {isRedacted ? (
+                <span className="flex items-center gap-1.5 italic text-muted-foreground">
+                  <EyeOff className="h-3.5 w-3.5" />
+                  Hidden — identifying field
+                </span>
+              ) : (
+                renderFieldValue(field, value)
+              )}
             </div>
           </div>
         );
