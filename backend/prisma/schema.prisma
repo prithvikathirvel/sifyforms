@@ -332,7 +332,10 @@ model AuditLog {
   id           String   @id @default(cuid())
   formId       String
   submissionId String   @unique
-  identifier   String // IP address or email/phone depending on config
+  // Namespaced and canonical: "ip:203.0.113.9" or "email:ada@example.com".
+  // The prefix keeps an address and an email that happen to read alike from
+  // colliding, and 255 leaves room for an address at the RFC maximum.
+  identifier   String   @db.VarChar(255)
   createdAt    DateTime @default(now())
 
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
