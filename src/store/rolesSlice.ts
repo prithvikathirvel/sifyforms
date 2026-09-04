@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../lib/api';
+import { apiErrorMessage } from '../lib/apiError';
 
 /**
  * Role definitions.
@@ -47,7 +48,7 @@ const initialState: RolesState = {
 
 function errorMessage(error: unknown, fallback: string): string {
   const err = error as { response?: { data?: { error?: string } } };
-  return err.response?.data?.error || fallback;
+  return apiErrorMessage(err, fallback);
 }
 
 export const fetchRoles = createAsyncThunk(

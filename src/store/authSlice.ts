@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/tool
 import api, { refreshSession, setAccessToken } from '../lib/api';
 import type { AuthState, User } from '../types';
 import { RemoveItemsFromLocalStorage } from '../lib/utils';
+import { apiErrorMessage, apiErrorPayload, payloadMessage } from '../lib/apiError';
 
 const initialState: AuthState = {
   user: null,
@@ -13,9 +14,15 @@ const initialState: AuthState = {
   needsOrgSetup: null,
 };
 
+/**
+ * The sentence to show for a failed call.
+ *
+ * Delegates to the shared reader so a validation response - whose top-level
+ * `error` is the useless string "Validation failed" - surfaces its per-field
+ * detail messages instead.
+ */
 function message(error: unknown, fallback: string): string {
-  const err = error as { response?: { data?: { error?: string; message?: string } } };
-  return err.response?.data?.error ?? err.response?.data?.message ?? fallback;
+  return apiErrorMessage(error, fallback);
 }
 
 /**
@@ -45,7 +52,9 @@ export const register = createAsyncThunk(
       const response = await api.post('/auth/register', data);
       return response.data;
     } catch (error: unknown) {
-      return rejectWithValue(message(error, 'Registration failed'));
+      // Carries the field breakdown too, so the signup form can pin each
+      // message to the input that caused it rather than showing one banner.
+      return rejectWithValue(apiErrorPayload(error, 'Registration failed'));
     }
   }
 );
@@ -61,7 +70,7 @@ export const login = createAsyncThunk(
         user: response.data.user as User | null,
       };
     } catch (error: unknown) {
-      return rejectWithValue(message(error, 'Login failed'));
+      return rejectWithValue(apiErrorPayload(error, 'Login failed'));
     }
   }
 );
@@ -161,7 +170,7 @@ const authSlice = createSlice({
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = payloadMessage(action.payload, 'Registration failed');
       })
       .addCase(login.pending, (state) => {
         state.isLoading = true;
@@ -175,7 +184,7 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = payloadMessage(action.payload, 'Login failed');
       })
       .addCase(restoreSession.fulfilled, (state, action) => {
         state.token = action.payload as string;
@@ -205,7 +214,7 @@ const authSlice = createSlice({
         // Keep the token for transient network failures, but remember the
         // message so the UI can tell a real "user not found" apart from a
         // blip and respond accordingly (sign out vs. retry).
-        state.error = (action.payload as string) ?? 'Session fetch failed';
+        state.error = payloadMessage(action.payload, 'Session fetch failed');
       })
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
@@ -231,7 +240,7 @@ const authSlice = createSlice({
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = payloadMessage(action.payload, 'Failed to update profile');
       });
   },
 });

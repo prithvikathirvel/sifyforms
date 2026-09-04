@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../lib/api';
 import type { FormSharingState, FormAccess, FormShare, AggregateResult } from '../types';
+import { apiErrorMessage } from '../lib/apiError';
 
 /**
  * Per-form access: what the signed-in user may do with one form, who else it is
@@ -20,7 +21,7 @@ const initialState: FormSharingState = {
 
 function errorMessage(error: unknown, fallback: string): string {
   const err = error as { response?: { data?: { error?: string } } };
-  return err.response?.data?.error || fallback;
+  return apiErrorMessage(err, fallback);
 }
 
 export const fetchFormAccess = createAsyncThunk(

@@ -164,3 +164,28 @@
 [data-theme] .form-card .bg-muted {
   background-color: hsl(var(--form-copy) / 0.045) !important;
 }
+
+/*
+ * Choice controls on a themed public form.
+ *
+ * These are excluded from the input rules above, so without this block they
+ * kept the browser's default accent - a heavy near-black square that looked
+ * broken on the dark theme and ignored the form's chosen colour everywhere
+ * else. Tint them with the theme accent and sit them on the control surface.
+ */
+[data-theme] .form-card input[type='checkbox'],
+[data-theme] .form-card input[type='radio'] {
+  accent-color: hsl(var(--primary));
+  border-color: hsl(var(--form-control-border)) !important;
+}
+
+[data-theme] .form-card input[type='checkbox']:not(:checked),
+[data-theme] .form-card input[type='radio']:not(:checked) {
+  background-color: hsl(var(--form-control)) !important;
+}
+
+[data-theme] .form-card input[type='checkbox']:checked {
+  background-color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+

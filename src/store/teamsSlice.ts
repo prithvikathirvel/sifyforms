@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../lib/api';
 import type { TeamsState, Team, TeamDetail, EffectivePermissions } from '../types';
+import { apiErrorMessage } from '../lib/apiError';
 
 /**
  * Teams (flat buckets), and the effective permissions the UI gates on.
@@ -19,7 +20,7 @@ const initialState: TeamsState = {
 
 function errorMessage(error: unknown, fallback: string): string {
   const err = error as { response?: { data?: { error?: string } } };
-  return err.response?.data?.error || fallback;
+  return apiErrorMessage(err, fallback);
 }
 
 export const fetchTeams = createAsyncThunk(

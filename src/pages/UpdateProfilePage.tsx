@@ -110,7 +110,7 @@ export default function UpdateProfilePage() {
 
   return (
     <div className="app-shell flex h-screen bg-workspace">
-      <Sidebar onCreateForm={() => {}} />
+      <Sidebar />
 
       <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
         <PageHeader

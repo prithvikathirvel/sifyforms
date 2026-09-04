@@ -136,7 +136,7 @@ export default function TeamsPage() {
 
   return (
     <div className="app-shell flex h-screen bg-workspace">
-      <Sidebar onCreateForm={() => {}} />
+      <Sidebar />
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden">
         <PageHeader
           title="Teams"

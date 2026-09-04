@@ -8,6 +8,7 @@ import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { updateSettings } from '../../store/builderSlice';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import FormAccessPanel from '../forms/FormAccessPanel';
+import { usePersistentState } from '../../hooks/usePersistentState';
 import { useState } from 'react';
 
 const POS_BASE = 'https://apidev.sifymodernization.digital/payment-service';
@@ -334,7 +335,12 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
   const currentOrg = useAppSelector((state) => state.org.currentOrg);
-  const [activeTab, setActiveTab] = useState('general');
+  // Persisted per form: leaving for the preview and coming back should return
+  // to the section that was open, not to General.
+  const [activeTab, setActiveTab] = usePersistentState<string>(
+    `sifyforms.builder.${formId ?? 'draft'}.formSettingsTab`,
+    'general'
+  );
   const origin = window.location.origin;
   const paymentRedirectUrl = formId ? `${origin}/payment/${formId}/status` : '';
   const paymentCancelUrl = formId ? `${origin}/payment/${formId}/status?cancelled=true` : '';
@@ -391,7 +397,9 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
               </TabsList>
             </aside>
 
-            <div className="min-w-0 flex-1 bg-card [&>[role=tabpanel]]:mx-auto [&>[role=tabpanel]]:w-full [&>[role=tabpanel]]:max-w-4xl [&>[role=tabpanel]]:px-5 [&>[role=tabpanel]]:py-6 sm:[&>[role=tabpanel]]:px-8 sm:[&>[role=tabpanel]]:py-8 lg:[&>[role=tabpanel]]:px-10">
+            {/* No max-width: the cap left a wide, empty gutter beside every
+                panel on a normal laptop. Panels now use the full column. */}
+            <div className="min-w-0 flex-1 bg-card [&>[role=tabpanel]]:w-full [&>[role=tabpanel]]:px-5 [&>[role=tabpanel]]:py-6 sm:[&>[role=tabpanel]]:px-8 sm:[&>[role=tabpanel]]:py-8 lg:[&>[role=tabpanel]]:px-10">
               <TabsContent value="general" className="m-0 space-y-7">
                 <div className="border-b border-border/70 pb-5">
                   <h2 className="text-base font-semibold text-foreground">General settings</h2>

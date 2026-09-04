@@ -113,7 +113,7 @@ export default function DashboardPage() {
   const { forms, isLoading } = useAppSelector((state) => state.forms);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [recentView, setRecentView] = useState<CollectionViewMode>('list');
-  const { can } = usePermissions();
+  const { can, isLoading: permissionsLoading } = usePermissions();
   const canCreateForm = can(ACTIONS.CREATE_FORM);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
 
@@ -378,7 +378,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {isLoading ? (
+            {isLoading || permissionsLoading ? (
               <div className="flex items-center justify-center py-20">
                 <div className="text-center">
                   <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
@@ -387,22 +387,28 @@ export default function DashboardPage() {
               </div>
             ) : forms.length === 0 ? (
               <Card className="rounded-xl border-dashed border-border bg-card shadow-none">
-                <CardContent className="py-14 text-center">
-                  <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/[0.06]">
-                    <FileText className="h-6 w-6 text-primary" strokeWidth={1.8} />
+                <CardContent className="py-12 text-center">
+                  <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/[0.06]">
+                    <FileText className="h-5 w-5 text-primary" strokeWidth={1.8} />
                   </div>
-                  <h3 className="text-2xl font-bold text-foreground mb-3">No forms yet</h3>
-                  <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                    Create your first form to start collecting responses and analyzing data
+                  {/* Someone who cannot create a form must not be told to create
+                      one - the old copy read as an instruction they could not
+                      follow, and offered a button the API would refuse. */}
+                  <h3 className="font-display text-base font-bold tracking-tight text-foreground">
+                    {canCreateForm ? 'No forms yet' : 'No forms shared with you yet'}
+                  </h3>
+                  <p className="mx-auto mt-1.5 max-w-sm text-xs font-medium leading-5 text-muted-foreground sm:text-[13px]">
+                    {canCreateForm
+                      ? 'Create your first form to start collecting responses and analysing data.'
+                      : 'Your role can view forms in this organization. Once a teammate shares one, it will appear here.'}
                   </p>
                   {canCreateForm && (
                     <Button
                       onClick={() => setShowCreateModal(true)}
-                      className="h-10 rounded-lg px-5"
-                      size="lg"
+                      className="mt-5 h-9 rounded-lg px-4 text-[13px]"
                     >
-                      <FileText className="h-5 w-5 mr-2" />
-                      Create Your First Form
+                      <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                      Create your first form
                     </Button>
                   )}
                 </CardContent>

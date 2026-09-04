@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import api from '../lib/api';
 import type { SubmissionsState, Submission } from '../types';
+import { apiErrorMessage } from '../lib/apiError';
 
 const initialState: SubmissionsState = {
   submissions: [],
@@ -26,7 +27,7 @@ export const fetchSubmissions = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Failed to fetch submissions');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to fetch submissions'));
     }
   }
 );
@@ -39,7 +40,7 @@ export const fetchSubmission = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Failed to fetch submission');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to fetch submission'));
     }
   }
 );
@@ -52,7 +53,7 @@ export const updateSubmission = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Failed to update submission');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to update submission'));
     }
   }
 );
@@ -65,7 +66,7 @@ export const deleteSubmission = createAsyncThunk(
       return submissionId;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Failed to delete submission');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to delete submission'));
     }
   }
 );
@@ -80,7 +81,7 @@ export const exportSubmissions = createAsyncThunk(
       return { data: response.data, format };
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Failed to export submissions');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to export submissions'));
     }
   }
 );

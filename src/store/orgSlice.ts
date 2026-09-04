@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import api from '../lib/api';
 import type { OrgState, Organization } from '../types';
+import { apiErrorMessage } from '../lib/apiError';
 
 const initialState: OrgState = {
   currentOrg: null,
@@ -17,7 +18,7 @@ export const fetchOrganizations = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Failed to fetch organizations');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to fetch organizations'));
     }
   }
 );
@@ -30,7 +31,7 @@ export const createOrganization = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Failed to create organization');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to create organization'));
     }
   }
 );
@@ -43,7 +44,7 @@ export const updateOrganization = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Failed to update organization');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to update organization'));
     }
   }
 );
@@ -56,7 +57,7 @@ export const deleteOrganization = createAsyncThunk(
       return orgId;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || 'Failed to delete organization');
+      return rejectWithValue(apiErrorMessage(err, 'Failed to delete organization'));
     }
   }
 );

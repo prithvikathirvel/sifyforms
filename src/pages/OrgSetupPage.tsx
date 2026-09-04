@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -76,34 +76,47 @@ export default function OrgSetupPage() {
   const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [choseOrg, setChoseOrg] = useState(false);
+  /** Once someone edits the URL by hand, stop overwriting it from the name. */
+  const [slugEdited, setSlugEdited] = useState(false);
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, isSubmitted },
   } = useForm<OrgFormData>({
+    // `onTouched` validates a field once it has been blurred and then on every
+    // keystroke. With the previous `onBlur` + `reValidateMode` pairing the
+    // re-validation only started after the first submit, so a slug error stayed
+    // on screen while the person was busy correcting it.
+    mode: 'onTouched',
     resolver: zodResolver(orgSchema),
-    mode: 'onBlur',
-    reValidateMode: 'onChange',
     defaultValues: { name: '', slug: '', industry: '' },
   });
 
   const name = watch('name');
 
+  /**
+   * Whether a programmatic slug change should re-run validation.
+   *
+   * Read through a ref so the effect below does not depend on `errors`, which
+   * would make it re-run every time validation produced a new error object.
+   * The rule: never surface an error the person has not yet earned, but always
+   * clear one that is already showing the moment the value becomes valid.
+   */
+  const revalidateSlug = useRef(false);
+  revalidateSlug.current = Boolean(errors.slug) || isSubmitted;
+
   useEffect(() => {
-    if (name) {
-      setValue(
-        'slug',
-        name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '')
-          .substring(0, 50)
-      );
-    }
-  }, [name, setValue]);
+    if (slugEdited) return;
+    const derived = (name ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 50);
+    setValue('slug', derived, { shouldValidate: revalidateSlug.current });
+  }, [name, slugEdited, setValue]);
 
   useEffect(() => {
     Promise.all([dispatch(fetchMyInvites()), dispatch(fetchOrganizations())]).finally(() =>
@@ -160,6 +173,12 @@ export default function OrgSetupPage() {
     setChoseOrg(true);
     dispatch(createOrganization(data));
   };
+
+  /**
+   * Registered once so the slug input can both keep react-hook-form's handler
+   * and record that the value is now the person's own, not a derivation.
+   */
+  const slugField = register('slug');
 
   const displayError = error || membersError;
   const hasChoices = organizations.length > 0 || incomingInvites.length > 0;
@@ -307,12 +326,26 @@ export default function OrgSetupPage() {
                   <Label htmlFor="slug">Organization URL</Label>
                   <div className="flex min-w-0 items-center overflow-hidden rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                     <span className="shrink-0 border-r border-border bg-muted/40 px-3 text-xs font-medium text-muted-foreground">sifyforms.ai/</span>
-                    <Input id="slug" required type="text" autoComplete="off" placeholder="acme-inc" className="min-w-0 rounded-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0" aria-invalid={Boolean(errors.slug)} {...register('slug')} />
+                    <Input
+                      id="slug"
+                      required
+                      type="text"
+                      autoComplete="off"
+                      placeholder="acme-inc"
+                      className="min-w-0 rounded-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      aria-invalid={Boolean(errors.slug)}
+                      aria-describedby={errors.slug ? 'slug-error' : 'slug-hint'}
+                      {...slugField}
+                      onChange={(event) => {
+                        setSlugEdited(true);
+                        slugField.onChange(event);
+                      }}
+                    />
                   </div>
                   {errors.slug ? (
-                    <p role="alert" className="text-xs font-medium text-destructive">{errors.slug.message}</p>
+                    <p id="slug-error" role="alert" className="text-xs font-medium text-destructive">{errors.slug.message}</p>
                   ) : (
-                    <p className="text-[11px] font-medium text-muted-foreground">Lowercase letters, numbers, and hyphens only.</p>
+                    <p id="slug-hint" className="text-[11px] font-medium text-muted-foreground">Lowercase letters, numbers, and hyphens only.</p>
                   )}
                 </div>
                 <div className="space-y-1.5">

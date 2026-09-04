@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { CircleAlert, Eye, EyeOff, Loader2, LockKeyhole, Mail } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { login, getSession, clearError } from '../../store/authSlice';
+import { payloadFieldErrors } from '../../lib/apiError';
+import { toast } from '../../components/ui/toast';
 import { setCurrentOrg } from '../../store/orgSlice';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -30,33 +32,49 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    mode: 'onBlur',
-    reValidateMode: 'onChange',
+    // `onTouched` validates a field after its first blur and then on every
+    // keystroke, so a message disappears the moment the input becomes valid.
+    // The old `onBlur` + `reValidateMode` pairing only re-validated after a
+    // submit, leaving stale errors under fields the person had already fixed.
+    mode: 'onTouched',
     defaultValues: {
       email: '',
       password: '',
     },
   });
 
+  // Failures are announced through the shared toaster - the same notifier the
+  // rest of the product uses - rather than a banner unique to this page.
   useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => dispatch(clearError()), 5000);
-      return () => clearTimeout(timer);
-    }
+    if (!error) return;
+    toast.error({ title: 'Sign-in failed', description: error });
+    dispatch(clearError());
   }, [error, dispatch]);
 
   const onSubmit = async (data: LoginFormData) => {
     const loginResult = await dispatch(login(data));
+
     if (login.fulfilled.match(loginResult)) {
       // Signing in always returns to the organization chooser: a person may
       // belong to several, and may have invitations waiting.
       dispatch(setCurrentOrg(null));
       await dispatch(getSession());
       navigate('/org/setup');
+      return;
     }
+
+    // A validating backend names the offending field; pin its message there so
+    // the correction happens where the mistake is. Anything it cannot place is
+    // already on its way to the toaster via the effect above.
+    payloadFieldErrors(loginResult.payload).forEach((detail) => {
+      if (detail.field === 'email' || detail.field === 'password') {
+        setError(detail.field, { type: 'server', message: detail.message });
+      }
+    });
   };
 
   return (
@@ -79,16 +97,6 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <CardContent className="space-y-4 px-6 pb-7 sm:px-8">
-            {error && (
-              <div
-                role="alert"
-                className="flex items-start gap-2.5 rounded-lg border border-destructive/20 bg-destructive/[0.045] px-3.5 py-3 text-[13px] font-medium leading-5 text-destructive"
-              >
-                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
-                <span>{error}</span>
-              </div>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="email" className="text-[13px] font-semibold text-foreground">Email address</Label>
               <div className="relative">

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { LayoutTemplate, Settings } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import {
@@ -12,6 +11,7 @@ import {
 } from '../../store/builderSlice';
 import LayoutConfigPanel from './LayoutConfigPanel';
 import FormSettingsContent from './FormSettingsContent';
+import { usePersistentScroll, usePersistentState } from '../../hooks/usePersistentState';
 import { cn } from '../../lib/utils';
 
 type SettingsTab = 'layout' | 'form';
@@ -21,11 +21,20 @@ const TABS: { id: SettingsTab; label: string; icon: typeof LayoutTemplate }[] = 
   { id: 'form', label: 'Form settings', icon: Settings },
 ];
 
-/** Full-width settings workspace shown in place of the editor canvas. */
+/**
+ * Full-width settings workspace shown in place of the editor canvas.
+ *
+ * Switching to the preview or back to the canvas unmounts this panel entirely.
+ * The chosen tab and the scroll offset are therefore kept outside React, keyed
+ * per form, so returning to settings lands exactly where the person left off
+ * instead of resetting to Layout at the top of the page.
+ */
 export default function SettingsPanel({ formId }: { formId?: string }) {
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
-  const [tab, setTab] = useState<SettingsTab>('layout');
+  const scope = formId ?? 'draft';
+  const [tab, setTab] = usePersistentState<SettingsTab>(`sifyforms.builder.${scope}.settingsTab`, 'layout');
+  const scrollRef = usePersistentScroll<HTMLDivElement>(`sifyforms.builder.${scope}.settingsScroll.${tab}`);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
@@ -57,7 +66,7 @@ export default function SettingsPanel({ formId }: { formId?: string }) {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-background">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-background">
         {tab === 'layout' ? (
           <LayoutConfigPanel
             layout={builder.layout}

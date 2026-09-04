@@ -8,6 +8,7 @@ import {
   FolderOpen,
   LayoutDashboard,
   LogOut,
+  MoreHorizontal,
   Network,
   PanelLeftClose,
   PanelLeftOpen,
@@ -23,17 +24,23 @@ import { logout } from '../../store/authSlice';
 import { resetOrg } from '../../store/orgSlice';
 import { Button } from '../ui/button';
 import { Tooltip } from '../ui/tooltip';
+import CreateFormModal from '../forms/CreateFormModal';
 
 interface SidebarProps {
-  onCreateForm: () => void;
+  /**
+   * Optional. When a page has its own create-form flow it can pass a handler;
+   * otherwise the sidebar opens the modal itself, so the button works from
+   * every screen rather than only the two that used to wire it up.
+   */
+  onCreateForm?: () => void;
 }
 
 const SIDEBAR_COLLAPSED_KEY = 'sifyforms.sidebar.collapsed';
 const COLLAPSED_WIDTH = 'w-[4.25rem]';
+/** Items promoted to the compact bottom bar; the rest live behind "More". */
+const BOTTOM_BAR_LIMIT = 3;
 
 function initialCollapsedState(): boolean {
-  // Compact screens always start as an icon rail so page content keeps its width.
-  if (window.matchMedia('(max-width: 1023px)').matches) return true;
   const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
   return saved === 'true';
 }
@@ -47,7 +54,10 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
 
   const [collapsed, setCollapsed] = useState(initialCollapsedState);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -65,19 +75,42 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMoreOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [moreOpen]);
+
   const updateCollapsed = (next: boolean) => {
     setCollapsed(next);
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
     if (next) setMenuOpen(false);
   };
 
-  const collapseAfterCompactNavigation = () => {
-    if (window.matchMedia('(max-width: 1023px)').matches) updateCollapsed(true);
-  };
-
   const handleLogout = () => {
     dispatch(resetOrg());
     dispatch(logout());
+  };
+
+  /**
+   * Create a form from anywhere. Pages that keep their own modal pass a
+   * handler; everyone else gets the sidebar's, which is why this now works on
+   * Members, Teams, Roles and the settings screens.
+   */
+  const handleCreateForm = () => {
+    setMoreOpen(false);
+    if (onCreateForm) onCreateForm();
+    else setCreateOpen(true);
   };
 
   const navItems = [
@@ -95,28 +128,25 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
       : location.pathname === href;
 
   const userInitial = user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U';
+  const canCreateForm = can(ACTIONS.CREATE_FORM);
+
+  const primaryItems = navItems.slice(0, BOTTOM_BAR_LIMIT);
+  const overflowItems = navItems.slice(BOTTOM_BAR_LIMIT);
+  const overflowActive = overflowItems.some((item) => isItemActive(item.href));
 
   return (
     <>
-      {!collapsed && (
-        <button
-          type="button"
-          aria-label="Close navigation"
-          onClick={() => updateCollapsed(true)}
-          className="fixed inset-0 z-40 hidden bg-ink-950/20 backdrop-blur-[1px] max-lg:block"
-        />
-      )}
-
+      {/* ---------------------------------------------------------------- rail */}
       <div
         className={cn(
-          'relative h-screen w-[4.25rem] shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          'relative hidden h-screen shrink-0 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] lg:block',
           collapsed ? 'lg:w-[4.25rem]' : 'lg:w-60'
         )}
       >
         <aside
           aria-label="Application sidebar"
           className={cn(
-            'fixed left-0 top-0 z-50 flex h-[100dvh] flex-col border-r border-border/70 bg-card transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] lg:sticky lg:h-screen',
+            'sticky top-0 flex h-screen flex-col border-r border-border/70 bg-card transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
             collapsed ? COLLAPSED_WIDTH : 'w-60'
           )}
         >
@@ -126,22 +156,18 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
               aria-label="SifyForms dashboard"
               title={collapsed ? 'SifyForms dashboard' : undefined}
               className={cn('flex min-w-0 items-center rounded-lg', collapsed ? 'flex-none justify-center' : 'flex-1')}
-              onClick={collapseAfterCompactNavigation}
             >
               <Logo variant={collapsed ? 'icon' : 'lockup'} size="sm" />
             </Link>
           </div>
 
-          <OrgSwitcher collapsed={collapsed} onCompactNavigate={collapseAfterCompactNavigation} />
+          <OrgSwitcher collapsed={collapsed} />
 
-          {can(ACTIONS.CREATE_FORM) && (
+          {canCreateForm && (
             <div className={cn('flex shrink-0 justify-center', collapsed ? 'px-2 py-2.5' : 'p-3')}>
               <Tooltip content="Create form" side="right" delay="short" disabled={!collapsed}>
                 <Button
-                  onClick={() => {
-                    onCreateForm();
-                    collapseAfterCompactNavigation();
-                  }}
+                  onClick={handleCreateForm}
                   variant="ghost"
                   size={collapsed ? 'icon' : 'default'}
                   aria-label={collapsed ? 'Create form' : undefined}
@@ -172,7 +198,6 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
                       to={item.href}
                       aria-label={collapsed ? item.label : undefined}
                       aria-current={isActive ? 'page' : undefined}
-                      onClick={collapseAfterCompactNavigation}
                       className={cn(
                         'group relative flex h-9 w-full items-center rounded-lg text-[13px] font-medium transition-colors duration-200',
                         collapsed ? 'justify-center px-0' : 'gap-3 px-2.5',
@@ -246,7 +271,6 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
                   onClick={() => {
                     setMenuOpen(false);
                     navigate('/account');
-                    collapseAfterCompactNavigation();
                   }}
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] font-medium transition-colors hover:bg-muted"
                 >
@@ -267,6 +291,154 @@ export default function Sidebar({ onCreateForm }: SidebarProps) {
           </div>
         </aside>
       </div>
+
+      {/* ---------------------------------------------------- compact top bar */}
+      <header
+        data-app-navbar="top"
+        className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between gap-2 border-b border-border/70 bg-card px-3 lg:hidden"
+      >
+        <Link to="/dashboard" aria-label="SifyForms dashboard" className="flex min-w-0 shrink-0 items-center">
+          <Logo variant="lockup" size="sm" />
+        </Link>
+        <div className="flex min-w-0 flex-1 justify-end">
+          <OrgSwitcher variant="compact" />
+        </div>
+      </header>
+
+      {/* ------------------------------------------------- compact bottom bar */}
+      <nav
+        data-app-navbar="bottom"
+        aria-label="Primary navigation"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-border/70 bg-card/95 backdrop-blur-sm lg:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="mx-auto flex h-16 max-w-2xl items-stretch justify-around gap-0.5 px-1.5">
+          {primaryItems.map((item) => {
+            const isActive = isItemActive(item.href);
+            return (
+              <Link
+                key={item.label}
+                to={item.href}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-semibold transition-colors',
+                  isActive ? 'text-primary' : 'text-muted-foreground active:bg-muted/70'
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex h-7 w-12 items-center justify-center rounded-full transition-colors',
+                    isActive && 'bg-primary/[0.09]'
+                  )}
+                >
+                  <item.icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                </span>
+                <span className="max-w-full truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+
+          {canCreateForm && (
+            <button
+              type="button"
+              onClick={handleCreateForm}
+              aria-label="Create form"
+              className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-semibold text-primary transition-colors active:bg-primary/[0.08]"
+            >
+              <span className="flex h-7 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm shadow-primary/25">
+                <Plus className="h-[18px] w-[18px]" strokeWidth={2.2} />
+              </span>
+              <span className="max-w-full truncate">Create</span>
+            </button>
+          )}
+
+          <div ref={moreRef} className="relative flex min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
+              aria-label="More navigation"
+              className={cn(
+                'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-semibold transition-colors',
+                overflowActive || moreOpen ? 'text-primary' : 'text-muted-foreground active:bg-muted/70'
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-7 w-12 items-center justify-center rounded-full transition-colors',
+                  (overflowActive || moreOpen) && 'bg-primary/[0.09]'
+                )}
+              >
+                <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.9} />
+              </span>
+              <span className="max-w-full truncate">More</span>
+            </button>
+
+            {moreOpen && (
+              <div
+                role="menu"
+                className="absolute bottom-[calc(100%+0.5rem)] right-0 w-56 overflow-hidden rounded-xl border border-border bg-popover py-1.5 shadow-xl shadow-foreground/10"
+              >
+                {overflowItems.map((item) => (
+                  <Link
+                    key={item.label}
+                    to={item.href}
+                    role="menuitem"
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      'flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-muted',
+                      isItemActive(item.href) ? 'text-primary' : 'text-foreground'
+                    )}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+                    {item.label}
+                  </Link>
+                ))}
+
+                <div className="my-1.5 border-t border-border/70" />
+
+                <div className="flex items-center gap-2.5 px-3 pb-1.5 pt-0.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/[0.09] text-xs font-bold text-primary">
+                    {userInitial}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12px] font-semibold text-foreground">{user?.name || 'Your account'}</span>
+                    <span className="block truncate text-[11px] font-medium text-muted-foreground">{user?.email}</span>
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    navigate('/account');
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-medium transition-colors hover:bg-muted"
+                >
+                  <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  View profile
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/[0.06]"
+                >
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  Log out
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* Only mounted for pages that did not supply their own create flow. */}
+      {!onCreateForm && createOpen && (
+        <CreateFormModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      )}
     </>
   );
 }

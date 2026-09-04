@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
 import api from "../lib/api";
 import type { FormsState, Form, FormSchema, FormSettings } from "../types";
+import { apiErrorMessage } from '../lib/apiError';
 
 const initialState: FormsState = {
   forms: [],
@@ -18,7 +19,7 @@ export const fetchForms = createAsyncThunk(
       return { requestedOrgId, forms: response.data as Form[] };
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to fetch forms");
+      return rejectWithValue(apiErrorMessage(err, "Failed to fetch forms"));
     }
   }
 );
@@ -32,7 +33,7 @@ export const fetchForm = createAsyncThunk(
       return { requestedOrgId, form: response.data as Form };
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to fetch form");
+      return rejectWithValue(apiErrorMessage(err, "Failed to fetch form"));
     }
   }
 );
@@ -45,7 +46,7 @@ export const createTemplate = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to create template");
+      return rejectWithValue(apiErrorMessage(err, "Failed to create template"));
     }
   }
 );
@@ -61,7 +62,7 @@ export const duplicateTemplate = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to duplicate template");
+      return rejectWithValue(apiErrorMessage(err, "Failed to duplicate template"));
     }
   }
 );
@@ -74,7 +75,7 @@ export const duplicateForm = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to duplicate form");
+      return rejectWithValue(apiErrorMessage(err, "Failed to duplicate form"));
     }
   }
 );
@@ -87,7 +88,7 @@ export const saveFormAsTemplate = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to save as template");
+      return rejectWithValue(apiErrorMessage(err, "Failed to save as template"));
     }
   }
 );
@@ -100,7 +101,7 @@ export const createForm = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to create form");
+      return rejectWithValue(apiErrorMessage(err, "Failed to create form"));
     }
   }
 );
@@ -113,7 +114,7 @@ export const updateForm = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to update form");
+      return rejectWithValue(apiErrorMessage(err, "Failed to update form"));
     }
   }
 );
@@ -126,7 +127,7 @@ export const deleteForm = createAsyncThunk(
       return formId;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to delete form");
+      return rejectWithValue(apiErrorMessage(err, "Failed to delete form"));
     }
   }
 );
@@ -139,7 +140,7 @@ export const publishForm = createAsyncThunk(
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
-      return rejectWithValue(err.response?.data?.error || "Failed to publish form");
+      return rejectWithValue(apiErrorMessage(err, "Failed to publish form"));
     }
   }
 );

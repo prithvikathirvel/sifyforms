@@ -33,9 +33,9 @@ export default function RequirePermission({
 
   if (!can(action)) {
     return (
-      <div className="flex min-h-screen">
-        <Sidebar onCreateForm={() => {}} />
-        <main className="flex flex-1 items-center justify-center p-6">
+      <div className="app-shell flex h-screen bg-workspace">
+        <Sidebar />
+        <main className="flex min-w-0 flex-1 items-center justify-center overflow-y-auto p-6">
           <div className="max-w-md text-center space-y-3">
             <ShieldOff className="mx-auto h-10 w-10 text-muted-foreground" />
             <h1 className="text-xl font-semibold">{label} is not available to your role</h1>

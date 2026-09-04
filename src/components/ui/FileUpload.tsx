@@ -308,7 +308,10 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
         </div>
       )}
 
-      {field.helpText && (
+      {/* Help text is printed by the field wrapper that owns the label. When
+          that wrapper hides this component's label it renders both, so
+          repeating it here produced the duplicate line under the control. */}
+      {!hideLabel && field.helpText && (
         <p className="text-sm text-muted-foreground">{field.helpText}</p>
       )}
 

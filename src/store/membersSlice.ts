@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../lib/api';
 import type { MembersState, OrgMember, OrgInvite, IncomingInvite } from '../types';
+import { apiErrorMessage } from '../lib/apiError';
 
 /**
  * Organization membership and invitations.
@@ -19,7 +20,7 @@ const initialState: MembersState = {
 
 function errorMessage(error: unknown, fallback: string): string {
   const err = error as { response?: { data?: { error?: string } } };
-  return err.response?.data?.error || fallback;
+  return apiErrorMessage(err, fallback);
 }
 
 // --- organization side -------------------------------------------------------

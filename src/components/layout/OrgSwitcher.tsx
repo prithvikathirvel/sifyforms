@@ -18,10 +18,16 @@ import { ArrowLeftRight, Building2, Check, ChevronsUpDown, Plus } from 'lucide-r
 interface OrgSwitcherProps {
   collapsed?: boolean;
   onCompactNavigate?: () => void;
+  /**
+   * `sidebar` is the bordered block in the desktop rail. `compact` is the
+   * inline control used by the mobile top bar, where the switcher sits beside
+   * the logo instead of stacked under it.
+   */
+  variant?: 'sidebar' | 'compact';
 }
 
-/** Organization switcher that adapts to both the full sidebar and icon rail. */
-export default function OrgSwitcher({ collapsed = false, onCompactNavigate }: OrgSwitcherProps) {
+/** Organization switcher that adapts to the full sidebar, icon rail, and mobile bar. */
+export default function OrgSwitcher({ collapsed = false, onCompactNavigate, variant = 'sidebar' }: OrgSwitcherProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { currentOrg, organizations } = useAppSelector((state) => state.org);
@@ -72,33 +78,57 @@ export default function OrgSwitcher({ collapsed = false, onCompactNavigate }: Or
 
   if (!currentOrg) return null;
 
+  const isCompact = variant === 'compact';
+
   return (
-    <div ref={containerRef} className={cn('relative shrink-0 border-b border-border/70', collapsed ? 'p-2' : 'p-2.5')}>
+    <div
+      ref={containerRef}
+      className={cn(
+        'relative shrink-0',
+        isCompact ? 'min-w-0 max-w-[60%]' : cn('border-b border-border/70', collapsed ? 'p-2' : 'p-2.5')
+      )}
+    >
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={collapsed ? `Switch organization. Current: ${currentOrg.name}` : undefined}
-        title={collapsed ? currentOrg.name : undefined}
+        aria-label={collapsed || isCompact ? `Switch organization. Current: ${currentOrg.name}` : undefined}
+        title={collapsed || isCompact ? currentOrg.name : undefined}
         className={cn(
           'flex w-full items-center rounded-xl text-left transition-colors hover:bg-muted/80',
-          collapsed ? 'h-10 justify-center px-0' : 'gap-2.5 px-2 py-1.5'
+          isCompact
+            ? 'h-9 gap-2 border border-border/70 px-2'
+            : collapsed
+              ? 'h-10 justify-center px-0'
+              : 'gap-2.5 px-2 py-1.5'
         )}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.065] text-primary">
-          <Building2 className="h-4 w-4" strokeWidth={1.8} />
+        <span
+          className={cn(
+            'flex shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.065] text-primary',
+            isCompact ? 'h-6 w-6' : 'h-8 w-8'
+          )}
+        >
+          <Building2 className={isCompact ? 'h-3.5 w-3.5' : 'h-4 w-4'} strokeWidth={1.8} />
         </span>
-        {!collapsed && (
+        {isCompact ? (
           <>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-semibold leading-tight text-foreground">{currentOrg.name}</span>
-              <span className="mt-0.5 block truncate text-[11px] font-medium text-muted-foreground">
-                {roleLabel(currentOrg.role)}
-              </span>
-            </span>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-foreground">{currentOrg.name}</span>
+            <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </>
+        ) : (
+          !collapsed && (
+            <>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-semibold leading-tight text-foreground">{currentOrg.name}</span>
+                <span className="mt-0.5 block truncate text-[11px] font-medium text-muted-foreground">
+                  {roleLabel(currentOrg.role)}
+                </span>
+              </span>
+              <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </>
+          )
         )}
       </button>
 
@@ -107,7 +137,11 @@ export default function OrgSwitcher({ collapsed = false, onCompactNavigate }: Or
           role="menu"
           className={cn(
             'absolute z-50 overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-foreground/10',
-            collapsed ? 'left-full top-0 ml-2 w-64' : 'left-2 right-2 top-full mt-1'
+            isCompact
+              ? 'right-0 top-full mt-1.5 w-64'
+              : collapsed
+                ? 'left-full top-0 ml-2 w-64'
+                : 'left-2 right-2 top-full mt-1'
           )}
         >
           <div className="border-b border-border/70 px-3 py-2.5">

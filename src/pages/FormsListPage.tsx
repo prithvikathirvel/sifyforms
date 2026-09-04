@@ -54,7 +54,10 @@ export default function FormsListPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const teams = useAppSelector((state) => state.teams.teams);
-  const { can } = usePermissions();
+  // Until the permission set has landed `can()` answers false for everything;
+  // waiting avoids flashing the viewer's copy at someone who can create forms.
+  const { can, isLoading: permissionsLoading } = usePermissions();
+  const canCreateForm = can(ACTIONS.CREATE_FORM);
 
   useEffect(() => {
     if (!currentOrg?.id) return;
@@ -161,7 +164,7 @@ export default function FormsListPage() {
           description={isLoading
             ? 'Loading your forms…'
             : `${filteredForms.length} of ${forms.length} form${forms.length !== 1 ? 's' : ''} in ${currentOrg.name}`}
-          actions={can(ACTIONS.CREATE_FORM) ? (
+          actions={canCreateForm ? (
             <Button onClick={() => setShowCreateModal(true)} className="h-9 rounded-lg px-3.5">
               <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
               <span className="hidden sm:inline">Create form</span>
@@ -238,7 +241,7 @@ export default function FormsListPage() {
           )}
 
           {/* Content */}
-          {isLoading ? (
+          {isLoading || permissionsLoading ? (
             <div className="flex items-center justify-center py-32">
               <div className="text-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
@@ -247,22 +250,29 @@ export default function FormsListPage() {
             </div>
           ) : forms.length === 0 ? (
             <Card className="rounded-xl border-dashed border-border bg-card shadow-none">
-              <CardContent className="py-16 text-center">
-                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/[0.06]">
-                  <FileText className="h-6 w-6 text-primary" strokeWidth={1.8} />
+              <CardContent className="py-14 text-center">
+                <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/[0.06]">
+                  <FileText className="h-5 w-5 text-primary" strokeWidth={1.8} />
                 </div>
-                <h3 className="text-2xl font-bold text-foreground mb-3">No forms yet</h3>
-                <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                  Create your first form to start collecting responses and analyzing data
+                {/* The create button is gated on the same permission the API
+                    enforces. Offering it to a viewer only produced a refusal. */}
+                <h3 className="font-display text-base font-bold tracking-tight text-foreground">
+                  {canCreateForm ? 'No forms yet' : 'No forms shared with you yet'}
+                </h3>
+                <p className="mx-auto mt-1.5 max-w-sm text-xs font-medium leading-5 text-muted-foreground sm:text-[13px]">
+                  {canCreateForm
+                    ? 'Create your first form to start collecting responses and analysing data.'
+                    : 'Your role can view forms in this organization. Once a teammate shares one, it will appear here.'}
                 </p>
-                <Button
-                  onClick={() => setShowCreateModal(true)}
-                  className="h-10 rounded-lg px-5"
-                  size="lg"
-                >
-                  <FileText className="h-5 w-5 mr-2" />
-                  Create Your First Form
-                </Button>
+                {canCreateForm && (
+                  <Button
+                    onClick={() => setShowCreateModal(true)}
+                    className="mt-5 h-9 rounded-lg px-4 text-[13px]"
+                  >
+                    <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                    Create your first form
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : filteredForms.length === 0 ? (

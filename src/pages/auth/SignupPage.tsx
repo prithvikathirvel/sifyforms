@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  CheckCircle2,
   ChevronDown,
   CircleAlert,
   Eye,
@@ -17,6 +16,9 @@ import {
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { register as registerAuth, clearError } from '../../store/authSlice';
+import { payloadFieldErrors } from '../../lib/apiError';
+import { toast } from '../../components/ui/toast';
+import { PasswordStrengthMeter } from '../../components/ui/password-strength';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -44,6 +46,23 @@ const signupSchema = z.object({
 
 type SignupFormData = z.infer<typeof signupSchema>;
 type FormError = { message?: string } | undefined;
+
+/**
+ * Fields the server is allowed to attach a message to. A response naming
+ * anything else falls through to the toast rather than being dropped silently.
+ */
+const FIELD_NAMES: Record<keyof SignupFormData, true> = {
+  email: true,
+  password: true,
+  confirmPassword: true,
+  username: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  gender: true,
+  address: true,
+  additionalDetails: true,
+};
 
 const inputClassName = 'h-10 min-w-0 rounded-lg border-input bg-background text-base placeholder:text-[13px] sm:text-[13px]';
 
@@ -88,7 +107,6 @@ export default function SignupPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { isLoading, error } = useAppSelector((state) => state.auth);
-  const [successMsg, setSuccessMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
   const [kvPairs, setKvPairs] = useState<{ key: string; value: string }[]>([]);
@@ -97,11 +115,16 @@ export default function SignupPage() {
   const {
     register,
     handleSubmit,
+    setError,
+    watch,
     formState: { errors },
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
-    mode: 'onBlur',
-    reValidateMode: 'onChange',
+    // `onTouched`: validate a field once it has been blurred, then on every
+    // keystroke. Previously `onBlur` + `reValidateMode: 'onChange'` only began
+    // re-validating after the first submit, so a message stayed on screen
+    // while the person was already typing the correction.
+    mode: 'onTouched',
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -115,11 +138,14 @@ export default function SignupPage() {
     },
   });
 
+  const passwordValue = watch('password') ?? '';
+
+  // One notifier for the whole product: registration failures go to the shared
+  // toaster instead of a banner only this page knows how to draw.
   useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => dispatch(clearError()), 5000);
-      return () => clearTimeout(timer);
-    }
+    if (!error) return;
+    toast.error({ title: 'Could not create your account', description: error });
+    dispatch(clearError());
   }, [error, dispatch]);
 
   const addKvPair = () => setKvPairs((prev) => [...prev, { key: '', value: '' }]);
@@ -157,12 +183,24 @@ export default function SignupPage() {
       const result = await dispatch(registerAuth({ ...rest, additionalDetails }));
 
       if (registerAuth.fulfilled.match(result)) {
-        setSuccessMsg('Account created successfully!');
-        setTimeout(() => {
-          setSuccessMsg('');
-          navigate('/auth/login');
-        }, 2500);
+        toast.success({
+          title: 'Account created',
+          description: 'Sign in with your new credentials to continue.',
+        });
+        setTimeout(() => navigate('/auth/login'), 1200);
+        return;
       }
+
+      // The API answers a validation failure with a per-field breakdown. Put
+      // each message on its own input - "Password must be at least 8
+      // characters long" beside the password box, not "Validation failed" at
+      // the top of the page.
+      payloadFieldErrors(result.payload).forEach((detail) => {
+        const field = detail.field as keyof SignupFormData;
+        if (field && field in FIELD_NAMES) {
+          setError(field, { type: 'server', message: detail.message });
+        }
+      });
     } finally {
       setSubmitting(false);
     }
@@ -170,17 +208,6 @@ export default function SignupPage() {
 
   return (
     <AuthLayout contentClassName="items-start lg:items-center">
-      {successMsg && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed right-4 top-4 z-50 flex items-center gap-2 rounded-lg bg-[hsl(var(--success))] px-4 py-3 text-xs font-semibold text-[hsl(var(--success-foreground))] shadow-xl sm:right-6 sm:top-6"
-        >
-          <CheckCircle2 className="h-4 w-4" strokeWidth={2.25} />
-          {successMsg}
-        </div>
-      )}
-
       <Card className="w-full max-w-6xl overflow-hidden rounded-2xl border-border bg-card shadow-xl shadow-foreground/[0.045]">
         <CardHeader className="flex-row items-center gap-3 space-x-0 space-y-0 border-b border-border/70 px-5 py-4 text-left sm:gap-4 sm:px-7">
           <Logo variant="icon" size="md" className="shrink-0" />
@@ -196,13 +223,6 @@ export default function SignupPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <CardContent className="space-y-4 px-5 py-4 sm:px-7 sm:py-5">
-            {error && (
-              <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-destructive/20 bg-destructive/[0.045] px-3.5 py-3 text-[13px] font-medium leading-5 text-destructive">
-                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
-                <span>{error}</span>
-              </div>
-            )}
-
             <div className="grid min-w-0 gap-5 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-border/70">
               <section aria-labelledby="account-details-heading" className="min-w-0 space-y-3 lg:pr-6">
                 <div id="account-details-heading">
@@ -269,6 +289,10 @@ export default function SignupPage() {
                       </button>
                     </div>
                     <FieldError id="signup-password-error" error={errors.password} />
+                    {/* Live strength read-out. The rule that actually gates
+                        registration lives on the server; this just shows
+                        someone whether they are heading the right way. */}
+                    <PasswordStrengthMeter value={passwordValue} id="signup-password-strength" />
                   </div>
 
                   <div className="min-w-0 space-y-1.5">

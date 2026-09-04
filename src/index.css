@@ -182,6 +182,17 @@
     scroll-padding-top: 5rem;
   }
 
+  /*
+   * When the application shell is on screen it owns the viewport entirely.
+   * Locking the document removes the phantom second scrollbar that appeared at
+   * non-integer zoom levels. Public pages are untouched and scroll normally.
+   */
+  html:has(.app-shell),
+  body:has(.app-shell) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-inter), 'Inter Variable', 'TheSans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -195,6 +206,20 @@
   h4 {
     font-family: var(--font-geist), 'Geist Variable', var(--font-inter), 'Inter Variable', system-ui, sans-serif;
     letter-spacing: -0.02em;
+  }
+
+  /**
+   * Native checkboxes and radios follow the active theme.
+   *
+   * Without this they fall back to the browser's own accent, which reads as a
+   * heavy near-black box on the darker themes. `accent-color` is the one line
+   * that retints the control itself, and it applies everywhere a plain
+   * `<input type="checkbox">` is used rather than the styled component.
+   */
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: hsl(var(--primary));
+    color-scheme: normal;
   }
 
   /* Selection picks up the accent rather than the browser default blue. */
@@ -211,6 +236,36 @@
 }
 
 @layer components {
+  /**
+   * The authenticated application shell.
+   *
+   * One scroll container, always. The shell is pinned to the viewport and
+   * clips, so the only thing that scrolls is the page's own `<main>`. Before
+   * this, a sub-pixel rounding of `h-screen` at 110% browser zoom - or a
+   * fixed-position child a hair taller than the viewport - was enough to give
+   * the document a second scrollbar beside the page's own.
+   */
+  .app-shell {
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  /*
+   * Compact widths move navigation to a top bar and a bottom bar (see
+   * Sidebar). Reserving their space on the shell keeps every page clear of
+   * them without each one having to remember the padding, and the `:has`
+   * guard means shells without a sidebar - the form builder, submissions -
+   * are left exactly as they were.
+   */
+  @media (max-width: 1023px) {
+    .app-shell:has([data-app-navbar]) {
+      padding-top: 3.5rem;
+      padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
+
   /* The mark's gradient. Used for the hero, the sidebar rail and brand panels. */
   .bg-brand-gradient {
     background-image: linear-gradient(
