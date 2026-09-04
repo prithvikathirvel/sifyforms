@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DMS_MAX_FILE_SIZE_MB } from '../lib/formPolicy';
 
 export const ShowConditionOperatorSchema = z.enum([
   'equals', 'notEquals', 'contains', 'notContains',
@@ -326,6 +327,12 @@ export const FormSettingsSchema = z.object({
   }).optional(),
   redirectUrl: z.string().url().optional().nullable(),
   collectTimestamp: z.boolean().default(true),
+  /**
+   * Cloudflare Turnstile on public submissions. On unless explicitly turned
+   * off, so a form saved before this switch existed stays protected.
+   */
+  botProtection: z.boolean().default(true),
+  /** @deprecated Superseded by `botProtection`; kept so old payloads still parse. */
   reCaptcha: z.boolean().default(false),
   customCss: z.string().optional(),
   emailNotification: z.string().email().optional(),
@@ -396,9 +403,11 @@ export const FormSettingsSchema = z.object({
   payment: z.any().optional(),
   partialSubmission: z.any().optional(),
   dms: z.object({
-    enabled: z.boolean(),
-    maxFileSize: z.number().positive().optional(),
-    allowedMimeTypes: z.array(z.string()).optional(),
+    // DMS is the only storage backend now. The flag is still accepted so forms
+    // saved before the change round-trip unchanged, but nothing reads it.
+    enabled: z.boolean().optional(),
+    maxFileSize: z.number().positive().max(DMS_MAX_FILE_SIZE_MB).optional(),
+    allowedMimeTypes: z.array(z.string().max(200)).max(50).optional(),
   }).optional(),
 }).superRefine((settings, ctx) => {
   const strictAnonymous = settings.formType === 'survey' && (settings.survey?.identityMode ?? 'anonymous') === 'anonymous';

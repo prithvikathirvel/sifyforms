@@ -5,6 +5,8 @@ import { Card } from './card';
 import { Upload, X, File, Image, FileText, Download, Eye } from 'lucide-react';
 import { toast } from './toast';
 import type { FormField } from '../../types';
+import { useUploadRules } from '../../hooks/useUploadRules';
+import { acceptAttribute, describeAllowedTypes, describeUploadRejection } from '../../lib/formPolicy';
 
 interface FileUploadProps {
   field: FormField;
@@ -26,10 +28,18 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Form-wide upload rules, matching what the API enforces.
+  const uploadRules = useUploadRules();
+
   const fileConfig = field.fileConfig || {};
-  const accept = fileConfig.accept?.join(',') || '*/*';
+  // The question's own list wins for the picker because it is the narrower,
+  // more specific one; the form's list is still applied on validation.
+  const accept = fileConfig.accept?.length
+    ? fileConfig.accept.join(',')
+    : acceptAttribute(uploadRules.allowedMimeTypes) ?? '*/*';
   const minSize = fileConfig.minSize || 0;
-  const maxSize = fileConfig.maxSize || 5 * 1024 * 1024; // 5MB default
+  const formLimitBytes = uploadRules.maxFileSizeMb * 1024 * 1024;
+  const maxSize = Math.min(fileConfig.maxSize || formLimitBytes, formLimitBytes);
   const multiple = fileConfig.multiple || false;
   const maxFiles = fileConfig.maxFiles || 1;
 
@@ -92,6 +102,13 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
         return `File type ${file.type} is not allowed. Accepted types: ${fileConfig.accept.join(', ')}`;
       }
     }
+
+    // The form's own rules, worded exactly as the API words them.
+    const rejection = describeUploadRejection(
+      { name: file.name, size: file.size, type: file.type },
+      uploadRules,
+    );
+    if (rejection) return rejection;
 
     return null;
   };
@@ -190,8 +207,8 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
   };
 
   const getAcceptedTypesText = () => {
-    if (!fileConfig.accept || fileConfig.accept.length === 0) return 'All files';
-    return fileConfig.accept.join(', ');
+    if (fileConfig.accept && fileConfig.accept.length > 0) return fileConfig.accept.join(', ');
+    return describeAllowedTypes(uploadRules.allowedMimeTypes);
   };
 
   return (

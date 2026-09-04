@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../lib/api';
 import type { MembersState, OrgMember, OrgInvite, IncomingInvite } from '../types';
-import { apiErrorMessage } from '../lib/apiError';
+import { apiErrorMessage, isCancelledPayload } from '../lib/apiError';
 
 /**
  * Organization membership and invitations.
@@ -158,8 +158,10 @@ const membersSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchMembers.fulfilled, (state, action) => {
-        if (action.meta.arg !== localStorage.getItem('currentOrgId')) return;
+        // Clear the spinner before discarding a stale payload, or a reply for
+        // the organization we just left leaves the page loading forever.
         state.isLoading = false;
+        if (action.meta.arg !== localStorage.getItem('currentOrgId')) return;
         state.members = action.payload;
       })
       .addCase(fetchInvites.fulfilled, (state, action) => {
@@ -200,6 +202,7 @@ const membersSlice = createSlice({
         (action) => action.type.startsWith('members/') && action.type.endsWith('/rejected'),
         (state, action: any) => {
           state.isLoading = false;
+          if (isCancelledPayload(action.payload)) return;
           state.error = (action.payload as string) ?? 'Something went wrong';
         }
       );

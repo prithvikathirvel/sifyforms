@@ -3,7 +3,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Checkbox as UICheckbox } from '../ui/checkbox';
-import { X, Check, Settings, Shield, Palette, CreditCard, KeyRound, ClipboardCheck, BarChart2, Loader2, Users, Upload } from 'lucide-react';
+import { X, Check, Settings, Shield, Palette, CreditCard, KeyRound, ClipboardCheck, BarChart2, Loader2, Users, Upload, AlertTriangle } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { updateSettings } from '../../store/builderSlice';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
@@ -21,6 +21,14 @@ const POST_SUBMIT_PRESETS = {
 };
 import type { PaymentConfig, FormAuthentication, PartialSubmissionConfig, FormBrandingSection, BrandingPosition, PostSubmitSettings } from '../../types';
 import { uploadFileAuthenticated, getDownloadUrl } from '../../lib/dms';
+import {
+  DMS_DEFAULT_MAX_FILE_SIZE_MB,
+  DMS_FILE_TYPE_GROUPS,
+  DMS_MAX_FILE_SIZE_MB,
+  describeAllowedTypes,
+  isBotProtectionEnabled,
+  resolveUploadRules,
+} from '../../lib/formPolicy';
 
 interface FormSettingsContentProps {
   formId?: string;
@@ -346,6 +354,8 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
   const paymentCancelUrl = formId ? `${origin}/payment/${formId}/status?cancelled=true` : '';
   const postSubmit: PostSubmitSettings = builder.settings.postSubmit ?? { template: 'minimal', icon: 'check', loadingStyle: 'bar' };
   const updatePostSubmit = (updates: Partial<PostSubmitSettings>) => dispatch(updateSettings({ postSubmit: { ...postSubmit, ...updates } }));
+  const botProtectionOn = isBotProtectionEnabled(builder.settings);
+  const uploadRules = resolveUploadRules(builder.settings.dms);
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-full w-full flex-col bg-card md:flex-row">
@@ -523,84 +533,131 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                   <h2 className="text-base font-semibold text-foreground">Access and security</h2>
                   <p className="mt-1 text-sm text-muted-foreground">Configure storage and safeguards for public respondents.</p>
                 </div>
-                <div className="flex items-center justify-between gap-4 rounded-xl border bg-card p-5 sm:p-6">
-                  <div>
-                    <Label className="text-sm font-medium">Bot protection</Label>
-                    <p className="text-xs text-muted-foreground">Cloudflare Turnstile protects every public submission automatically.</p>
+
+                {/* Bot protection. On by default, because a public form that
+                    anyone can post to will eventually be found by a script.
+                    It can still be turned off — an internal form behind a VPN,
+                    or a page embedded where the challenge cannot render. */}
+                <div className="rounded-xl border bg-card p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <Label htmlFor="bot-protection-toggle" className="cursor-pointer text-sm font-medium">Bot protection</Label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Cloudflare Turnstile checks every public submission for automated traffic. Most people never
+                        see anything — it runs in the background.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2.5">
+                      <span className={`text-[11px] font-semibold uppercase tracking-wider ${botProtectionOn ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {botProtectionOn ? 'On' : 'Off'}
+                      </span>
+                      <UICheckbox
+                        id="bot-protection-toggle"
+                        checked={botProtectionOn}
+                        onCheckedChange={(checked: boolean) => dispatch(updateSettings({ botProtection: checked }))}
+                      />
+                    </div>
                   </div>
-                  <span className="shrink-0 rounded-full border border-primary/15 bg-primary/[0.06] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                    Always on
-                  </span>
+                  {!botProtectionOn && (
+                    <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-medium leading-5 text-amber-900">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Anyone — including automated scripts — can submit this form. Turn this back on if you start
+                        seeing junk responses.
+                      </span>
+                    </p>
+                  )}
                 </div>
 
-                {/* DMS File Storage */}
-                <div className="space-y-3 p-3 border rounded-lg bg-card">
-                  <div className="flex items-center justify-between">
+                {/* File uploads. Every uploaded file goes to the Document
+                    Management System; there is no second storage mode to
+                    choose between, so this only asks for the limits. */}
+                <div className="rounded-xl border bg-card p-5 sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <Label htmlFor="dms-toggle" className="text-sm font-medium cursor-pointer">Enable DMS File Storage</Label>
-                      <p className="text-xs text-muted-foreground">Store uploaded files (file fields, support docs, logos) in the Document Management System instead of inline.</p>
+                      <Label className="text-sm font-medium">File uploads</Label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Files people attach to this form are stored in the Document Management System. These limits
+                        are applied in the browser and checked again on the server.
+                      </p>
                     </div>
-                    <UICheckbox
-                      id="dms-toggle"
-                      checked={builder.settings.dms?.enabled || false}
-                      onCheckedChange={(checked: boolean) =>
-                        dispatch(updateSettings({ dms: { ...builder.settings.dms, enabled: checked } }))
-                      }
-                    />
+                    <span className="shrink-0 rounded-full border border-primary/15 bg-primary/[0.06] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                      DMS storage
+                    </span>
                   </div>
 
-                  {builder.settings.dms?.enabled && (
-                    <div className="space-y-3 pt-2 border-t">
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Max File Size (MB, optional override)</Label>
+                  <div className="mt-5 space-y-5 border-t pt-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="dms-max-size" className="text-xs font-medium text-foreground">Largest file allowed</Label>
+                      <div className="flex max-w-xs items-center gap-2">
                         <Input
+                          id="dms-max-size"
                           type="number"
                           min={1}
-                          max={100}
-                          value={builder.settings.dms?.maxFileSize || ''}
-                          onChange={(e) =>
-                            dispatch(updateSettings({
-                              dms: { ...builder.settings.dms, enabled: true, maxFileSize: e.target.value ? Number(e.target.value) : undefined },
-                            }))
-                          }
-                          placeholder="e.g. 10 (default: no limit)"
+                          max={DMS_MAX_FILE_SIZE_MB}
+                          value={builder.settings.dms?.maxFileSize ?? ''}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value);
+                            const next = e.target.value === '' || !Number.isFinite(raw)
+                              ? undefined
+                              : Math.min(Math.max(Math.round(raw), 1), DMS_MAX_FILE_SIZE_MB);
+                            dispatch(updateSettings({ dms: { ...builder.settings.dms, maxFileSize: next } }));
+                          }}
+                          placeholder={String(DMS_DEFAULT_MAX_FILE_SIZE_MB)}
                         />
+                        <span className="text-xs font-medium text-muted-foreground">MB</span>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Allowed File Types (optional override)</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { label: 'Images', value: 'image/*' },
-                            { label: 'PDFs', value: 'application/pdf' },
-                            { label: 'Documents', value: 'application/msword' },
-                            { label: 'Spreadsheets', value: 'application/vnd.ms-excel' },
-                            { label: 'Text', value: 'text/plain' },
-                          ].map((opt) => {
-                            const current = builder.settings.dms?.allowedMimeTypes || [];
-                            const isSelected = current.includes(opt.value);
-                            return (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => {
-                                  const next = isSelected
-                                    ? current.filter((t: string) => t !== opt.value)
-                                    : [...current, opt.value];
-                                  dispatch(updateSettings({
-                                    dms: { ...builder.settings.dms, enabled: true, allowedMimeTypes: next.length ? next : undefined },
-                                  }));
-                                }}
-                                className={`px-2 py-1 text-xs rounded border transition-colors ${isSelected ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input hover:bg-muted'}`}
-                              >
-                                {opt.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <p className="text-xs text-muted-foreground">Leave empty to allow all file types.</p>
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Currently {uploadRules.maxFileSizeMb} MB per file. Leave blank for the {DMS_DEFAULT_MAX_FILE_SIZE_MB} MB
+                        default; {DMS_MAX_FILE_SIZE_MB} MB is the most any form can accept.
+                      </p>
                     </div>
-                  )}
+
+                    <div className="space-y-2.5">
+                      <Label className="text-xs font-medium text-foreground">Which files people may attach</Label>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {DMS_FILE_TYPE_GROUPS.map((group) => {
+                          const current = builder.settings.dms?.allowedMimeTypes || [];
+                          const isSelected = group.mimeTypes.every((mime) => current.includes(mime));
+                          return (
+                            <button
+                              key={group.value}
+                              type="button"
+                              aria-pressed={isSelected}
+                              onClick={() => {
+                                const next = isSelected
+                                  ? current.filter((t: string) => !group.mimeTypes.includes(t))
+                                  : [...new Set([...current, ...group.mimeTypes])];
+                                dispatch(updateSettings({
+                                  dms: { ...builder.settings.dms, allowedMimeTypes: next.length ? next : undefined },
+                                }));
+                              }}
+                              className={`flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors ${
+                                isSelected
+                                  ? 'border-primary/40 bg-primary/[0.05]'
+                                  : 'border-input bg-background hover:bg-muted/60'
+                              }`}
+                            >
+                              <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                                isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background'
+                              }`}>
+                                {isSelected && <Check className="h-3 w-3" strokeWidth={3} />}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-xs font-semibold text-foreground">{group.label}</span>
+                                <span className="block text-[11px] text-muted-foreground">{group.description}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {uploadRules.allowedMimeTypes.length === 0
+                          ? 'Nothing selected, so every file type is accepted.'
+                          : `People can attach ${describeAllowedTypes(uploadRules.allowedMimeTypes)}. Anything else is refused before it uploads.`}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
               </TabsContent>
@@ -773,7 +830,7 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                     value={builder.settings.header}
                     onChange={(header) => dispatch(updateSettings({ header }))}
                     showLogo
-                    dmsEnabled={builder.settings.dms?.enabled || false}
+                    dmsEnabled
                     orgId={currentOrg?.id}
                     formId={formId}
                   />
@@ -783,7 +840,7 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                     value={builder.settings.footer}
                     onChange={(footer) => dispatch(updateSettings({ footer }))}
                     showLogo
-                    dmsEnabled={builder.settings.dms?.enabled || false}
+                    dmsEnabled
                     orgId={currentOrg?.id}
                     formId={formId}
                   />

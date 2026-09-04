@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from "@reduxjs/toolkit";
 import api from "../lib/api";
 import type { FormsState, Form, FormSchema, FormSettings } from "../types";
-import { apiErrorMessage } from '../lib/apiError';
+import { apiErrorMessage, isCancelledPayload } from '../lib/apiError';
 
 const initialState: FormsState = {
   forms: [],
@@ -164,14 +164,20 @@ const formsSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchForms.fulfilled, (state, action) => {
+        // Clear the spinner first, then decide whether to keep the payload.
+        // Returning early with `isLoading` still set is how a stale reply — one
+        // started before an organization switch and answered after it — used to
+        // pin the forms list on its loading state permanently.
+        state.isLoading = false;
         // Ignore a slower response started before the user switched orgs.
         if (action.payload.requestedOrgId !== localStorage.getItem('currentOrgId')) return;
-        state.isLoading = false;
         state.forms = action.payload.forms;
       })
       .addCase(fetchForms.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        // A cancelled request means the user switched organizations and a newer
+        // fetch is already running; there is nothing to report.
+        state.error = isCancelledPayload(action.payload) ? null : (action.payload as string);
       })
       .addCase(fetchForm.pending, (state) => {
         state.isLoading = true;
@@ -179,14 +185,14 @@ const formsSlice = createSlice({
         state.currentForm = null;
       })
       .addCase(fetchForm.fulfilled, (state, action) => {
-        if (action.payload.requestedOrgId !== localStorage.getItem('currentOrgId')) return;
         state.isLoading = false;
+        if (action.payload.requestedOrgId !== localStorage.getItem('currentOrgId')) return;
         state.currentForm = action.payload.form;
       })
       .addCase(fetchForm.rejected, (state, action) => {
         state.isLoading = false;
         state.currentForm = null;
-        state.error = action.payload as string;
+        state.error = isCancelledPayload(action.payload) ? null : (action.payload as string);
       })
       .addCase(createTemplate.pending, (state) => {
         state.isLoading = true;

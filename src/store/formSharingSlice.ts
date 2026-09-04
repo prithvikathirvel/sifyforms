@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../lib/api';
 import type { FormSharingState, FormAccess, FormShare, AggregateResult } from '../types';
-import { apiErrorMessage } from '../lib/apiError';
+import { apiErrorMessage, isCancelledPayload } from '../lib/apiError';
 
 /**
  * Per-form access: what the signed-in user may do with one form, who else it is
@@ -163,6 +163,7 @@ const formSharingSlice = createSlice({
         (action) => action.type.startsWith('formSharing/') && action.type.endsWith('/rejected'),
         (state, action: any) => {
           state.isLoading = false;
+          if (isCancelledPayload(action.payload)) return;
           state.error = (action.payload as string) ?? 'Something went wrong';
         }
       );

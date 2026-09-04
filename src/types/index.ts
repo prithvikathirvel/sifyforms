@@ -558,7 +558,11 @@ export interface PartialSubmissionConfig {
 }
 
 export interface DmsSettings {
-  enabled: boolean;
+  /**
+   * @deprecated DMS is now the only storage backend; uploads always go there.
+   * Retained so forms saved before the change still parse.
+   */
+  enabled?: boolean;
   maxFileSize?: number; // MB
   allowedMimeTypes?: string[];
 }
@@ -649,6 +653,12 @@ export interface FormSettings {
   postSubmit?: PostSubmitSettings;
   redirectUrl?: string | null;
   collectTimestamp?: boolean;
+  /**
+   * Cloudflare Turnstile on public submissions. Absent means on: forms saved
+   * before this switch existed stay protected.
+   */
+  botProtection?: boolean;
+  /** @deprecated Superseded by `botProtection`. */
   reCaptcha?: boolean;
   customCss?: string;
   theme?: string;
@@ -1007,6 +1017,18 @@ export interface TeamsState {
   currentTeam: TeamDetail | null;
   /** Effective permissions keyed by organization id. */
   permissions: Record<string, EffectivePermissions>;
+  /**
+   * Where the permission lookup for each organization got to.
+   *
+   * The answer alone is not enough state: an absent entry could mean "not asked
+   * yet", "in flight", or "asked and it failed". Only the first of those should
+   * start a new request, and only the second should show a spinner — conflating
+   * them is what leaves a page loading forever after a failed or cancelled
+   * lookup.
+   */
+  permissionStatus: Record<string, 'loading' | 'ready' | 'error'>;
+  /** Why the lookup failed, keyed by organization id, for the retry screen. */
+  permissionError: Record<string, string>;
   isLoading: boolean;
   error: string | null;
 }

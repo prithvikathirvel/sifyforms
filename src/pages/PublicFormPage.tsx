@@ -25,6 +25,8 @@ import FormStepper from '../components/builder/FormStepper';
 import TableField from '../components/ui/TableField';
 import SurveyFieldControl from '../components/fields/SurveyFieldControl';
 import TurnstileWidget from '../components/security/TurnstileWidget';
+import { isBotProtectionEnabled } from '../lib/formPolicy';
+import { UploadRulesProvider } from '../hooks/useUploadRules';
 import { getPublicDownloadUrl, resolveFilesForSubmission, resolveSignatureForSubmission, triggerBrowserDownload } from '../lib/dms';
 import { stableSurveyShuffle } from '../lib/survey';
 import type { Form, FormField, FormLayout, DateConstraint, AssessmentResult, VotingResult, DmsFileReference, FormFileValue } from '../types';
@@ -408,11 +410,16 @@ export default function PublicFormPage() {
   // newer one when the respondent triggers several checks in quick succession.
   const externalValidationSeq = useRef<Record<string, number>>({});
 
-  // Cloudflare Turnstile is mandatory for every public submission. The token is
-  // short-lived, single-use, and verified by the backend before any write.
+  // Cloudflare Turnstile, when the form's owner has left bot protection on
+  // (the default). The token is short-lived, single-use, and verified by the
+  // backend before any write. With protection off there is no widget and no
+  // token, and the API skips the check for this form too.
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [turnstileError, setTurnstileError] = useState<string | null>(null);
+  const botProtectionOn = isBotProtectionEnabled(form?.settings);
+  /** Nothing left to satisfy before this form may be submitted. */
+  const securityCleared = !botProtectionOn || Boolean(turnstileToken);
   const [activeAlert, setActiveAlert] = useState<{ id: string; fieldId: string; message: string; type: 'info' | 'warning' | 'error' | 'success' } | null>(null);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
 
@@ -1390,7 +1397,7 @@ export default function PublicFormPage() {
     const isValid = await trigger();
     if (!isValid) return;
 
-    if (!turnstileToken) {
+    if (botProtectionOn && !turnstileToken) {
       setTurnstileError('Complete the security verification before continuing.');
       return;
     }
@@ -1403,7 +1410,7 @@ export default function PublicFormPage() {
     if (!form) return;
     setSubmissionError(null);
 
-    if (!turnstileToken) {
+    if (botProtectionOn && !turnstileToken) {
       setTurnstileError('Security verification is required before submitting.');
       return;
     }
@@ -1510,7 +1517,8 @@ export default function PublicFormPage() {
 
     setIsSubmitting(true);
     try {
-      const dmsEnabled = form.settings?.dms?.enabled === true;
+      // DMS is the only storage backend; uploads always route through it.
+      const dmsEnabled = true;
       const fieldsById = new Map((form.schema?.fields || []).map((f) => [f.id, f]));
 
       // Convert File objects to base64, or upload pending files/signatures to DMS on final submit
@@ -1589,7 +1597,9 @@ export default function PublicFormPage() {
         submissionResponse = await api.post('/submissions', {
           formId: form.id,
           data: submissionData,
-          turnstileToken,
+          // Omitted entirely when the form has bot protection off, so the API
+          // is not handed an empty string to validate.
+          turnstileToken: turnstileToken || undefined,
           surveySessionToken: form.settings?.formType === 'survey'
             ? localStorage.getItem(`sifyforms:survey-session:${form.id}`) || undefined
             : undefined,
@@ -2253,8 +2263,8 @@ export default function PublicFormPage() {
       }
 
       case 'file': {
-        const dmsEnabled = form?.settings?.dms?.enabled === true;
-        if (dmsEnabled && form?.id) {
+        // Every attachment goes to the Document Management System.
+        if (form?.id) {
           return (
             <>
               <input type="hidden" {...register(field.id, opts)} />
@@ -2426,7 +2436,6 @@ export default function PublicFormPage() {
       }
 
       case 'signature': {
-        const dmsEnabled = form?.settings?.dms?.enabled === true;
         return (
           <>
             <input type="hidden" {...register(field.id, opts)} />
@@ -2435,7 +2444,7 @@ export default function PublicFormPage() {
               value={formValues[field.id] as DmsFileReference | string | null}
               onChange={(val) => setValue(field.id, val, { shouldValidate: true })}
               formId={form?.id}
-              dmsEnabled={dmsEnabled}
+              dmsEnabled
               disabled={isDisabled}
               hideLabel={true}
             />
@@ -2742,20 +2751,22 @@ export default function PublicFormPage() {
                 </div>
               )}
 
-              <div className="space-y-2 border-t pt-4">
-                <TurnstileWidget
-                  siteKey={TURNSTILE_SITE_KEY}
-                  formId={form.id}
-                  resetKey={turnstileResetKey}
-                  onTokenChange={(token) => {
-                    setTurnstileToken(token);
-                    if (token) setTurnstileError(null);
-                  }}
-                />
-                {turnstileError && (
-                  <p role="alert" className="text-xs font-medium text-destructive">{turnstileError}</p>
-                )}
-              </div>
+              {botProtectionOn && (
+                <div className="space-y-2 border-t pt-4">
+                  <TurnstileWidget
+                    siteKey={TURNSTILE_SITE_KEY}
+                    formId={form.id}
+                    resetKey={turnstileResetKey}
+                    onTokenChange={(token) => {
+                      setTurnstileToken(token);
+                      if (token) setTurnstileError(null);
+                    }}
+                  />
+                  {turnstileError && (
+                    <p role="alert" className="text-xs font-medium text-destructive">{turnstileError}</p>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 {previewConfig.allowEdit !== false && (
@@ -2772,7 +2783,7 @@ export default function PublicFormPage() {
                 <Button
                   type="button"
                   onClick={handleSubmit(onSubmit)}
-                  disabled={isSubmitting || !turnstileToken}
+                  disabled={isSubmitting || !securityCleared}
                   className="flex-1"
                 >
                   {isSubmitting ? (
@@ -2832,7 +2843,7 @@ export default function PublicFormPage() {
       return;
     }
 
-    if (!turnstileToken) {
+    if (botProtectionOn && !turnstileToken) {
       setTurnstileError('Security verification is required before submitting.');
       return;
     }
@@ -2930,6 +2941,9 @@ export default function PublicFormPage() {
   }
 
   return (
+    // Every upload control below reads the form's file limits from here, so the
+    // browser refuses the same files the API would.
+    <UploadRulesProvider dms={form?.settings?.dms}>
     <div
       className="public-form-shell min-h-screen bg-background text-foreground transition-colors duration-300"
       data-theme={form?.settings?.theme || 'default'}
@@ -3037,7 +3051,7 @@ export default function PublicFormPage() {
                 />
               </fieldset>
 
-              {(!isMultiStep || isLastStep) && (
+              {botProtectionOn && (!isMultiStep || isLastStep) && (
                 <div className="space-y-2 border-t border-border/70 pt-4">
                   <TurnstileWidget
                     siteKey={TURNSTILE_SITE_KEY}
@@ -3067,7 +3081,7 @@ export default function PublicFormPage() {
                   </Button>
                 )}
                 {(() => {
-                  const securityReady = Boolean(turnstileToken);
+                  const securityReady = securityCleared;
                   const isPreviewEnabled = !isMultiStep && previewConfig?.enabled && !showPreview;
 
                   return isMultiStep && !isLastStep ? (
@@ -3287,5 +3301,6 @@ export default function PublicFormPage() {
         </div>
       )}
     </div>
+    </UploadRulesProvider>
   );
 }

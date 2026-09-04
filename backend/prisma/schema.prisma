@@ -337,8 +337,12 @@ model AuditLog {
 
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
+  // The duplicate-vote guarantee. An index alone only makes the lookup fast;
+  // it is this constraint that makes two simultaneous votes from one identifier
+  // impossible, because the database rejects the second insert rather than
+  // application code losing a race it cannot win.
+  @@unique([formId, identifier])
   @@index([formId])
-  @@index([formId, identifier])
 }
 
 model Draft {

@@ -7,10 +7,12 @@ import { assertResponseLevel, assertFormAction } from './formAccess.service';
 import { viewSubmission, aggregateSubmissions } from './responseView.service';
 import { evaluateShowWhen, validateSubmission } from '../lib/validation';
 import { processAssessment } from '../services/assessment.processor';
-import { checkVotingDuplicate, processVote } from '../services/voting.processor';
+import { ALREADY_VOTED_MESSAGE, checkVotingDuplicate, claimVote, processVote } from '../services/voting.processor';
+import { resolveVoteIdentifier, type DuplicatePrevention } from '../services/voteIdentity';
 import { CreateSubmissionSchema, UpdateSubmissionInput } from '../schemas/submission.schema';
 import { SubmissionListFilter } from '../dao/interfaces/SubmissionDao';
 import { verifyTurnstileToken } from './turnstile.service';
+import { isBotProtectionEnabled } from '../lib/formPolicy';
 import axios from 'axios';
 import crypto from 'crypto';
 import prisma from '../utils/prisma';
@@ -71,15 +73,27 @@ export async function createSubmission(
 
   const { formId, data, turnstileToken, surveySessionToken } = parsed.data;
 
-  // Verify bot protection before database reads, schema processing, external
-  // validation, or any write. Missing, forged, expired, and replayed tokens fail.
-  await verifyTurnstileToken(turnstileToken, ip, formId);
-
+  // Whether bot protection applies is part of the form's settings, so the form
+  // has to be loaded first. Nothing else happens before the check: no schema
+  // processing, no external validation, no write, and no work proportional to
+  // the size of the payload. The one thing an unverified caller can learn is
+  // whether a form id exists and is published, which the public form endpoint
+  // already tells anybody who asks.
   const form = await formDao.findFormById(formId);
   if (!form || !form.isPublished) throw createError(404, 'Form not found or not published');
 
   const schema = JSON.parse(form.schema);
   const settings = JSON.parse(form.settings);
+
+  if (isBotProtectionEnabled(settings)) {
+    if (!turnstileToken) {
+      throw Object.assign(createError(400, 'Invalid submission request'), {
+        details: [{ field: 'turnstileToken', message: 'Security verification is required' }],
+      });
+    }
+    // Missing, forged, expired, and replayed tokens all fail here.
+    await verifyTurnstileToken(turnstileToken, ip, formId);
+  }
 
   if (settings.isFormActive === false) throw createError(403, 'This form is no longer accepting submissions.');
   if (settings.expirationDateTime && new Date() > new Date(settings.expirationDateTime)) {
@@ -94,20 +108,24 @@ export async function createSubmission(
   }
   const finalData = validation.data;
 
-  // Voting duplicate prevention
-  if (settings.formType === 'voting' && settings.voting?.duplicatePrevention !== 'none') {
-    const method = settings.voting?.duplicatePrevention ?? 'ip';
-    let identifier = '';
-    if (method === 'ip') {
-      identifier = ip || 'unknown';
-    } else if (method === 'email') {
-      const emailField = (schema.fields ?? []).find((f: any) => f.type === 'email');
-      identifier = emailField ? String(finalData[emailField.id] ?? '') : '';
-    }
-    if (identifier) {
-      const duplicateError = await checkVotingDuplicate(formId, identifier);
-      if (duplicateError) throw Object.assign(createError(400, duplicateError), { code: 'ALREADY_VOTED' });
-    }
+  // Voting duplicate prevention.
+  //
+  // Two steps, and only the second one is a guarantee. This read turns away the
+  // common case — somebody clicking submit twice, or coming back an hour later
+  // — with a clear message and without writing anything. The race that two
+  // simultaneous votes create is settled after the insert, by a unique
+  // constraint the database enforces.
+  const isVotingForm = settings.formType === 'voting';
+  const votingMethod: DuplicatePrevention = isVotingForm
+    ? (settings.voting?.duplicatePrevention ?? 'ip')
+    : 'none';
+  const voteIdentifier = isVotingForm
+    ? resolveVoteIdentifier(votingMethod, ip, finalData, schema)
+    : null;
+
+  if (voteIdentifier) {
+    const duplicateError = await checkVotingDuplicate(formId, voteIdentifier);
+    if (duplicateError) throw Object.assign(createError(400, duplicateError), { code: 'ALREADY_VOTED' });
   }
 
   // Server-side uniqueness check
@@ -133,6 +151,24 @@ export async function createSubmission(
     userAgent: strictAnonymous ? null : userAgent,
   });
 
+  // Claim the vote before telling anyone the submission succeeded. Whoever
+  // loses the race here has their submission removed again, so a rejected voter
+  // never leaves a row behind.
+  if (voteIdentifier) {
+    let claimed = false;
+    try {
+      claimed = await claimVote(formId, submission.id, voteIdentifier);
+    } catch (error) {
+      await submissionDao.deleteSubmissionById(submission.id).catch(() => undefined);
+      logger.error(`Failed to record vote for form ${formId}`, error);
+      throw createError(500, 'We could not record your vote. Please try again.');
+    }
+    if (!claimed) {
+      await submissionDao.deleteSubmissionById(submission.id).catch(() => undefined);
+      throw Object.assign(createError(400, ALREADY_VOTED_MESSAGE), { code: 'ALREADY_VOTED' });
+    }
+  }
+
   if (settings.formType === 'survey' && surveySessionToken) {
     const tokenHash = crypto.createHash('sha256').update(surveySessionToken).digest('hex');
     await (prisma as any).surveyResponseSession.updateMany({
@@ -151,15 +187,10 @@ export async function createSubmission(
   // Fire-and-forget post-submission processing
   if (settings.formType === 'assessment') {
     setImmediate(() => processAssessment(submission.id));
-  } else if (settings.formType === 'voting') {
-    const method = settings.voting?.duplicatePrevention ?? 'ip';
-    let identifier = '';
-    if (method === 'ip') identifier = ip || 'unknown';
-    else if (method === 'email') {
-      const emailField = (schema.fields ?? []).find((f: any) => f.type === 'email');
-      identifier = emailField ? String(finalData[emailField.id] ?? '') : '';
-    }
-    setImmediate(() => processVote(submission.id, identifier));
+  } else if (isVotingForm) {
+    // Only the tally recomputation is deferred; the vote itself is already
+    // recorded above.
+    setImmediate(() => processVote(submission.id, voteIdentifier ?? ''));
   }
 
   const redirectUrl = settings.redirectUrl || null;

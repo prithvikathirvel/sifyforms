@@ -1,4 +1,5 @@
 import prisma from '../utils/prisma';
+import { isUniqueConstraintViolation } from './voteIdentity';
 
 interface VotingSettings {
   duplicatePrevention?: 'none' | 'ip' | 'email';
@@ -24,7 +25,17 @@ export interface VotingResult {
   lastUpdated: string;
 }
 
-// Called before submission is stored — returns error string if duplicate, null if ok
+export const ALREADY_VOTED_MESSAGE = 'You have already voted on this form.';
+
+/**
+ * A cheap "have they already voted?" read, used only to answer politely before
+ * doing any work.
+ *
+ * This is *not* what stops a double vote. Two requests arriving at the same
+ * moment both see nothing here and both pass; the guarantee comes from
+ * `claimVote` and the unique index behind it. Treat this as a fast path, never
+ * as the check.
+ */
 export async function checkVotingDuplicate(
   formId: string,
   identifier: string
@@ -32,11 +43,41 @@ export async function checkVotingDuplicate(
   const existing = await prisma.auditLog.findFirst({
     where: { formId, identifier },
   });
-  if (existing) return 'You have already voted on this form.';
+  if (existing) return ALREADY_VOTED_MESSAGE;
   return null;
 }
 
-// Called after submission is stored — writes audit log + recomputes tallies
+/**
+ * Record this vote against `identifier`, or fail because someone already has.
+ *
+ * The audit row carries a unique index on `(formId, identifier)`, so the
+ * database — not application code — decides which of several simultaneous
+ * requests wins. Whoever loses gets P2002 and is turned away. This must be
+ * awaited before the caller reports success: the previous version wrote the row
+ * from a `setImmediate` callback after the response had already gone out, which
+ * left a window of tens of milliseconds in which any number of duplicate votes
+ * sailed through, and lost the record entirely if anything before the write
+ * threw.
+ *
+ * Returns true when the claim was made, false when it was already taken.
+ */
+export async function claimVote(
+  formId: string,
+  submissionId: string,
+  identifier: string,
+): Promise<boolean> {
+  try {
+    await prisma.auditLog.create({
+      data: { formId, submissionId, identifier },
+    });
+    return true;
+  } catch (error) {
+    if (isUniqueConstraintViolation(error)) return false;
+    throw error;
+  }
+}
+
+// Called after the vote has been claimed — recomputes aggregate tallies.
 export async function processVote(submissionId: string, identifier: string): Promise<void> {
   try {
     await prisma.submission.update({
@@ -49,15 +90,6 @@ export async function processVote(submissionId: string, identifier: string): Pro
       include: { form: true },
     });
     if (!submission) throw new Error(`Submission ${submissionId} not found`);
-
-    // Write audit log entry
-    await prisma.auditLog.create({
-      data: {
-        formId: submission.formId,
-        submissionId,
-        identifier,
-      },
-    });
 
     // Recompute aggregate tallies from all submissions for this form
     const allSubmissions = await prisma.submission.findMany({

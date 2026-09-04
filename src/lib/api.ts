@@ -42,6 +42,16 @@ export function getAccessToken(): string | null {
 
 let organizationScopeController = new AbortController();
 
+/**
+ * Paths that belong to the person, not to the organization they are looking at.
+ *
+ * Switching organizations aborts the previous scope's in-flight requests, which
+ * is right for org data and actively harmful for these: an aborted
+ * `/auth/session` reads as a failed session, which wipes the signed-in user and
+ * can sign someone out for nothing more than switching workspaces quickly.
+ */
+const SCOPE_EXEMPT_PATHS = ['/auth/'];
+
 /** Abort requests issued for the previous organization before switching scope. */
 export function rotateOrganizationRequestScope(): void {
   organizationScopeController.abort();
@@ -49,7 +59,10 @@ export function rotateOrganizationRequestScope(): void {
 }
 
 api.interceptors.request.use((config) => {
-  config.signal ??= organizationScopeController.signal;
+  const url = config.url ?? '';
+  if (!SCOPE_EXEMPT_PATHS.some((path) => url.startsWith(path))) {
+    config.signal ??= organizationScopeController.signal;
+  }
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }

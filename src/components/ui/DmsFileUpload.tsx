@@ -15,6 +15,8 @@ import {
   triggerBrowserDownload,
   resolveMaxSizeBytes,
 } from '../../lib/dms';
+import { useUploadRules } from '../../hooks/useUploadRules';
+import { acceptAttribute, describeUploadRejection, describeAllowedTypes } from '../../lib/formPolicy';
 
 interface DmsFileUploadProps {
   field: FormField;
@@ -44,9 +46,24 @@ export default function DmsFileUpload({
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Form-wide upload rules. Whatever a single question asks for, the form's
+  // own limits cap it — and they are the limits the API enforces, so applying
+  // them here is what keeps the browser from offering a file that would be
+  // refused after the person has filled everything else in.
+  const uploadRules = useUploadRules();
+
   const fileConfig = field.fileConfig || {};
-  const accept = fileConfig.accept?.join(',') || '*/*';
-  const maxSizeBytes = resolveMaxSizeBytes(fileConfig.maxSize) || 10 * 1024 * 1024;
+  // The question's own list wins for the picker because it is the narrower,
+  // more specific one; the form's list still gates the file on validation, so
+  // anything that slips past the picker is caught before it is accepted.
+  const accept = fileConfig.accept?.length
+    ? fileConfig.accept.join(',')
+    : acceptAttribute(uploadRules.allowedMimeTypes) ?? '*/*';
+  const formLimitBytes = uploadRules.maxFileSizeMb * 1024 * 1024;
+  const maxSizeBytes = Math.min(
+    resolveMaxSizeBytes(fileConfig.maxSize) || formLimitBytes,
+    formLimitBytes,
+  );
   const minSizeBytes = fileConfig.minSize
     ? (fileConfig.minSize > 1024 ? fileConfig.minSize : fileConfig.minSize * 1024 * 1024)
     : 0;
@@ -70,6 +87,12 @@ export default function DmsFileUpload({
       });
       if (!isAccepted) return `File type not allowed. Accepted: ${fileConfig.accept.join(', ')}`;
     }
+    // The form's own rules, worded exactly as the API words them.
+    const rejection = describeUploadRejection(
+      { name: file.name, size: file.size, type: file.type },
+      uploadRules,
+    );
+    if (rejection) return rejection;
     return null;
   };
 
@@ -148,8 +171,8 @@ export default function DmsFileUpload({
   };
 
   const getAcceptedTypesText = () => {
-    if (!fileConfig.accept || fileConfig.accept.length === 0) return 'All files';
-    return fileConfig.accept.join(', ');
+    if (fileConfig.accept && fileConfig.accept.length > 0) return fileConfig.accept.join(', ');
+    return describeAllowedTypes(uploadRules.allowedMimeTypes);
   };
 
   return (

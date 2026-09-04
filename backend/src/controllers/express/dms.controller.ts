@@ -11,6 +11,7 @@ import {
   DMS_FOLDER_MAP_SIGNATURE,
 } from '../../config/dms.config';
 import { resolveMaxSizeBytes } from '../../utils/fileSize';
+import { describeUploadRejection, resolveUploadRules } from '../../lib/formPolicy';
 import logger from '../../utils/logger';
 
 const CONTEXT_TO_FOLDER_MAP: Record<string, string> = {
@@ -103,11 +104,11 @@ export async function publicInitiateUpload(req: Request, res: Response): Promise
       return;
     }
 
+    // DMS is the only storage backend, so there is nothing to enable: every
+    // form with a file field can upload. What the form *can* set is how large
+    // a file may be and which kinds are welcome, and both are enforced below.
     const settings = parseJson(form.settings, {});
-    if (!settings.dms?.enabled) {
-      res.status(StatusCodes.BAD_REQUEST).json({ error: 'File storage is not enabled for this form.' });
-      return;
-    }
+    const uploadRules = resolveUploadRules(settings.dms);
 
     const schema = parseJson(form.schema, {});
     const field = (schema.fields || []).find((f: any) => f.id === fieldId);
@@ -144,22 +145,16 @@ export async function publicInitiateUpload(req: Request, res: Response): Promise
       }
     }
 
-    if (settings.dms.maxFileSize && size && size > settings.dms.maxFileSize * 1024 * 1024) {
-      res.status(StatusCodes.BAD_REQUEST).json({
-        error: `File size exceeds form maximum (${settings.dms.maxFileSize} MB).`,
-      });
+    // The browser applies these same rules before it offers to upload, using
+    // the shared policy module. This is the copy that actually enforces them:
+    // the client check is a courtesy, not a boundary.
+    const rejection = describeUploadRejection(
+      { name: filename, size: Number(size) || 0, type: mimeType || '' },
+      uploadRules,
+    );
+    if (rejection) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: rejection });
       return;
-    }
-    if (settings.dms.allowedMimeTypes?.length && mimeType) {
-      const allowed = settings.dms.allowedMimeTypes as string[];
-      const isAllowed = allowed.some((pattern: string) => {
-        if (pattern.endsWith('/*')) return mimeType.startsWith(pattern.replace('/*', '/'));
-        return mimeType === pattern;
-      });
-      if (!isAllowed) {
-        res.status(StatusCodes.BAD_REQUEST).json({ error: 'File type not allowed by form settings.' });
-        return;
-      }
     }
 
     const ownership = await formDao.findFormOwnership(formId);

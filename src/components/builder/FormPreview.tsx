@@ -18,6 +18,7 @@ import type { FormField, FormSchema, FormSettings, FormLayout } from '../../type
 import { cn } from '../../lib/utils';
 import { FormBranding } from '../ui/FormBranding';
 import SurveyFieldControl from '../fields/SurveyFieldControl';
+import { UploadRulesProvider } from '../../hooks/useUploadRules';
 
 interface FormPreviewProps {
   schema: FormSchema;
@@ -541,7 +542,7 @@ export default function FormPreview({
             }
           }}
           formId={formId}
-          dmsEnabled={settings.dms?.enabled === true}
+          dmsEnabled
         />
         {field.helpText && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
         {error && <p className="text-[13px] text-destructive">{error}</p>}
@@ -624,6 +625,8 @@ export default function FormPreview({
   const isFirstStep = currentStepIndex === 0;
 
   return (
+    // Preview enforces the same upload limits the live form does.
+    <UploadRulesProvider dms={settings.dms}>
     <div className="public-form-shell min-h-full bg-muted/30" data-theme={settings.theme || 'default'}>
       <FormBranding section={settings.header} variant="header" formId={formId} preview />
       <div className="px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -695,5 +698,6 @@ export default function FormPreview({
         </div>
       </div>
     </div>
+    </UploadRulesProvider>
   );
 }

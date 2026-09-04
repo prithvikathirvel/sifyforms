@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { fetchOrganizations } from './store/orgSlice';
 import { getSession, logout, restoreSession } from './store/authSlice';
 import { Loader2 } from 'lucide-react';
+import { isCancelledPayload } from './lib/apiError';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
@@ -68,7 +69,11 @@ function OrgRoute({ children }: { children: React.ReactNode }) {
     if (token && !user) {
       dispatch(getSession())
         .unwrap()
-        .catch(() => setSessionFailed(true));
+        // A cancelled request is not a failed session — treating it as one
+        // would sign the user out for switching organizations too quickly.
+        .catch((reason) => {
+          if (!isCancelledPayload(reason)) setSessionFailed(true);
+        });
     }
   }, [token, user, dispatch]);
 
@@ -94,7 +99,10 @@ function OrgRoute({ children }: { children: React.ReactNode }) {
       }
     };
     fetchData();
-  }, [token, sessionFailed]);
+    // `currentOrg` belongs here: without it a switch that lands on this route
+    // never re-evaluates, and `hasFetched` can stay false while the page shows
+    // nothing but a spinner.
+  }, [token, sessionFailed, currentOrg, dispatch]);
 
   if (!bootstrapped) return <FullPageSpinner />;
   if (!token) return <Navigate to="/auth/login" replace />;

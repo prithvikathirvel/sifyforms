@@ -155,7 +155,8 @@ export default function FieldInspector({
   const dispatch = useAppDispatch();
   const aiSessionId = useAppSelector((state) => state.builder.aiSessionId);
   const formType = useAppSelector((state) => state.builder.settings.formType);
-  const dmsEnabled = useAppSelector((state) => state.builder.settings.dms?.enabled) || false;
+  // DMS is the only storage backend; uploads always route through it.
+  const dmsEnabled = true;
   const currentOrg = useAppSelector((state) => state.org.currentOrg);
 
   const [showAdvancedLinkingModal, setShowAdvancedLinkingModal] = useState(false);

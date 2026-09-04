@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import api from '../lib/api';
 import type { OrgState, Organization } from '../types';
-import { apiErrorMessage } from '../lib/apiError';
+import { apiErrorMessage, isCancelledPayload } from '../lib/apiError';
 
 const initialState: OrgState = {
   currentOrg: null,
@@ -104,7 +104,9 @@ const orgSlice = createSlice({
       })
       .addCase(fetchOrganizations.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        // Cancelled by an organization switch: a newer fetch is already on its
+        // way, so there is nothing to tell the user about.
+        state.error = isCancelledPayload(action.payload) ? null : (action.payload as string);
       })
       .addCase(createOrganization.pending, (state) => {
         state.isLoading = true;

@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/tool
 import api, { refreshSession, setAccessToken } from '../lib/api';
 import type { AuthState, User } from '../types';
 import { RemoveItemsFromLocalStorage } from '../lib/utils';
-import { apiErrorMessage, apiErrorPayload, payloadMessage } from '../lib/apiError';
+import { apiErrorMessage, apiErrorPayload, payloadMessage, isCancelledPayload } from '../lib/apiError';
 
 const initialState: AuthState = {
   user: null,
@@ -210,6 +210,9 @@ const authSlice = createSlice({
       })
       .addCase(getSession.rejected, (state, action) => {
         state.isLoading = false;
+        // A cancelled lookup says nothing about the session. Dropping the user
+        // here would make the app behave as if they had been signed out.
+        if (isCancelledPayload(action.payload)) return;
         state.user = null;
         // Keep the token for transient network failures, but remember the
         // message so the UI can tell a real "user not found" apart from a

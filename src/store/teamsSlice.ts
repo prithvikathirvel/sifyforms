@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../lib/api';
 import type { TeamsState, Team, TeamDetail, EffectivePermissions } from '../types';
-import { apiErrorMessage } from '../lib/apiError';
+import { apiErrorMessage, isCancelledPayload, payloadMessage } from '../lib/apiError';
 
 /**
  * Teams (flat buckets), and the effective permissions the UI gates on.
@@ -14,6 +14,8 @@ const initialState: TeamsState = {
   teams: [],
   currentTeam: null,
   permissions: {},
+  permissionStatus: {},
+  permissionError: {},
   isLoading: false,
   error: null,
 };
@@ -175,8 +177,11 @@ const teamsSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchTeams.fulfilled, (state, action) => {
-        if (action.meta.arg !== localStorage.getItem('currentOrgId')) return;
+        // Always clear the spinner, even when the payload is stale. A reply
+        // that arrives for the organization we just left is not a reason to
+        // keep the page loading forever.
         state.isLoading = false;
+        if (action.meta.arg !== localStorage.getItem('currentOrgId')) return;
         state.teams = action.payload;
       })
       .addCase(fetchTeam.fulfilled, (state, action) => {
@@ -187,12 +192,34 @@ const teamsSlice = createSlice({
           state.currentTeam = null;
         }
       })
+      .addCase(fetchPermissions.pending, (state, action) => {
+        const key = action.meta.arg.orgId;
+        state.permissionStatus[key] = 'loading';
+        delete state.permissionError[key];
+      })
       .addCase(fetchPermissions.fulfilled, (state, action) => {
         state.permissions[action.payload.key] = action.payload.value;
+        state.permissionStatus[action.payload.key] = 'ready';
+        delete state.permissionError[action.payload.key];
+      })
+      .addCase(fetchPermissions.rejected, (state, action) => {
+        const key = action.meta.arg.orgId;
+        if (isCancelledPayload(action.payload)) {
+          // Switching organizations aborts the previous scope's requests. Drop
+          // the status back to "not asked" so the hook issues a fresh lookup
+          // instead of waiting on a reply that will never come.
+          delete state.permissionStatus[key];
+          return;
+        }
+        state.permissionStatus[key] = 'error';
+        state.permissionError[key] = payloadMessage(action.payload, 'Failed to load permissions');
       })
       .addMatcher(
         (action) => action.type.startsWith('teams/') && action.type.endsWith('/rejected'),
         (state, action: any) => {
+          // A cancelled request means a newer one replaced it. Reporting it
+          // would flash "canceled" at the user for a switch they asked for.
+          if (isCancelledPayload(action.payload)) return;
           state.isLoading = false;
           state.error = (action.payload as string) ?? 'Something went wrong';
         }

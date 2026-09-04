@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from './useAppDispatch';
 import { fetchPermissions } from '../store/teamsSlice';
 
@@ -11,21 +11,38 @@ import { fetchPermissions } from '../store/teamsSlice';
  *
  *   const { can, isLoading } = usePermissions();
  *   {can('CREATE_TEAM') && <NewTeamButton />}
+ *
+ * Loading is driven by an explicit per-organization status rather than by "no
+ * answer yet". Inferring it from the absence of an answer cannot tell a request
+ * that is still running from one that failed or was cancelled, so a single
+ * aborted lookup — which happens routinely when someone switches organizations
+ * quickly — used to leave every gated page spinning with no way back.
  */
 export function usePermissions() {
   const dispatch = useAppDispatch();
   const currentOrg = useAppSelector((state) => state.org.currentOrg);
   const permissions = useAppSelector((state) => state.teams.permissions);
+  const permissionStatus = useAppSelector((state) => state.teams.permissionStatus);
+  const permissionError = useAppSelector((state) => state.teams.permissionError);
 
   const orgId = currentOrg?.id;
   const key = orgId ?? '';
   const entry = permissions[key];
+  const status = permissionStatus[key];
+  const error = permissionError[key] ?? null;
 
   useEffect(() => {
-    if (orgId && !entry) {
+    // Only an untouched organization starts a request. 'loading' is already in
+    // flight, 'ready' is answered, and 'error' waits for an explicit retry so a
+    // failing endpoint cannot turn into a request loop.
+    if (orgId && status === undefined) {
       dispatch(fetchPermissions({ orgId }));
     }
-  }, [orgId, entry, dispatch]);
+  }, [orgId, status, dispatch]);
+
+  const retry = useCallback(() => {
+    if (orgId) dispatch(fetchPermissions({ orgId }));
+  }, [orgId, dispatch]);
 
   const actions = useMemo(() => new Set(entry?.actions ?? []), [entry]);
 
@@ -39,7 +56,10 @@ export function usePermissions() {
     /** Role names contributing to this decision, most general first. */
     roles: entry?.roles ?? [],
     orgRole: entry?.orgRole ?? null,
-    isLoading: !!orgId && !entry,
+    isLoading: !!orgId && !entry && status !== 'error',
+    /** Set when the lookup failed outright; pair it with `retry`. */
+    error: entry ? null : error,
+    retry,
   };
 }
 

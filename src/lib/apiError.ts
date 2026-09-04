@@ -19,6 +19,12 @@ export interface ApiFieldError {
   message: string;
 }
 
+/**
+ * Marker message for a cancelled request. Reducers compare against this to
+ * recognise "nothing went wrong, a newer request replaced this one".
+ */
+export const REQUEST_CANCELLED = 'Request cancelled';
+
 interface ErrorEnvelope {
   error?: unknown;
   message?: unknown;
@@ -72,10 +78,32 @@ export function apiFieldErrors(error: unknown): ApiFieldError[] {
 }
 
 /**
+ * True when the request was cancelled rather than answered — an aborted
+ * `AbortController` (we rotate one on every organization switch) or a component
+ * that unmounted mid-flight.
+ *
+ * These are not failures anybody needs to read about: something newer is
+ * already on its way. Callers use this to avoid two mistakes that both look
+ * like a hang — showing "canceled" as an error banner, and leaving a loading
+ * flag pinned because the reply that would have cleared it never arrived.
+ */
+export function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { code?: unknown; name?: unknown; message?: unknown };
+  if (err.code === 'ERR_CANCELED') return true;
+  if (err.name === 'CanceledError' || err.name === 'AbortError') return true;
+  return err.message === 'canceled';
+}
+
+/**
  * The sentence to show a person. Detail messages win over the generic envelope
  * title, so "Validation failed" never reaches the screen on its own.
  */
 export function apiErrorMessage(error: unknown, fallback: string): string {
+  // Axios reports an aborted request as the bare word "canceled". Never let
+  // that reach a person.
+  if (isAbortError(error)) return REQUEST_CANCELLED;
+
   const details = apiFieldErrors(error);
   if (details.length > 0) {
     return details.map((detail) => detail.message).join('\n');
@@ -120,4 +148,15 @@ export function payloadFieldErrors(payload: unknown): ApiFieldError[] {
   }
   // Tolerates a raw response body being handed straight through.
   return apiFieldErrors(payload);
+}
+
+/**
+ * True when a rejected thunk's payload came from a cancelled request.
+ *
+ * Reducers use this to leave the slice exactly as it was: no error banner, and
+ * no loading flag flipped off underneath the newer request that is still in
+ * flight.
+ */
+export function isCancelledPayload(payload: unknown): boolean {
+  return payloadMessage(payload, '') === REQUEST_CANCELLED;
 }

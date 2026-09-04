@@ -14,6 +14,7 @@ import type { FormField, FormSettings } from '../../types';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
+import { isBotProtectionEnabled } from '../../lib/formPolicy';
 
 interface AIFormCreationProps {
   onBack: () => void;
@@ -204,7 +205,9 @@ export default function AIFormCreation({ onBack, onFormGenerated, teamId }: AIFo
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">Bot protection</span>
-                      <span className="rounded-full border border-primary/10 bg-primary/[0.05] px-2 py-0.5 text-[9px] font-semibold text-primary">Turnstile always on</span>
+                      <span className="rounded-full border border-primary/10 bg-primary/[0.05] px-2 py-0.5 text-[9px] font-semibold text-primary">
+                        {isBotProtectionEnabled(generatedForm.settings) ? 'On (Turnstile)' : 'Off'}
+                      </span>
                     </div>
                     {generatedForm.settings.previewConfig && (
                       <div className="flex items-center justify-between gap-4">
