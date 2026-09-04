@@ -17,6 +17,7 @@ import {
 } from '../controllers/express/role.controller';
 import {
   createInvite,
+  createInvitesBulk,
   listOrgInvites,
   revokeInvite,
 } from '../controllers/express/invite.controller';
@@ -37,7 +38,7 @@ import { authMiddleware, orgMiddleware } from '../middleware/auth.middleware';
 import { requirePermission } from '../middleware/permission.middleware';
 import { ACTIONS } from '../config/rbac.config';
 import { CreateOrgSchema, UpdateOrgSchema } from '../schemas/org.schema';
-import { CreateInviteSchema, UpdateOrgUserRoleSchema } from '../schemas/invite.schema';
+import { BulkInviteSchema, CreateInviteSchema, UpdateOrgUserRoleSchema } from '../schemas/invite.schema';
 import { CreateRoleSchema } from '../schemas/role.schema';
 import {
   CreateTeamSchema,
@@ -96,6 +97,13 @@ router.post(
   requirePermission(ACTIONS.INVITE_USER),
   validate(CreateInviteSchema),
   createInvite
+);
+router.post(
+  '/:orgId/invites/bulk',
+  orgMiddleware,
+  requirePermission(ACTIONS.INVITE_USER),
+  validate(BulkInviteSchema),
+  createInvitesBulk
 );
 router.get(
   '/:orgId/invites',

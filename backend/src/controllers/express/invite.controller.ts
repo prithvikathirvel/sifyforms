@@ -31,6 +31,25 @@ export async function createInvite(req: AuthRequest, res: Response): Promise<voi
   }
 }
 
+/**
+ * Invite a list of people in one request.
+ *
+ * 200 rather than 201: the response describes a set of outcomes, most of which
+ * may be refusals, so it is not the creation of one identifiable resource. The
+ * status code says "here is the report"; the report says what happened.
+ */
+export async function createInvitesBulk(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const orgId = getParamString(req.params.orgId);
+    const { invites, defaultRole } = req.body;
+    logger.info('Express --> createInvitesBulk --> Request', { orgId, count: invites?.length ?? 0 });
+    const result = await inviteService.createInvitesBulk(orgId, req.user!.id, invites, defaultRole);
+    res.status(StatusCodes.OK).json(result);
+  } catch (error: any) {
+    handleError(res, 'createInvitesBulk', error);
+  }
+}
+
 export async function listOrgInvites(req: AuthRequest, res: Response): Promise<void> {
   try {
     const orgId = getParamString(req.params.orgId);

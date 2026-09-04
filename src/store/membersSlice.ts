@@ -64,6 +64,47 @@ export const inviteMember = createAsyncThunk(
   }
 );
 
+/** The server's report on one row of a bulk invite. */
+export interface BulkInviteRowResult {
+  row: number;
+  email: string;
+  status: 'invited' | 'skipped' | 'failed';
+  reason?: string;
+}
+
+export interface BulkInviteResult {
+  invited: number;
+  skipped: number;
+  failed: number;
+  results: BulkInviteRowResult[];
+}
+
+/**
+ * Invite many people in one request.
+ *
+ * Deliberately not `invites.map(inviteMember)`. Sixty separate requests means
+ * sixty chances to be rate-limited halfway through and no way to tell the admin
+ * which ones landed; one request returns one report.
+ */
+export const inviteMembersBulk = createAsyncThunk(
+  'members/inviteMembersBulk',
+  async (
+    { orgId, invites, defaultRole }: {
+      orgId: string;
+      invites: Array<{ email: string; role?: string }>;
+      defaultRole: string;
+    },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await api.post(`/orgs/${orgId}/invites/bulk`, { invites, defaultRole });
+      return response.data as BulkInviteResult;
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Could not send the invitations'));
+    }
+  }
+);
+
 export const revokeInvite = createAsyncThunk(
   'members/revokeInvite',
   async ({ orgId, inviteId }: { orgId: string; inviteId: string }, { rejectWithValue }) => {

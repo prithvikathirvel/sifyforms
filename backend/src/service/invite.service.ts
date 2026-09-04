@@ -8,7 +8,7 @@ import {
 import { UMS_ROLE_MIRROR_ENABLED } from '../config/ums.config';
 import { resolveRoleId } from './rbac.client';
 import { enqueueQuietly } from './ums.outbox';
-import { assertRoleAssignable } from './role.service';
+import { assertRoleAssignable, assignableRoleNames } from './role.service';
 import { invalidatePermissions } from './permission.service';
 import { createError } from '../utils/errors';
 import logger from '../utils/logger';
@@ -74,6 +74,173 @@ export async function createInvite(
 
   logger.info('InviteService --> createInvite', { orgId, email: normalizedEmail, role: roleName });
   return invite;
+}
+
+/**
+ * The outcome of a single row in a bulk invitation.
+ *
+ * `row` is the 1-based position in the list the admin submitted, which is the
+ * only identifier they have for a line they typed. Reporting failures by email
+ * alone is useless when the failure is that the email is unparseable.
+ */
+export interface BulkInviteRowResult {
+  row: number;
+  email: string;
+  status: 'invited' | 'skipped' | 'failed';
+  /** Present on skipped and failed rows; safe to show to the admin verbatim. */
+  reason?: string;
+}
+
+export interface BulkInviteResult {
+  invited: number;
+  skipped: number;
+  failed: number;
+  results: BulkInviteRowResult[];
+}
+
+/*
+ * Deliberately stricter than the browser's own `type="email"`, and deliberately
+ * not RFC 5322. The full grammar accepts quoted local parts and bracketed IP
+ * literals that no invite list ever contains and that would sail past a
+ * hand-check; what an admin actually pastes are ordinary addresses with the
+ * occasional stray comma, space or trailing semicolon. This rejects those.
+ */
+const EMAIL_PATTERN = /^[^\s@,;<>"']+@[^\s@,;<>"'.]+(\.[^\s@,;<>"'.]+)+$/;
+
+/**
+ * Invite many people at once.
+ *
+ * The governing decision is that this is not atomic and must not be. An admin
+ * pasting sixty addresses will have a typo in one of them, and rolling back the
+ * other fifty-nine to punish that typo is the behaviour of a system that has
+ * confused correctness with usefulness. Each row succeeds or fails alone and
+ * every outcome comes back described, so the admin can fix three lines and
+ * re-paste rather than start again.
+ *
+ * "Already a member" and "already invited" are reported as *skipped*, not
+ * failed. Re-pasting a list that overlaps with last week's is the normal way
+ * this feature gets used, and the correct outcome — that person is in the org —
+ * has already been achieved. Calling that an error trains people to ignore the
+ * error count.
+ *
+ * Rows run sequentially. The lookups per row are cheap but they are writes
+ * against a shared org, and firing 200 of them concurrently to save a second on
+ * an action performed once a quarter is a bad trade against connection-pool
+ * exhaustion.
+ */
+export async function createInvitesBulk(
+  orgId: string,
+  inviterId: string,
+  rows: Array<{ email: string; role?: string }>,
+  defaultRole: string = DEFAULT_ORG_MEMBER_ROLE
+): Promise<BulkInviteResult> {
+  const org = await orgDao.findOrgById(orgId);
+  if (!org) {
+    throw createError(404, 'Organization not found');
+  }
+
+  // Resolved once for the whole batch rather than once per row: the role list
+  // cannot change mid-request, and this is the difference between one lookup
+  // and two hundred.
+  const assignable = await assignableRoleNames(orgId);
+  const assignableSet = new Set(assignable.map((name) => name.toLowerCase()));
+
+  const results: BulkInviteRowResult[] = [];
+  // Duplicates *within the submitted list* are the most common paste error and
+  // the server has to catch them: the second occurrence would otherwise
+  // silently overwrite the first via upsert, with a different role.
+  const seen = new Map<string, number>();
+
+  for (let index = 0; index < rows.length; index += 1) {
+    const raw = rows[index];
+    const row = index + 1;
+    const email = normalizeEmail(String(raw?.email ?? ''));
+
+    if (!email) {
+      results.push({ row, email: '', status: 'failed', reason: 'No email address on this line' });
+      continue;
+    }
+    if (email.length > 320) {
+      results.push({ row, email, status: 'failed', reason: 'Email address is too long' });
+      continue;
+    }
+    if (!EMAIL_PATTERN.test(email)) {
+      results.push({ row, email, status: 'failed', reason: 'Not a valid email address' });
+      continue;
+    }
+
+    const firstSeenAt = seen.get(email);
+    if (firstSeenAt !== undefined) {
+      results.push({ row, email, status: 'skipped', reason: `Same address as line ${firstSeenAt}` });
+      continue;
+    }
+    seen.set(email, row);
+
+    const role = (raw?.role ?? '').trim() || defaultRole;
+    if (!assignableSet.has(role.toLowerCase())) {
+      results.push({
+        row,
+        email,
+        status: 'failed',
+        reason: `Role "${role}" is not one you can assign. Available: ${assignable.join(', ')}`,
+      });
+      continue;
+    }
+    // Use the canonical casing the org defined, not whatever was typed.
+    const roleName = assignable.find((name) => name.toLowerCase() === role.toLowerCase()) as string;
+
+    try {
+      const existingUser = await userDao.findUserByEmail(email);
+      if (existingUser) {
+        const member = await orgDao.findOrgMember(orgId, existingUser.id);
+        if (member || org.ownerId === existingUser.id) {
+          results.push({ row, email, status: 'skipped', reason: 'Already a member of this organization' });
+          continue;
+        }
+      }
+
+      const existingInvite = await inviteDao.findInviteByOrgAndEmail(orgId, email);
+      if (existingInvite?.inviteStatus === 'PENDING') {
+        results.push({ row, email, status: 'skipped', reason: 'Already has a pending invitation' });
+        continue;
+      }
+
+      const roleId = await resolveRoleId(roleName, orgId);
+      await inviteDao.upsertInvite({ email, orgId, roleId, role: roleName, invitedBy: inviterId });
+      results.push({ row, email, status: 'invited' });
+    } catch (error) {
+      // One row's failure is that row's failure. Anything unexpected is logged
+      // with its position so it can be traced, and reported without leaking the
+      // internals to the admin's screen: only a deliberate 4xx from our own
+      // code carries a message safe to repeat back.
+      logger.error('InviteService --> createInvitesBulk --> row failed', { orgId, row, email, error });
+      const known = error as { statusCode?: number; message?: string };
+      results.push({
+        row,
+        email,
+        status: 'failed',
+        reason: known?.statusCode && known.statusCode < 500 && known.message
+          ? known.message
+          : 'Could not be invited. Try this address again.',
+      });
+    }
+  }
+
+  const summary: BulkInviteResult = {
+    invited: results.filter((entry) => entry.status === 'invited').length,
+    skipped: results.filter((entry) => entry.status === 'skipped').length,
+    failed: results.filter((entry) => entry.status === 'failed').length,
+    results,
+  };
+
+  logger.info('InviteService --> createInvitesBulk', {
+    orgId,
+    total: rows.length,
+    invited: summary.invited,
+    skipped: summary.skipped,
+    failed: summary.failed,
+  });
+  return summary;
 }
 
 export async function listOrgInvites(orgId: string, status?: InviteStatus) {

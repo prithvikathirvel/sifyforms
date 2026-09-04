@@ -5,6 +5,7 @@ import {
   fetchMembers,
   fetchInvites,
   inviteMember,
+  inviteMembersBulk,
   revokeInvite,
   updateMemberRole,
   removeMember,
@@ -13,6 +14,7 @@ import {
 import { usePermissions, ACTIONS, useRoleOptions, roleLabel } from '../hooks/usePermissions';
 import { fetchRoles } from '../store/rolesSlice';
 import { toast } from '../components/ui/toast';
+import BulkInviteDialog from '../components/members/BulkInviteDialog';
 import type { OrgInvite, OrgMember } from '../types';
 import Sidebar from '../components/layout/Sidebar';
 import PageHeader from '../components/layout/PageHeader';
@@ -74,6 +76,8 @@ export default function MembersPage() {
   const orgRoleOptions = useRoleOptions();
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('CREATOR');
   const [submitting, setSubmitting] = useState(false);
@@ -115,6 +119,40 @@ export default function MembersPage() {
     } else {
       toast.error({ title: 'Could not send invitation', description: result.payload as string });
     }
+  };
+
+  /**
+   * Send a whole list.
+   *
+   * The invite list is refetched rather than patched into place from the
+   * response: a bulk run can create dozens of rows and can also refresh
+   * existing ones, and reconciling that in the reducer would be a second,
+   * subtly different copy of logic the server already performed correctly.
+   * Returning the report hands the dialog what it needs to explain itself.
+   */
+  const onBulkInvite = async (
+    entries: Array<{ email: string; role?: string }>,
+    defaultRole: string,
+  ) => {
+    if (!orgId) return null;
+    setBulkSubmitting(true);
+    const result = await dispatch(inviteMembersBulk({ orgId, invites: entries, defaultRole }));
+    setBulkSubmitting(false);
+
+    if (!inviteMembersBulk.fulfilled.match(result)) {
+      toast.error({ title: 'Could not send the invitations', description: result.payload as string });
+      return null;
+    }
+
+    dispatch(fetchInvites(orgId));
+    setInvitesPage(1);
+    if (result.payload.invited > 0) {
+      toast.success({
+        title: `${result.payload.invited} invitation${result.payload.invited === 1 ? '' : 's'} sent`,
+        description: 'They will see it the next time they sign in.',
+      });
+    }
+    return result.payload;
   };
 
   const onRoleChange = async (userId: string, nextRole: string) => {
@@ -287,11 +325,22 @@ export default function MembersPage() {
           title="Members"
           description={`People and invitations in ${currentOrg?.name ?? 'this organization'}`}
           actions={canInvite ? (
-            <Button onClick={() => setInviteOpen(true)} className="h-9 rounded-lg px-3.5">
-              <UserPlus className="mr-2 h-4 w-4" strokeWidth={1.9} />
-              <span className="hidden sm:inline">Invite member</span>
-              <span className="sm:hidden">Invite</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Bulk is the secondary button because inviting one person is
+                  the common case; it is still a button rather than an item in
+                  an overflow menu, because somebody with a list to import will
+                  not go looking for it. */}
+              <Button variant="outline" onClick={() => setBulkOpen(true)} className="h-9 rounded-lg px-3.5">
+                <Users className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                <span className="hidden sm:inline">Import a list</span>
+                <span className="sm:hidden">Import</span>
+              </Button>
+              <Button onClick={() => setInviteOpen(true)} className="h-9 rounded-lg px-3.5">
+                <UserPlus className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                <span className="hidden sm:inline">Invite member</span>
+                <span className="sm:hidden">Invite</span>
+              </Button>
+            </div>
           ) : undefined}
         />
 
@@ -349,6 +398,15 @@ export default function MembersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <BulkInviteDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        roleOptions={orgRoleOptions}
+        defaultRole={orgRoleOptions.some((option) => option.value === 'CREATOR') ? 'CREATOR' : (orgRoleOptions[0]?.value ?? 'CREATOR')}
+        submitting={bulkSubmitting}
+        onSubmit={onBulkInvite}
+      />
     </div>
   );
 }
