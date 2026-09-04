@@ -3,873 +3,2231 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SifyForms — Editor v2 (design mockup)</title>
+<title>SifyForms — Form Editor (v2)</title>
 <!--
-  A single-file, dependency-free mockup of the editor described in
-  docs/EDITOR_V2_DESIGN.md. Every colour, radius and type size is taken from
-  the real tailwind.config.js and index.css so this can be judged as the
-  product rather than as a wireframe.
+  A faithful replica of the SifyForms form editor with the v2 changes applied.
 
-  It is interactive on purpose: the argument in the design doc is about what
-  happens when you click things, and that cannot be evaluated from a picture.
-  Open it in any browser — there is no build step and no network dependency.
+  Structure, spacing, colour, type scale and copy are taken from the real
+  source: FormBuilderPage.tsx, FieldPalette.tsx, SortableField.tsx,
+  FieldInspector.tsx, SettingsPanel.tsx, LayoutConfigPanel.tsx,
+  FormSettingsContent.tsx, FormPreview.tsx and index.css / tailwind.config.js.
+
+  Everything works client-side. No build step, no network, no backend.
 -->
 <style>
-  /* ---- tokens, lifted verbatim from the product ------------------------ */
-  :root{
-    --background:0 0% 100%; --foreground:222 47% 11%;
-    --workspace:225 25% 97%; --card:0 0% 100%;
-    --primary:265 67% 36%; --primary-foreground:0 0% 100%;
-    --muted:220 20% 98%; --muted-foreground:215 16% 47%;
-    --accent:270 45% 96%; --accent-foreground:265 67% 30%;
-    --destructive:352 72% 50%; --success:158 62% 32%; --warning:32 88% 36%;
-    --border:214 24% 90%; --input:214 24% 88%; --ring:265 67% 42%;
-    --radius:0.625rem;
-    --ink-50:#F8FAFC; --ink-100:#F1F5F9; --ink-200:#E2E8F0; --ink-300:#CBD5E1;
-    --ink-400:#94A3B8; --ink-500:#64748B; --ink-600:#475569; --ink-700:#334155;
-    --ink-800:#1E293B; --ink-900:#0F172A;
-    --brand-600:#521E99;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
-  body{
-    font-family:Inter,"Inter Variable",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    background:hsl(var(--workspace));color:hsl(var(--foreground));
-    font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
-  }
-  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
-  input,textarea,select{font:inherit;color:inherit}
-  ::selection{background:hsl(var(--primary)/.18)}
+:root{
+  --background:0 0% 100%; --foreground:222 47% 11%; --workspace:225 25% 97%;
+  --card:0 0% 100%; --popover:0 0% 100%;
+  --primary:265 67% 36%; --primary-foreground:0 0% 100%;
+  --secondary:220 20% 97%; --muted:220 20% 98%; --muted-foreground:215 16% 47%;
+  --accent:270 45% 96%; --accent-foreground:265 67% 30%;
+  --destructive:352 72% 50%; --success:158 62% 32%; --warning:32 88% 36%;
+  --border:214 24% 90%; --input:214 24% 88%; --ring:265 67% 42%; --radius:.625rem;
+  --ink-50:#F8FAFC;--ink-100:#F1F5F9;--ink-200:#E2E8F0;--ink-300:#CBD5E1;--ink-400:#94A3B8;
+  --ink-500:#64748B;--ink-600:#475569;--ink-700:#334155;--ink-800:#1E293B;--ink-900:#0F172A;
+  --plum-50:#F4F1FA;--plum-100:#E9E3F5;--plum-200:#D5C9EC;--plum-800:#4A2A6E;
+  --brand-50:#F7F4FB;--brand-100:#EEE8F6;--brand-600:#521E99;--brand-700:#451980;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:Inter,"Inter Variable",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:14px;line-height:1.5;background:hsl(var(--workspace));color:hsl(var(--foreground));
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;text-align:inherit}
+input,textarea,select{font:inherit;color:inherit}
+::selection{background:hsl(var(--primary)/.18)}
+.scrollbar-subtle::-webkit-scrollbar{width:8px;height:8px}
+.scrollbar-subtle::-webkit-scrollbar-thumb{background:hsl(var(--foreground)/.18);border-radius:8px}
+.scrollbar-subtle::-webkit-scrollbar-track{background:transparent}
 
-  /* ---- primitives ------------------------------------------------------ */
-  .btn{display:inline-flex;align-items:center;gap:.5rem;height:36px;padding:0 14px;
-       border-radius:var(--radius);font-size:13px;font-weight:600;
-       border:1px solid transparent;transition:background .12s,border-color .12s,color .12s;white-space:nowrap}
-  .btn-primary{background:hsl(var(--primary));color:#fff}
-  .btn-primary:hover{background:hsl(var(--primary)/.9)}
-  .btn-outline{border-color:hsl(var(--border));background:hsl(var(--card));color:hsl(var(--foreground))}
-  .btn-outline:hover{background:var(--ink-50)}
-  .btn-ghost{color:hsl(var(--muted-foreground))}
-  .btn-ghost:hover{background:var(--ink-100);color:hsl(var(--foreground))}
-  .btn-sm{height:30px;padding:0 10px;font-size:12px}
-  .icon{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;
-        stroke-linecap:round;stroke-linejoin:round}
-  .icon-sm{width:14px;height:14px}
+/* ---------- primitives mirroring components/ui ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.375rem;border-radius:8px;
+  font-weight:500;transition:background-color .12s,border-color .12s,color .12s;white-space:nowrap;
+  border:1px solid transparent;height:36px;padding:0 14px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:hsl(var(--primary));color:#fff}
+.btn-primary:hover:not(:disabled){background:hsl(var(--primary)/.9)}
+.btn-outline{border-color:hsl(var(--input));background:hsl(var(--background))}
+.btn-outline:hover:not(:disabled){background:hsl(var(--muted));border-color:hsl(var(--border))}
+.btn-ghost{color:hsl(var(--foreground))}
+.btn-ghost:hover:not(:disabled){background:hsl(var(--muted))}
+.btn-soft{border:1px solid hsl(var(--primary)/.2);background:hsl(var(--primary)/.07);
+  color:hsl(var(--primary));font-size:12px;height:32px;width:100%}
+.btn-soft:hover{border-color:hsl(var(--primary)/.3);background:hsl(var(--primary)/.12)}
+.btn-xs{height:28px;padding:0 10px;font-size:12px}
+.btn-sm{height:32px;padding:0 12px;font-size:12px}
+.btn-ico{width:28px;height:28px;padding:0}
+.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.i-sm{width:14px;height:14px}.i-xs{width:12px;height:12px}
+.inp{display:block;width:100%;height:36px;border-radius:8px;border:1px solid hsl(var(--input));
+  background:hsl(var(--background));padding:0 12px;font-size:13px;transition:border-color .12s,box-shadow .12s}
+.inp:focus{outline:none;border-color:hsl(var(--ring));box-shadow:0 0 0 3px hsl(var(--ring)/.14)}
+.inp::placeholder{color:hsl(var(--muted-foreground)/.75)}
+textarea.inp{height:auto;padding:8px 12px;resize:vertical;line-height:1.55}
+select.inp{padding-right:28px;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;background-size:14px}
+.lbl{display:block;font-size:13px;font-weight:500;line-height:1.4}
+.hint{font-size:10px;color:hsl(var(--muted-foreground));line-height:1.5}
+.cb{width:16px;height:16px;flex:none;border-radius:4px;border:1.5px solid hsl(var(--input));
+  background:#fff;display:grid;place-items:center;cursor:pointer;transition:.12s}
+.cb.on{background:hsl(var(--primary));border-color:hsl(var(--primary));color:#fff}
+.cb svg{width:11px;height:11px;stroke-width:3.4;opacity:0}
+.cb.on svg{opacity:1}
+.rd{width:16px;height:16px;flex:none;border-radius:50%;border:1.5px solid hsl(var(--input));
+  background:#fff;display:grid;place-items:center;cursor:pointer}
+.rd.on{border-color:hsl(var(--primary))}
+.rd.on::after{content:"";width:8px;height:8px;border-radius:50%;background:hsl(var(--primary))}
+.sw{width:34px;height:19px;border-radius:999px;background:var(--ink-300);position:relative;
+  transition:.15s;flex:none;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+  background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.sw.on{background:hsl(var(--primary))}.sw.on::after{transform:translateX(15px)}
+.row{display:flex;align-items:center;gap:8px}
+.sp{flex:1}
+.stack{display:flex;flex-direction:column}
+.gap2{gap:8px}.gap3{gap:12px}.gap4{gap:16px}
 
-  /* ---- shell ----------------------------------------------------------- */
-  .shell{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+/* ---------- app shell (FormBuilderPage) ---------- */
+.app-shell{height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:hsl(var(--workspace))}
+header.hdr{position:relative;flex:none;border-bottom:1px solid hsl(var(--border)/.7);background:hsl(var(--card))}
+.hdr-in{display:flex;height:56px;align-items:center;gap:4px;padding:0 12px}
+.hdr-l{display:flex;min-width:0;flex:1;align-items:center;gap:4px}
+.divv{height:16px;width:1px;flex:none;background:hsl(var(--border)/.7)}
+.name-btn{display:flex;min-width:0;max-width:240px;align-items:center;gap:6px;border-radius:6px;
+  padding:4px 6px}
+.name-btn:hover{background:hsl(var(--muted))}
+.name-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}
+.name-btn svg{opacity:0;color:hsl(var(--muted-foreground));transition:.12s}
+.name-btn:hover svg{opacity:1}
+.name-inp{height:28px;max-width:220px;min-width:120px;border:1px solid hsl(var(--input));
+  border-radius:6px;background:hsl(var(--background));padding:0 8px;font-size:12px;font-weight:600}
+.name-inp:focus{outline:none;border-color:hsl(var(--ring));box-shadow:0 0 0 3px hsl(var(--ring)/.14)}
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 8px;
+  font-size:10px;font-weight:600;white-space:nowrap}
+.pill .d{width:6px;height:6px;border-radius:50%}
+.pill-draft{background:hsl(var(--muted));color:hsl(var(--muted-foreground))}
+.pill-draft .d{background:hsl(var(--muted-foreground)/.5)}
+.pill-live{background:rgb(34 197 94/.1);color:rgb(22 163 74)}
+.pill-live .d{background:rgb(34 197 94)}
+.pill-dirty{background:rgb(245 158 11/.1);color:rgb(217 119 6)}
+.pill-dirty .d{background:rgb(245 158 11)}
+/* v2: autosave sentence replaces the Save button */
+.autosave{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;
+  color:hsl(var(--muted-foreground));white-space:nowrap}
+.autosave .d{width:6px;height:6px;border-radius:50%;background:hsl(var(--success))}
+.autosave.busy .d{background:hsl(var(--warning));animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+/* v2: mode switch moved left, out of the absolute-centre collision */
+.modes{display:flex;align-items:center;border-radius:8px;background:var(--ink-100);padding:2px;flex:none}
+.mode{display:flex;height:28px;align-items:center;gap:6px;border-radius:6px;padding:0 12px;
+  font-size:11px;font-weight:500;color:hsl(var(--muted-foreground));text-transform:capitalize;transition:.12s}
+.mode:hover{color:hsl(var(--foreground))}
+.mode.on{background:hsl(var(--card));color:hsl(var(--foreground));box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.mode .badge{display:inline-grid;place-items:center;min-width:15px;height:15px;padding:0 4px;
+  border-radius:999px;background:hsl(var(--primary));color:#fff;font-size:9px;font-weight:700}
+.hdr-r{display:flex;flex:1;align-items:center;justify-content:flex-end;gap:6px}
+.menu-wrap{position:relative}
+.dropdown{position:absolute;right:0;top:100%;z-index:60;margin-top:4px;width:190px;border-radius:8px;
+  border:1px solid hsl(var(--border));background:hsl(var(--popover));padding:4px;
+  box-shadow:0 10px 30px hsl(var(--foreground)/.1);display:none}
+.dropdown.open{display:block}
+.dropdown button{display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;
+  padding:6px 12px;font-size:12px;font-weight:500}
+.dropdown button:hover{background:hsl(var(--muted))}
+.dropdown button svg{color:hsl(var(--muted-foreground))}
 
-  header.topbar{
-    flex:none;background:hsl(var(--card));border-bottom:1px solid hsl(var(--border));
-    display:flex;align-items:center;gap:16px;padding:0 16px;height:60px;
-  }
-  .brand{display:flex;align-items:center;gap:10px;flex:none}
-  .brand-mark{width:28px;height:28px;border-radius:8px;flex:none;
-    background:linear-gradient(135deg,#521E99 0%,#8B2FB0 50%,#EC4899 100%);
-    display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px}
-  .form-title{min-width:0}
-  .form-title input{
-    display:block;width:100%;max-width:340px;border:1px solid transparent;background:transparent;
-    font-size:15px;font-weight:700;letter-spacing:-.01em;padding:3px 8px;margin-left:-8px;border-radius:8px}
-  .form-title input:hover{background:var(--ink-50)}
-  .form-title input:focus{outline:none;border-color:hsl(var(--ring));background:#fff;
-    box-shadow:0 0 0 3px hsl(var(--ring)/.15)}
+/* ---------- editor body ---------- */
+.editor{min-height:0;flex:1;display:flex}
+aside.palette{position:relative;flex:none;overflow:hidden;border-right:1px solid hsl(var(--border)/.7);
+  background:hsl(var(--card));width:240px;display:flex;flex-direction:column}
+aside.inspector{position:relative;flex:none;overflow:hidden;border-left:1px solid hsl(var(--border)/.7);
+  background:hsl(var(--card));width:320px;display:flex;flex-direction:column}
+.resizer{z-index:10;width:4px;flex:none;cursor:col-resize;background:transparent;transition:background .12s}
+.resizer:hover{background:hsl(var(--primary)/.4)}
+main.canvas{min-width:0;flex:1;overflow-y:auto;background:hsl(var(--workspace))}
+.pal-head{flex:none;border-bottom:1px solid hsl(var(--border)/.7);padding:12px 14px}
+.pal-head h2{font-size:12px;font-weight:600}
+.pal-head p{margin-top:2px;font-size:10px;font-weight:500;color:hsl(var(--muted-foreground));line-height:1.45}
+.pal-body{min-height:0;flex:1;overflow-y:auto;padding:8px}
 
-  /* The state line: a sentence, not two competing buttons. */
-  .statusline{display:flex;align-items:center;gap:8px;font-size:12px;
-    color:hsl(var(--muted-foreground));padding-left:8px;margin-top:1px}
-  .pill{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;
-    border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
-  .pill-draft{background:var(--ink-100);color:var(--ink-600)}
-  .pill-live{background:hsl(var(--success)/.1);color:hsl(var(--success))}
-  .pill-dirty{background:hsl(var(--warning)/.12);color:hsl(var(--warning))}
-  .saving-dot{width:6px;height:6px;border-radius:50%;background:var(--ink-300);flex:none}
-  .saving-dot.on{background:hsl(var(--success))}
-  .saving-dot.busy{background:hsl(var(--warning));animation:pulse 1s infinite}
-  @keyframes pulse{50%{opacity:.35}}
-  .spacer{flex:1}
+/* v2 §3.2 — intentions replace the widget list */
+.intent{display:flex;width:100%;align-items:center;gap:8px;border-radius:8px;
+  border:1px solid transparent;background:hsl(var(--card));padding:7px 8px;transition:.12s}
+.intent:hover{border-color:hsl(var(--primary)/.18);background:hsl(var(--accent))}
+.intent .g{display:grid;place-items:center;width:26px;height:26px;flex:none;border-radius:6px;
+  border:1px solid hsl(var(--border));background:hsl(var(--muted));color:hsl(var(--muted-foreground));transition:.12s}
+.intent:hover .g{border-color:hsl(var(--primary)/.3);background:hsl(var(--card));color:hsl(var(--primary))}
+.intent .t{min-width:0;flex:1}
+.intent .t b{display:block;font-size:12px;font-weight:600;line-height:1.3}
+.intent .t i{display:block;font-style:normal;font-size:10px;color:hsl(var(--muted-foreground));line-height:1.35}
+.intent .grip{opacity:0;color:hsl(var(--muted-foreground)/.4);transition:.12s}
+.intent:hover .grip{opacity:1}
+.pal-more{margin:8px 0 4px;display:flex;width:100%;align-items:center;justify-content:space-between;
+  border-radius:8px;border:1px dashed hsl(var(--border));padding:8px 10px;font-size:11px;font-weight:500;
+  color:hsl(var(--muted-foreground))}
+.pal-more:hover{border-color:hsl(var(--primary)/.35);color:hsl(var(--primary));background:hsl(var(--accent))}
+.pal-chips{display:none;flex-wrap:wrap;gap:4px;padding:4px 2px 8px}
+.pal-chips.open{display:flex}
+.chip{border-radius:999px;border:1px solid hsl(var(--border));background:var(--ink-50);
+  padding:4px 9px;font-size:10.5px;font-weight:500;color:var(--ink-600)}
+.chip:hover{border-color:hsl(var(--primary)/.35);background:hsl(var(--accent));color:hsl(var(--primary))}
+.pal-sec{padding:10px 6px 4px;font-size:9.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-400)}
 
-  /* ---- three columns --------------------------------------------------- */
-  .body{flex:1;min-height:0;display:grid;grid-template-columns:236px minmax(0,1fr) 340px}
-  @media (max-width:1180px){.body{grid-template-columns:210px minmax(0,1fr)} .panel{display:none}}
-  @media (max-width:820px){.body{grid-template-columns:minmax(0,1fr)} .rail{display:none}}
+/* ---------- form card on the canvas ---------- */
+.canvas-in{min-height:100%;padding:24px 16px}
+@media(min-width:640px){.canvas-in{padding:24px}}
+@media(min-width:1024px){.canvas-in{padding:32px}}
+.form-card{margin:0 auto;max-width:900px;border-radius:12px;border:1px solid hsl(var(--border));
+  background:hsl(var(--card));box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.form-card.wide{max-width:100%}
+.form-card-head{border-bottom:1px solid hsl(var(--border)/.7);padding:24px 20px}
+@media(min-width:640px){.form-card-head{padding:24px 32px}}
+.form-card-head h1{font-size:18px;font-weight:700;letter-spacing:-.02em;word-break:break-word}
+@media(min-width:640px){.form-card-head h1{font-size:20px}}
+.form-desc{margin-top:8px;width:100%;min-height:40px;resize:none;border:1px solid transparent;
+  background:transparent;padding:0;font-size:13px;color:hsl(var(--muted-foreground));line-height:1.55}
+.form-desc:focus{outline:none}
+.form-card-body{padding:24px 20px}
+@media(min-width:640px){.form-card-body{padding:32px}}
+.fields{display:flex;flex-direction:column;gap:12px}
+.empty-canvas{display:flex;min-height:300px;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:8px;border:2px dashed hsl(var(--border));padding:56px 24px;text-align:center}
+.empty-canvas .ec-i{display:grid;place-items:center;width:48px;height:48px;border-radius:12px;
+  background:hsl(var(--primary)/.06);color:hsl(var(--primary))}
+.empty-canvas p:first-of-type{margin-top:16px;font-size:14px;font-weight:600}
+.empty-canvas p:last-of-type{margin-top:4px;font-size:12px;color:hsl(var(--muted-foreground))}
 
-  .rail,.panel{background:hsl(var(--card));overflow-y:auto}
-  .rail{border-right:1px solid hsl(var(--border))}
-  .panel{border-left:1px solid hsl(var(--border))}
-  .sec-head{padding:14px 16px 8px;position:sticky;top:0;background:hsl(var(--card));z-index:2}
-  .sec-head h2{font-size:12px;font-weight:700;letter-spacing:-.005em}
-  .sec-head p{font-size:11px;color:hsl(var(--muted-foreground));margin-top:2px;line-height:1.45}
+/* v2 §3.3 — the question is edited on the question */
+.q{position:relative;border-radius:8px;border:1px solid hsl(var(--border));background:hsl(var(--card));
+  transition:border-color .14s,box-shadow .14s}
+.q:hover{border-color:hsl(var(--primary)/.4)}
+.q.sel{border-color:hsl(var(--primary));box-shadow:0 0 0 1px hsl(var(--primary)),0 8px 26px rgba(15,23,42,.08)}
+.q.dragging{opacity:.5}
+.q-top{display:flex;align-items:flex-start;gap:4px;padding:10px 8px}
+.q-grip{margin-top:2px;display:grid;place-items:center;width:24px;height:28px;flex:none;
+  cursor:grab;border-radius:4px;color:hsl(var(--muted-foreground)/.5);transition:.12s}
+.q-grip:hover{background:hsl(var(--muted));color:hsl(var(--muted-foreground))}
+.q-grip:active{cursor:grabbing}
+.q-body{min-width:0;flex:1;padding-right:4px}
+.q-title{display:flex;align-items:center;gap:8px}
+.q-title .num{font-size:12px;font-weight:600;color:hsl(var(--muted-foreground));flex:none}
+.q-title .lb{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}
+.q-title .req{color:hsl(var(--destructive))}
+.q-meta{margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tag{border-radius:4px;border:1px solid hsl(var(--border));background:hsl(var(--muted)/.5);
+  padding:1px 6px;font-size:10px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;
+  color:hsl(var(--muted-foreground))}
+.q-meta .ph{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;
+  color:hsl(var(--muted-foreground))}
+.q-acts{display:flex;flex:none;align-items:center;gap:2px;opacity:0;transition:opacity .12s}
+.q:hover .q-acts,.q.sel .q-acts{opacity:1}
+.q-acts .btn-ico:hover{background:hsl(var(--muted))}
+.q-acts .del:hover{background:hsl(var(--destructive)/.1);color:hsl(var(--destructive))}
 
-  /* ---- the intention picker (§3.2) ------------------------------------- */
-  .intent{display:flex;align-items:center;gap:9px;width:100%;text-align:left;
-    padding:8px 10px;border-radius:9px;border:1px solid transparent;transition:.12s}
-  .intent:hover{background:hsl(var(--accent));border-color:hsl(var(--primary)/.16)}
-  .intent .glyph{width:26px;height:26px;border-radius:7px;flex:none;display:grid;place-items:center;
-    background:var(--ink-100);color:var(--ink-600);border:1px solid hsl(var(--border))}
-  .intent:hover .glyph{background:#fff;color:hsl(var(--primary));border-color:hsl(var(--primary)/.25)}
-  .intent .txt{min-width:0}
-  .intent .txt b{display:block;font-size:12.5px;font-weight:600;line-height:1.3}
-  .intent .txt span{display:block;font-size:10.5px;color:hsl(var(--muted-foreground));line-height:1.35;margin-top:1px}
-  .rail-list{padding:0 8px 8px;display:flex;flex-direction:column;gap:1px}
-  .rail-more{margin:6px 8px 16px;padding:9px 10px;border:1px dashed hsl(var(--border));
-    border-radius:9px;font-size:11.5px;color:hsl(var(--muted-foreground));width:calc(100% - 16px);
-    display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .rail-more:hover{border-color:hsl(var(--primary)/.35);color:hsl(var(--primary));background:hsl(var(--accent))}
-  .more-types{padding:0 8px 16px;display:none;flex-wrap:wrap;gap:4px}
-  .more-types.open{display:flex}
-  .chip{font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid hsl(var(--border));
-    background:var(--ink-50);color:var(--ink-600)}
-  .chip:hover{border-color:hsl(var(--primary)/.35);color:hsl(var(--primary));background:hsl(var(--accent))}
+/* expanded state — the real editing surface */
+.q-open{border-top:1px solid hsl(var(--border)/.7);padding:16px 20px 4px}
+.q-lab-inp{width:100%;border:none;border-bottom:2px solid hsl(var(--primary)/.28);border-radius:6px 6px 0 0;
+  background:hsl(var(--muted));padding:8px 10px;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.q-lab-inp:focus{outline:none;border-bottom-color:hsl(var(--primary));background:hsl(var(--accent))}
+.q-desc-inp{margin-top:6px;width:100%;border:none;border-bottom:1px solid hsl(var(--border));
+  background:transparent;padding:5px 10px;font-size:12.5px;color:hsl(var(--muted-foreground))}
+.q-desc-inp:focus{outline:none;border-bottom-color:hsl(var(--primary)/.5);background:hsl(var(--muted))}
+.add-desc{margin-top:7px;display:inline-flex;align-items:center;gap:4px;font-size:11.5px;
+  font-weight:600;color:hsl(var(--primary))}
+.add-desc:hover{text-decoration:underline}
+.q-live{margin-top:14px}
+.q-foot{margin-top:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  border-top:1px solid hsl(var(--border));background:var(--ink-50);
+  margin-left:-20px;margin-right:-20px;padding:9px 14px 9px 20px;border-radius:0 0 7px 7px}
+.type-pick{display:inline-flex;align-items:center;gap:6px;height:30px;border-radius:8px;
+  border:1px solid hsl(var(--border));background:#fff;padding:0 9px;font-size:12px;font-weight:600}
+.type-pick:hover{border-color:hsl(var(--primary)/.4);color:hsl(var(--primary))}
+.w-pick{display:inline-flex;border-radius:8px;border:1px solid hsl(var(--border));background:#fff;overflow:hidden}
+.w-pick button{padding:0 8px;height:28px;font-size:10.5px;font-weight:600;color:hsl(var(--muted-foreground))}
+.w-pick button+button{border-left:1px solid hsl(var(--border))}
+.w-pick button.on{background:hsl(var(--primary));color:#fff}
+.tgl{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;
+  color:hsl(var(--muted-foreground))}
+.tgl.on{color:hsl(var(--foreground))}
+.dots{position:relative;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;
+  color:hsl(var(--muted-foreground))}
+.dots:hover{background:var(--ink-200);color:hsl(var(--foreground))}
+.dots .mk{position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;
+  background:hsl(var(--primary));display:none}
+.dots.cfg .mk{display:block}
 
-  /* ---- canvas ---------------------------------------------------------- */
-  .canvas{overflow-y:auto;padding:24px 16px 120px}
-  .sheet{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
-  .form-head{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:14px;
-    border-top:4px solid hsl(var(--primary));padding:20px 22px}
-  .form-head h1{font-size:22px;font-weight:700;letter-spacing:-.02em}
-  .form-head p{font-size:13px;color:hsl(var(--muted-foreground));margin-top:4px}
+/* the rule summaries, on the question */
+.q-rules{display:flex;flex-wrap:wrap;gap:5px;padding:0 20px 14px}
+.rule{display:inline-flex;align-items:center;gap:6px;max-width:100%;border-radius:7px;
+  border:1px solid hsl(var(--primary)/.14);background:hsl(var(--accent));padding:4px 8px;
+  font-size:11px;color:hsl(var(--accent-foreground));line-height:1.4}
+.rule b{font-weight:600}
+.rule .x{color:hsl(var(--primary)/.55);margin-left:2px}
+.rule .x:hover{color:hsl(var(--destructive))}
+.q-note{display:flex;align-items:flex-start;gap:7px;margin-top:10px;border-radius:8px;
+  border:1px solid hsl(var(--border));background:var(--ink-50);padding:7px 10px;
+  font-size:11px;line-height:1.5;color:hsl(var(--muted-foreground))}
+.q-note a{color:hsl(var(--primary));font-weight:600;text-decoration:none;white-space:nowrap}
+.q-note a:hover{text-decoration:underline}
+.q-guess{display:flex;align-items:center;gap:8px;margin-top:9px;border-radius:8px;
+  border:1px dashed hsl(var(--primary)/.3);background:hsl(var(--accent));padding:5px 7px 5px 10px;font-size:11.5px}
+.q-guess span{flex:1;color:hsl(var(--accent-foreground));font-weight:500}
 
-  /* A question. Collapsed = what a respondent sees. Expanded = the same
-     thing, in place, plus its controls. Never a second panel. */
-  .q{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;
-    position:relative;transition:box-shadow .14s,border-color .14s}
-  .q:hover{border-color:var(--ink-300)}
-  .q.open{border-color:hsl(var(--primary)/.45);box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 28px rgba(15,23,42,.09)}
-  .q.open::before{content:"";position:absolute;left:-1px;top:14px;bottom:14px;width:3px;
-    border-radius:3px;background:hsl(var(--primary))}
-  .q-grab{position:absolute;top:6px;left:50%;transform:translateX(-50%);color:var(--ink-300);
-    opacity:0;transition:.12s;padding:2px}
-  .q:hover .q-grab{opacity:1}
-  .q-main{padding:18px 22px}
-  .q-label{font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.4}
-  .q-label .req{color:hsl(var(--destructive));margin-left:3px}
-  .q-desc{font-size:12.5px;color:hsl(var(--muted-foreground));margin-top:3px}
-  .q-answer{margin-top:12px}
+/* live answer controls, at respondent size */
+.m-inp{border:1px solid hsl(var(--input));border-radius:8px;padding:9px 12px;font-size:13.5px;
+  color:var(--ink-400);background:#fff}
+.m-opt{display:flex;align-items:center;gap:9px;padding:4px 0;font-size:13.5px}
+.m-rd{width:16px;height:16px;border:1.5px solid var(--ink-300);border-radius:50%;flex:none}
+.m-cb{width:16px;height:16px;border:1.5px solid var(--ink-300);border-radius:4px;flex:none}
+.m-opt input.oi{flex:1;min-width:0;border:none;border-bottom:1px solid transparent;background:transparent;
+  padding:2px 0;font-size:13.5px}
+.m-opt input.oi:hover{border-bottom-color:hsl(var(--border))}
+.m-opt input.oi:focus{outline:none;border-bottom-color:hsl(var(--primary))}
+.m-opt .ox{opacity:0;color:hsl(var(--muted-foreground))}
+.m-opt:hover .ox{opacity:1}
+.m-opt .ox:hover{color:hsl(var(--destructive))}
+.m-sel{display:flex;align-items:center;justify-content:space-between;border:1px solid hsl(var(--input));
+  border-radius:8px;padding:9px 12px;font-size:13.5px;color:var(--ink-400);background:#fff}
+.opt-add{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:12.5px;
+  color:hsl(var(--muted-foreground))}
+.opt-add u{text-decoration:none;border-bottom:1px dashed var(--ink-300);padding-bottom:1px}
+.opt-add:hover u{color:hsl(var(--primary));border-color:hsl(var(--primary))}
+.opt-tools{display:flex;gap:6px;margin-top:8px}
+.stars{display:flex;gap:5px;color:var(--ink-300)}
+.likert-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.likert-tbl th{padding:6px 4px;font-size:10.5px;font-weight:600;color:hsl(var(--muted-foreground));
+  text-align:center;border-bottom:1px solid hsl(var(--border))}
+.likert-tbl td{padding:8px 4px;text-align:center;border-bottom:1px solid hsl(var(--border)/.6)}
+.likert-tbl td:first-child{text-align:left;font-size:12.5px}
+.nps-row{display:flex;gap:4px;flex-wrap:wrap}
+.nps-row span{display:grid;place-items:center;width:30px;height:30px;border-radius:6px;
+  border:1px solid hsl(var(--input));font-size:12px;color:var(--ink-500);background:#fff}
+.grid-tbl{width:100%;border-collapse:collapse;font-size:12px;border:1px solid hsl(var(--border));border-radius:6px}
+.grid-tbl th{background:var(--ink-50);padding:6px 8px;font-size:10.5px;font-weight:600;
+  text-align:left;border:1px solid hsl(var(--border));color:hsl(var(--muted-foreground))}
+.grid-tbl td{padding:6px 8px;border:1px solid hsl(var(--border));color:var(--ink-400)}
+.sig-pad{border:1px dashed hsl(var(--input));border-radius:8px;height:80px;display:grid;
+  place-items:center;font-style:italic;color:var(--ink-400);font-size:12.5px;background:#fff}
 
-  /* Editing the label happens on the label. */
-  .q-label-edit{width:100%;border:none;border-bottom:2px solid hsl(var(--primary)/.3);
-    background:hsl(var(--muted));border-radius:6px 6px 0 0;padding:7px 10px;
-    font-size:15px;font-weight:600;letter-spacing:-.01em}
-  .q-label-edit:focus{outline:none;border-bottom-color:hsl(var(--primary));background:hsl(var(--accent))}
-  .q-desc-edit{width:100%;border:none;border-bottom:1px solid hsl(var(--border));background:transparent;
-    padding:5px 10px;font-size:12.5px;color:hsl(var(--muted-foreground));margin-top:6px}
-  .q-desc-edit:focus{outline:none;border-bottom-color:hsl(var(--primary)/.5);background:hsl(var(--muted))}
-  .add-desc{font-size:11.5px;color:hsl(var(--primary));font-weight:600;margin-top:7px;
-    display:inline-flex;align-items:center;gap:4px}
-  .add-desc:hover{text-decoration:underline}
+/* the ⋮ menu */
+.qmenu{position:absolute;right:14px;bottom:46px;z-index:70;width:286px;border-radius:12px;
+  border:1px solid hsl(var(--border));background:hsl(var(--popover));padding:5px;
+  box-shadow:0 14px 40px rgba(15,23,42,.18);display:none}
+.qmenu.open{display:block}
+.qmenu.up{bottom:auto;top:46px}
+.mi{display:flex;width:100%;align-items:center;gap:9px;border-radius:8px;padding:7px 9px;font-size:12.5px}
+.mi:hover{background:hsl(var(--accent));color:hsl(var(--accent-foreground))}
+.mi svg{color:var(--ink-400);flex:none}
+.mi:hover svg{color:hsl(var(--primary))}
+.mi .on-tag{margin-left:auto;border-radius:999px;background:hsl(var(--primary)/.09);padding:2px 6px;
+  font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:hsl(var(--primary))}
+.mi.danger:hover{background:hsl(var(--destructive)/.07);color:hsl(var(--destructive))}
+.mi.danger:hover svg{color:hsl(var(--destructive))}
+.msep{height:1px;background:hsl(var(--border));margin:5px 8px}
+.mcap{padding:7px 9px 3px;font-size:9.5px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--ink-400)}
 
-  /* mock answer controls, at the size a respondent sees */
-  .mock-input{border:1px solid hsl(var(--input));border-radius:9px;padding:9px 12px;
-    font-size:13.5px;color:var(--ink-400);background:hsl(var(--card))}
-  .mock-textarea{min-height:64px}
-  .mock-opt{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13.5px}
-  .mock-radio{width:16px;height:16px;border:1.5px solid var(--ink-300);border-radius:50%;flex:none}
-  .mock-check{width:16px;height:16px;border:1.5px solid var(--ink-300);border-radius:4px;flex:none}
-  .mock-select{display:flex;align-items:center;justify-content:space-between;
-    border:1px solid hsl(var(--input));border-radius:9px;padding:9px 12px;font-size:13.5px;color:var(--ink-400)}
-  .opt-add{font-size:12.5px;color:hsl(var(--muted-foreground));padding:5px 0;display:flex;align-items:center;gap:9px}
-  .opt-add span{border-bottom:1px dashed var(--ink-300);padding-bottom:1px}
-  .opt-add:hover span{color:hsl(var(--primary));border-color:hsl(var(--primary))}
+.add-q-btn{display:flex;width:100%;align-items:center;justify-content:center;gap:8px;
+  border-radius:8px;border:1.5px dashed hsl(var(--border));padding:14px;font-size:13px;
+  font-weight:600;color:hsl(var(--muted-foreground));margin-top:12px}
+.add-q-btn:hover{border-color:hsl(var(--primary)/.45);color:hsl(var(--primary));background:hsl(var(--accent)/.6)}
 
-  /* the footer strip: type · required · ⋮ */
-  .q-foot{display:flex;align-items:center;gap:8px;padding:10px 14px 10px 22px;
-    border-top:1px solid hsl(var(--border));background:var(--ink-50);border-radius:0 0 11px 11px}
-  .type-select{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 9px;
-    border:1px solid hsl(var(--border));border-radius:8px;background:#fff;font-size:12px;font-weight:600}
-  .type-select:hover{border-color:hsl(var(--primary)/.4);color:hsl(var(--primary))}
-  .toggle{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;
-    color:hsl(var(--muted-foreground))}
-  .switch{width:32px;height:18px;border-radius:999px;background:var(--ink-300);position:relative;transition:.15s;flex:none}
-  .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
-    background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
-  .switch.on{background:hsl(var(--primary))}
-  .switch.on::after{transform:translateX(14px)}
-  .toggle.active{color:hsl(var(--foreground))}
-  .dot-btn{position:relative;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
-    color:hsl(var(--muted-foreground))}
-  .dot-btn:hover{background:var(--ink-200);color:hsl(var(--foreground))}
-  .dot-btn .marker{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;
-    background:hsl(var(--primary));display:none}
-  .dot-btn.configured .marker{display:block}
+/* step separators on the canvas when multi-step */
+.step-sep{display:flex;align-items:center;gap:10px;padding:6px 0 2px}
+.step-sep .ln{height:1px;flex:1;background:hsl(var(--border))}
+.step-sep .tx{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:hsl(var(--primary));background:hsl(var(--accent));border:1px solid hsl(var(--primary)/.15);
+  border-radius:999px;padding:3px 10px}
 
-  /* what is configured, said out loud (§3.3) */
-  .q-rules{padding:0 22px 14px;display:flex;flex-direction:column;gap:5px}
-  .rule{display:flex;align-items:center;gap:6px;font-size:11.5px;color:hsl(var(--primary));
-    background:hsl(var(--accent));border:1px solid hsl(var(--primary)/.14);
-    border-radius:7px;padding:5px 9px;align-self:flex-start;max-width:100%}
-  .rule svg{flex:none}
-  .rule b{font-weight:600}
+/* ---------- right panel: Form setup (v2) ---------- */
+.insp-head{flex:none;border-bottom:1px solid hsl(var(--border)/.7);padding:11px 14px;
+  display:flex;align-items:flex-start;gap:8px}
+.insp-head h2{font-size:12px;font-weight:600}
+.insp-head p{margin-top:2px;font-size:10px;color:hsl(var(--muted-foreground));line-height:1.45}
+.insp-body{min-height:0;flex:1;overflow-y:auto;padding:12px 14px 32px;display:flex;
+  flex-direction:column;gap:18px}
+.fg{display:flex;flex-direction:column;gap:8px}
+.fg>.t{font-size:12px;font-weight:700}
+.fg>.s{font-size:10.5px;color:hsl(var(--muted-foreground));line-height:1.5;margin-top:-4px}
+.rcard{display:flex;width:100%;align-items:flex-start;gap:9px;border-radius:9px;
+  border:1px solid hsl(var(--border));padding:8px 10px;transition:.12s}
+.rcard:hover{border-color:var(--ink-300);background:var(--ink-50)}
+.rcard.on{border-color:hsl(var(--primary)/.5);background:hsl(var(--accent))}
+.rcard .tx b{display:block;font-size:12px;font-weight:600}
+.rcard .tx i{display:block;font-style:normal;font-size:10.5px;color:hsl(var(--muted-foreground));
+  line-height:1.4;margin-top:1px}
+.followup{display:none;border-radius:10px;border:1px solid hsl(var(--primary)/.22);
+  background:hsl(var(--accent));padding:10px 11px}
+.followup.show{display:block}
+.followup h4{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700}
+.followup p{margin:3px 0 8px;font-size:10.5px;line-height:1.5;color:hsl(var(--accent-foreground))}
+.fu{display:flex;width:100%;align-items:center;gap:8px;margin-bottom:5px;border-radius:8px;
+  border:1px solid hsl(var(--border));background:#fff;padding:6px 10px;font-size:11.5px}
+.fu:hover{border-color:hsl(var(--primary)/.5)}
+.fu.on{border-color:hsl(var(--primary));background:hsl(var(--primary)/.05);font-weight:600}
+.fu .tk{margin-left:auto;color:hsl(var(--primary));display:none}
+.fu.on .tk{display:block}
+.smap{border-radius:10px;border:1px solid hsl(var(--border));overflow:hidden}
+.smap .sh{border-bottom:1px solid hsl(var(--border));background:var(--ink-50);padding:8px 11px;
+  font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-500)}
+.srow{display:flex;width:100%;align-items:center;gap:8px;border-bottom:1px solid hsl(var(--border));
+  padding:7px 11px;font-size:11.5px;line-height:1.4}
+.srow:last-child{border-bottom:none}
+.srow:hover{background:hsl(var(--accent))}
+.srow .go{margin-left:auto;color:var(--ink-300);flex:none}
+.srow:hover .go{color:hsl(var(--primary))}
+.snav{display:flex;flex-direction:column;gap:2px}
+.snav button{display:flex;width:100%;align-items:center;gap:9px;border-radius:8px;padding:7px 10px;
+  font-size:12px;font-weight:500;color:hsl(var(--muted-foreground))}
+.snav button:hover{background:var(--ink-50);color:hsl(var(--foreground))}
+.snav button .cnt{margin-left:auto;font-size:10px;color:var(--ink-400)}
 
-  /* the automatic presentation note (§3.2) */
-  .auto-note{display:flex;align-items:flex-start;gap:7px;font-size:11.5px;line-height:1.5;
-    color:hsl(var(--muted-foreground));background:var(--ink-50);border:1px solid hsl(var(--border));
-    border-radius:8px;padding:7px 10px;margin-top:10px}
-  .auto-note a{color:hsl(var(--primary));font-weight:600;text-decoration:none;white-space:nowrap}
-  .auto-note a:hover{text-decoration:underline}
+/* ---------- settings workspace (SettingsPanel) ---------- */
+.settings{display:flex;min-height:0;flex:1;flex-direction:column;overflow:hidden;background:hsl(var(--background))}
+.settings-hdr{flex:none;border-bottom:1px solid hsl(var(--border));background:hsl(var(--card))}
+.settings-hdr .in{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px}
+.settings-hdr nav{display:flex;align-items:center;gap:24px;margin-bottom:-1px}
+.settings-hdr nav button{display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent;
+  padding:14px 0;font-size:13px;font-weight:500;color:hsl(var(--muted-foreground))}
+.settings-hdr nav button.on{border-bottom-color:hsl(var(--primary));color:hsl(var(--foreground))}
+.settings-hdr .note{font-size:12px;color:hsl(var(--muted-foreground))}
+.settings-body{min-height:0;flex:1;overflow-y:auto;background:hsl(var(--background))}
+.set-split{display:flex;min-height:100%;background:hsl(var(--card))}
+.set-side{width:240px;flex:none;border-right:1px solid hsl(var(--border));background:hsl(var(--muted)/.4);
+  position:sticky;top:0;align-self:flex-start;max-height:100%;overflow-y:auto}
+.set-side .cap{padding:16px 16px 4px;font-size:10px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:hsl(var(--muted-foreground))}
+.set-side .list{display:flex;flex-direction:column;gap:4px;padding:12px}
+.set-tab{display:flex;width:100%;align-items:center;gap:8px;height:36px;border-radius:6px;
+  border:1px solid transparent;padding:0 12px;font-size:13px;font-weight:500;
+  color:hsl(var(--muted-foreground))}
+.set-tab:hover{background:hsl(var(--muted));color:hsl(var(--foreground))}
+.set-tab.on{border-color:hsl(var(--primary)/.2);background:hsl(var(--primary)/.1);
+  font-weight:600;color:hsl(var(--primary))}
+.set-tab .dot{margin-left:auto;width:6px;height:6px;border-radius:50%;background:hsl(var(--success))}
+.set-main{min-width:0;flex:1;background:hsl(var(--card));padding:32px 24px}
+@media(min-width:1024px){.set-main{padding:32px 40px}}
+.set-panel{display:none;flex-direction:column;gap:28px}
+.set-panel.on{display:flex}
+.set-h{border-bottom:1px solid hsl(var(--border)/.7);padding-bottom:20px}
+.set-h h2{font-size:16px;font-weight:600}
+.set-h p{margin-top:4px;font-size:14px;color:hsl(var(--muted-foreground))}
+.sect{border-radius:12px;border:1px solid hsl(var(--border));padding:20px;display:flex;
+  flex-direction:column;gap:16px}
+@media(min-width:640px){.sect{padding:24px}}
+.sect>.hd .t{font-size:14px;font-weight:600}
+.sect>.hd .s{margin-top:4px;font-size:12px;color:hsl(var(--muted-foreground));line-height:1.55}
+.srowline{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  border-top:1px solid hsl(var(--border)/.7);padding-top:16px}
+.srowline .lt .t{font-size:14px;font-weight:500}
+.srowline .lt .s{margin-top:2px;font-size:12px;color:hsl(var(--muted-foreground));line-height:1.5}
+.opt-cards{display:grid;gap:10px;grid-template-columns:1fr}
+@media(min-width:640px){.opt-cards{grid-template-columns:1fr 1fr}}
+.ocard{display:flex;align-items:flex-start;gap:10px;border-radius:10px;border:1px solid hsl(var(--border));
+  padding:12px;transition:.12s}
+.ocard:hover{border-color:var(--ink-300);background:var(--ink-50)}
+.ocard.on{border-color:hsl(var(--primary)/.5);background:hsl(var(--primary)/.05)}
+.ocard .tx b{display:block;font-size:13px;font-weight:600}
+.ocard .tx i{display:block;font-style:normal;margin-top:2px;font-size:11.5px;line-height:1.45;
+  color:hsl(var(--muted-foreground))}
+.callout{border-radius:8px;padding:12px;font-size:11px;line-height:1.6}
+.callout.plum{background:var(--plum-50);border:1px solid var(--plum-200);color:var(--plum-800)}
+.callout.amber{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E}
+.callout.brand{background:var(--brand-50);border:1px solid var(--brand-100);color:var(--brand-700)}
+.grid2{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:640px){.grid2{grid-template-columns:1fr 1fr}}
 
-  /* the label guess (§3.2) */
-  .guess{display:flex;align-items:center;gap:8px;font-size:11.5px;margin-top:9px;
-    background:hsl(var(--accent));border:1px dashed hsl(var(--primary)/.3);border-radius:8px;padding:6px 8px 6px 10px}
-  .guess .g-txt{flex:1;color:hsl(var(--accent-foreground));font-weight:500}
+/* steps editor (LayoutConfigPanel) */
+.lay-wrap{padding:24px;display:flex;flex-direction:column;gap:28px;max-width:1100px}
+.sec-lbl .t{font-size:14px;font-weight:600}
+.sec-lbl .s{margin-top:2px;font-size:12px;color:hsl(var(--muted-foreground))}
+.step-card{border-radius:10px;border:1px solid hsl(var(--border));background:hsl(var(--card))}
+.step-card .sc-h{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid hsl(var(--border)/.7)}
+.step-card .sc-b{padding:12px;display:flex;flex-direction:column;gap:10px}
+.fchk{display:flex;align-items:center;gap:8px;border-radius:6px;padding:5px 7px;font-size:12px}
+.fchk:hover{background:var(--ink-50)}
+.fchk.taken{opacity:.45}
 
-  /* ---- the ⋮ menu (§3.3) ----------------------------------------------- */
-  .menu{position:absolute;right:10px;bottom:44px;z-index:40;width:272px;
-    background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;
-    box-shadow:0 12px 36px rgba(15,23,42,.16);padding:5px;display:none}
-  .menu.open{display:block}
-  .menu-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;
-    padding:7px 9px;border-radius:8px;font-size:12.5px}
-  .menu-item:hover{background:hsl(var(--accent));color:hsl(var(--accent-foreground))}
-  .menu-item .mi-ic{color:var(--ink-400);flex:none}
-  .menu-item:hover .mi-ic{color:hsl(var(--primary))}
-  .menu-item .set{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;
-    letter-spacing:.03em;color:hsl(var(--primary));background:hsl(var(--primary)/.09);
-    padding:2px 6px;border-radius:999px}
-  .menu-item.danger:hover{background:hsl(var(--destructive)/.07);color:hsl(var(--destructive))}
-  .menu-item.danger:hover .mi-ic{color:hsl(var(--destructive))}
-  .menu-sep{height:1px;background:hsl(var(--border));margin:5px 8px}
-  .menu-cap{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
-    color:var(--ink-400);padding:7px 9px 4px}
+/* ---------- preview mode (FormPreview) ---------- */
+.pv-wrap{min-height:100%;background:hsl(var(--muted)/.3);padding:32px 16px}
+.pv-card{margin:0 auto;max-width:768px;border-radius:12px;border:1px solid hsl(var(--border));
+  background:hsl(var(--card));padding:28px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.pv-card h2{font-size:24px;font-weight:600;letter-spacing:-.02em;word-break:break-word}
+.pv-card>p.d{margin-top:4px;font-size:14px;color:hsl(var(--muted-foreground))}
+.pv-f{display:flex;flex-direction:column;gap:8px;scroll-margin-top:96px}
+.pv-f.bad{border-left:2px solid hsl(var(--destructive));border-radius:0 6px 6px 0;
+  padding-left:12px;margin-left:-12px}
+.pv-lab{font-size:14px;font-weight:500}
+.pv-lab .req{color:hsl(var(--destructive));margin-left:2px}
+.pv-help{font-size:13px;color:hsl(var(--muted-foreground))}
+.pv-err{display:flex;align-items:flex-start;gap:6px;font-size:13px;font-weight:500;
+  line-height:1.4;color:hsl(var(--destructive))}
+.pv-inp{width:100%;border:1px solid hsl(var(--input));border-radius:8px;padding:9px 12px;font-size:14px}
+.pv-inp:focus{outline:none;border-color:hsl(var(--ring));box-shadow:0 0 0 3px hsl(var(--ring)/.14)}
+.pv-opt{display:flex;align-items:center;gap:10px;font-size:14px;padding:3px 0;cursor:pointer}
+.stepper{display:flex;align-items:center;gap:6px;margin-bottom:22px}
+.stepper .sg{height:4px;flex:1;border-radius:999px;background:var(--ink-200)}
+.stepper .sg.on{background:hsl(var(--primary))}
+.err-sum{border-radius:12px;border:1px solid hsl(var(--destructive)/.3);
+  background:hsl(var(--destructive)/.05);padding:14px 16px;margin-bottom:20px}
+.err-sum p{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:hsl(var(--destructive))}
+.err-sum ul{margin-top:8px;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.err-sum button{font-size:13px;font-weight:500;color:hsl(var(--destructive));
+  text-decoration:underline;text-underline-offset:2px}
 
-  /* ---- add-question affordance ----------------------------------------- */
-  .add-q{border:1.5px dashed hsl(var(--border));border-radius:12px;padding:15px;
-    display:flex;align-items:center;justify-content:center;gap:8px;
-    font-size:13px;font-weight:600;color:hsl(var(--muted-foreground));background:transparent;width:100%}
-  .add-q:hover{border-color:hsl(var(--primary)/.45);color:hsl(var(--primary));background:hsl(var(--accent)/.6)}
+/* ---------- dialogs ---------- */
+.scrim{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+  padding:16px;background:rgba(2,6,23,.45);backdrop-filter:blur(2px)}
+.scrim.open{display:flex}
+.dlg{width:100%;max-width:512px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;
+  border-radius:14px;background:hsl(var(--card));box-shadow:0 24px 64px rgba(15,23,42,.3)}
+.dlg-h{padding:20px 24px 14px;border-bottom:1px solid hsl(var(--border))}
+.dlg-h h3{font-size:16px;font-weight:600;letter-spacing:-.01em}
+.dlg-h p{margin-top:4px;font-size:13px;color:hsl(var(--muted-foreground));line-height:1.5}
+.dlg-b{padding:18px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.dlg-f{padding:14px 24px;border-top:1px solid hsl(var(--border));background:var(--ink-50);
+  display:flex;justify-content:flex-end;gap:8px}
+.chk{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.5}
+.chk .ci{flex:none;margin-top:1px}
+.chk.warn .ci{color:hsl(var(--warning))}
+.chk.ok .ci{color:hsl(var(--success))}
+.chk.err .ci{color:hsl(var(--destructive))}
+.chk a{margin-left:4px;font-weight:600;color:hsl(var(--primary));text-decoration:none}
+.chk a:hover{text-decoration:underline}
+.cond{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-radius:8px;
+  border:1px solid hsl(var(--border));background:var(--ink-50);padding:8px}
+.cond select,.cond input{height:32px;font-size:12px}
 
-  /* ---- right panel: Form setup (§3.4) ---------------------------------- */
-  .panel-body{padding:0 16px 24px;display:flex;flex-direction:column;gap:18px}
-  .field-group{display:flex;flex-direction:column;gap:8px}
-  .field-group>label{font-size:12px;font-weight:700;letter-spacing:-.005em}
-  .field-group .hint{font-size:11px;color:hsl(var(--muted-foreground));line-height:1.5;margin-top:-3px}
-  .radio-card{display:flex;align-items:flex-start;gap:9px;border:1px solid hsl(var(--border));
-    border-radius:10px;padding:9px 11px;cursor:pointer;transition:.12s;width:100%;text-align:left}
-  .radio-card:hover{border-color:var(--ink-300);background:var(--ink-50)}
-  .radio-card.sel{border-color:hsl(var(--primary)/.5);background:hsl(var(--accent))}
-  .radio-card .rc-dot{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--ink-300);
-    flex:none;margin-top:1px;display:grid;place-items:center}
-  .radio-card.sel .rc-dot{border-color:hsl(var(--primary))}
-  .radio-card.sel .rc-dot::after{content:"";width:7px;height:7px;border-radius:50%;background:hsl(var(--primary))}
-  .radio-card b{display:block;font-size:12.5px;font-weight:600}
-  .radio-card span{display:block;font-size:11px;color:hsl(var(--muted-foreground));line-height:1.4;margin-top:1px}
+/* toast */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(90px);
+  z-index:400;max-width:min(560px,92vw);border-radius:10px;background:var(--ink-900);color:#fff;
+  padding:11px 16px;font-size:12.5px;line-height:1.5;box-shadow:0 14px 36px rgba(0,0,0,.32);
+  transition:transform .22s}
+.toast.show{transform:translateX(-50%) translateY(0)}
 
-  /* the second half of the poll job, asked inline where the first half was
-     answered — the §1.1 complaint in the remediation plan */
-  .followup{border:1px solid hsl(var(--primary)/.22);background:hsl(var(--accent));
-    border-radius:10px;padding:11px 12px;display:none}
-  .followup.show{display:block}
-  .followup .fu-h{font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px}
-  .followup .fu-p{font-size:11px;color:hsl(var(--accent-foreground));margin:3px 0 9px;line-height:1.5}
-  .fu-opt{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid hsl(var(--border));
-    border-radius:8px;padding:7px 10px;font-size:12px;width:100%;text-align:left;margin-bottom:5px}
-  .fu-opt:hover{border-color:hsl(var(--primary)/.5)}
-  .fu-opt.sel{border-color:hsl(var(--primary));background:hsl(var(--primary)/.05);font-weight:600}
-  .fu-opt .tick{margin-left:auto;color:hsl(var(--primary));display:none}
-  .fu-opt.sel .tick{display:block}
-
-  /* "What's set up" — the map of the editor that does not exist today */
-  .setup-map{border:1px solid hsl(var(--border));border-radius:11px;overflow:hidden}
-  .setup-map .sm-h{background:var(--ink-50);padding:9px 12px;font-size:11px;font-weight:700;
-    text-transform:uppercase;letter-spacing:.04em;color:var(--ink-500);
-    border-bottom:1px solid hsl(var(--border))}
-  .sm-row{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;width:100%;text-align:left;
-    border-bottom:1px solid hsl(var(--border))}
-  .sm-row:last-child{border-bottom:none}
-  .sm-row:hover{background:hsl(var(--accent))}
-  .sm-row .sm-ic{color:hsl(var(--success));flex:none}
-  .sm-row .sm-go{margin-left:auto;color:var(--ink-300)}
-  .sm-row:hover .sm-go{color:hsl(var(--primary))}
-  .sm-empty{padding:12px;font-size:11.5px;color:hsl(var(--muted-foreground));line-height:1.5}
-
-  .tabs{display:flex;flex-direction:column;gap:2px}
-  .tab{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;font-size:12.5px;
-    font-weight:500;color:hsl(var(--muted-foreground));width:100%;text-align:left}
-  .tab:hover{background:var(--ink-50);color:hsl(var(--foreground))}
-  .tab.on{background:hsl(var(--primary)/.08);color:hsl(var(--primary));font-weight:600}
-  .tab .t-ic{flex:none}
-
-  /* ---- pre-flight dialog (§3.6) ---------------------------------------- */
-  .scrim{position:fixed;inset:0;background:rgba(2,6,23,.45);backdrop-filter:blur(2px);
-    display:none;align-items:center;justify-content:center;padding:20px;z-index:200}
-  .scrim.open{display:flex}
-  .dialog{background:hsl(var(--card));border-radius:16px;width:100%;max-width:480px;
-    box-shadow:0 24px 64px rgba(15,23,42,.3);overflow:hidden}
-  .dialog h3{font-size:16px;font-weight:700;letter-spacing:-.015em}
-  .dialog .d-head{padding:18px 22px 14px;border-bottom:1px solid hsl(var(--border))}
-  .dialog .d-head p{font-size:12.5px;color:hsl(var(--muted-foreground));margin-top:3px}
-  .checks{padding:14px 22px;display:flex;flex-direction:column;gap:9px}
-  .check{display:flex;gap:9px;align-items:flex-start;font-size:13px;line-height:1.5}
-  .check .c-ic{flex:none;margin-top:1px}
-  .check.warn .c-ic{color:hsl(var(--warning))}
-  .check.ok .c-ic{color:hsl(var(--success))}
-  .check .fix{color:hsl(var(--primary));font-weight:600;text-decoration:none;margin-left:4px}
-  .check .fix:hover{text-decoration:underline}
-  .d-foot{padding:13px 22px;background:var(--ink-50);border-top:1px solid hsl(var(--border));
-    display:flex;justify-content:flex-end;gap:8px}
-
-  /* ---- annotation layer ------------------------------------------------ */
-  .anno{position:absolute;z-index:60;width:20px;height:20px;border-radius:50%;
-    background:hsl(var(--destructive));color:#fff;font-size:11px;font-weight:800;
-    display:none;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:help}
-  body.annotate .anno{display:grid}
-  .anno .tip{position:absolute;left:26px;top:-6px;width:250px;background:var(--ink-900);color:#fff;
-    font-size:11.5px;font-weight:400;line-height:1.5;padding:9px 11px;border-radius:9px;
-    opacity:0;pointer-events:none;transition:.12s;text-align:left;z-index:70}
-  .anno:hover .tip{opacity:1}
-  .anno.left .tip{left:auto;right:26px}
-
-  .legend{position:fixed;left:16px;bottom:16px;z-index:150;background:hsl(var(--card));
-    border:1px solid hsl(var(--border));border-radius:12px;padding:10px 12px;
-    box-shadow:0 8px 28px rgba(15,23,42,.14);max-width:280px;display:none}
-  body.annotate .legend{display:block}
-  .legend h4{font-size:11.5px;font-weight:700;margin-bottom:4px}
-  .legend p{font-size:11px;color:hsl(var(--muted-foreground));line-height:1.5}
-
-  .relative{position:relative}
-  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);
-    background:var(--ink-900);color:#fff;font-size:12.5px;font-weight:500;padding:10px 16px;
-    border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.3);z-index:300;transition:transform .22s;white-space:nowrap}
-  .toast.show{transform:translateX(-50%) translateY(0)}
+/* annotation overlay */
+.anno{position:absolute;z-index:90;display:none;place-items:center;width:19px;height:19px;
+  border-radius:50%;background:hsl(var(--destructive));color:#fff;font-size:10.5px;font-weight:800;
+  box-shadow:0 2px 8px rgba(0,0,0,.28);cursor:help}
+body.anno-on .anno{display:grid}
+.anno .tp{position:absolute;left:25px;top:-8px;width:256px;border-radius:9px;background:var(--ink-900);
+  color:#fff;padding:9px 11px;font-size:11px;font-weight:400;line-height:1.55;opacity:0;
+  pointer-events:none;transition:.12s;text-align:left}
+.anno:hover .tp{opacity:1}
+.anno.l .tp{left:auto;right:25px}
+.anno.dn .tp{top:auto;bottom:-8px}
+.rel{position:relative}
+.hidden{display:none!important}
 </style>
 </head>
 <body>
+<div class="app-shell">
 
-<div class="shell">
-
-  <!-- ================= TOP BAR ================= -->
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark">S</div>
-    </div>
-
-    <div class="form-title relative">
-      <input id="formName" value="Team offsite sign-up" aria-label="Form name">
-      <div class="statusline">
-        <span class="pill pill-draft" id="statePill">Draft</span>
-        <span class="saving-dot on" id="saveDot"></span>
-        <span id="saveText">All changes saved</span>
-      </div>
-      <div class="anno" style="top:-6px;left:-30px">1
-        <div class="tip"><b>§3.6</b> — One state line instead of two near-identical buttons. Autosave means Save disappears; Publish is the only button because it is the only action with consequences.</div>
-      </div>
-    </div>
-
-    <div class="spacer"></div>
-
-    <button class="btn btn-ghost btn-sm" onclick="toggleAnno()" id="annoBtn" title="Highlight what changed from v1">
-      <svg class="icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-      What changed
-    </button>
-
-    <div class="relative">
-      <button class="btn btn-outline" onclick="toast('Opens the real public form in a new tab — not a second renderer that validates differently.')">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14 21 3"/></svg>
-        Preview
+<!-- ============================ HEADER ============================ -->
+<header class="hdr">
+  <div class="hdr-in">
+    <div class="hdr-l">
+      <button class="btn btn-ghost btn-ico" title="Back to dashboard" aria-label="Back to dashboard">
+        <svg class="i i-sm" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
       </button>
-      <div class="anno" style="top:-8px;right:-8px">5
-        <div class="tip"><b>§3.5</b> — Preview stops being a mode. It opens the actual public page in a tab, so what you see is the truth rather than a parallel renderer.</div>
-      </div>
-    </div>
+      <div class="divv"></div>
 
-    <div class="relative">
-      <button class="btn btn-primary" onclick="openPreflight()">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2v13M5 9l7-7 7 7"/><path d="M20 16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"/></svg>
-        Publish
-      </button>
-      <div class="anno" style="top:-8px;right:-8px">6
-        <div class="tip"><b>§3.6</b> — Publish runs a pre-flight check first. You find out the poll counts nothing <i>now</i>, not from an empty chart next week.</div>
-      </div>
-    </div>
-  </header>
-
-  <div class="body">
-
-    <!-- ================= LEFT: intention picker ================= -->
-    <aside class="rail">
-      <div class="sec-head relative">
-        <h2>Add a question</h2>
-        <p>What do you want to ask?</p>
-        <div class="anno" style="top:12px;right:10px">2
-          <div class="tip"><b>§3.2</b> — Was 17 widget names (Radio Buttons, Multi-Select, Display Value…). Now 8 intentions. A beginner thinks "which department are they in", not "I need a radio button".</div>
-        </div>
-      </div>
-
-      <div class="rail-list" id="intentList"></div>
-
-      <button class="rail-more" onclick="document.getElementById('moreTypes').classList.toggle('open')">
-        <span>More question types</span>
-        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
-      </button>
-      <div class="more-types" id="moreTypes">
-        <button class="chip" onclick="addQuestion('signature')">Signature</button>
-        <button class="chip" onclick="addQuestion('table')">Table grid</button>
-        <button class="chip" onclick="addQuestion('likert')">Likert matrix</button>
-        <button class="chip" onclick="addQuestion('nps')">NPS 0–10</button>
-        <button class="chip" onclick="addQuestion('ranking')">Ranking</button>
-        <button class="chip" onclick="addQuestion('ces')">Effort score</button>
-        <button class="chip" onclick="addQuestion('html')">Custom HTML</button>
-        <button class="chip" onclick="addQuestion('display')">Display value</button>
-      </div>
-    </aside>
-
-    <!-- ================= CENTRE: the canvas ================= -->
-    <main class="canvas">
-      <div class="sheet">
-
-        <div class="form-head">
-          <h1>Team offsite sign-up</h1>
-          <p>Tell us whether you're coming and what you'd like to eat.</p>
-        </div>
-
-        <div id="questions"></div>
-
-        <button class="add-q" onclick="addQuestion('text')">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-          Add a question
+      <div class="rel">
+        <button class="name-btn" id="nameBtn" onclick="startRename()" title="Rename form">
+          <span id="nameTxt">Team offsite sign-up</span>
+          <svg class="i i-xs" viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
         </button>
+        <input class="name-inp hidden" id="nameInp" value="Team offsite sign-up" aria-label="Form name">
       </div>
-    </main>
 
-    <!-- ================= RIGHT: Form setup ================= -->
-    <aside class="panel">
-      <div class="sec-head relative">
+      <div class="row" style="flex:none;gap:6px;padding-left:4px">
+        <span class="pill pill-draft" id="statePill"><span class="d"></span><span id="stateTxt">Draft</span></span>
+        <!-- v2 §3.6: autosave sentence in place of an Unsaved pill + Save button -->
+        <span class="autosave rel" id="autosave"><span class="d"></span><span id="saveTxt">All changes saved</span>
+          <span class="anno" style="top:-9px;left:-11px">1
+            <span class="tp"><b>§3.6</b> — The draft autosaves, so the Save button is gone and this sentence replaces the "Unsaved" pill. Publish becomes the only button, because it is the only action with consequences.</span>
+          </span>
+        </span>
+      </div>
+
+      <div style="width:12px"></div>
+
+      <!-- v2 §1.3/§3.5: mode switch moved out of absolute centre to just after the name -->
+      <div class="modes rel" id="modes">
+        <button class="mode on" data-mode="canvas" onclick="setMode('canvas')">
+          <svg class="i i-xs" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>canvas</button>
+        <button class="mode" data-mode="preview" onclick="setMode('preview')">
+          <svg class="i i-xs" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>preview</button>
+        <button class="mode" data-mode="settings" onclick="setMode('settings')">
+          <svg class="i i-xs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.63.68 1.1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+          Form setup <span class="badge" id="setupBadge">4</span></button>
+        <span class="anno dn" style="bottom:-9px;left:50%">2
+          <span class="tp"><b>§1.3</b> — The switch was absolutely centred in the top bar and collided with the name and the buttons on a narrow window. It sits after the name now, and "Settings" is renamed <b>Form setup</b> with a count of what is switched on, so it reads as somewhere with contents.</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="hdr-r">
+      <button class="btn btn-ghost btn-xs" onclick="toggleAnno()" id="annoBtn" title="Highlight the v2 changes">
+        <svg class="i i-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        What changed
+      </button>
+      <div class="divv"></div>
+
+      <div class="menu-wrap">
+        <button class="btn btn-ghost btn-ico" onclick="tog('moreMenu');event.stopPropagation()" aria-label="More actions">
+          <svg class="i i-sm" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+        <div class="dropdown" id="moreMenu">
+          <button onclick="toast('Duplicate Form — opens the naming dialog.')"><svg class="i i-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Duplicate Form</button>
+          <button onclick="toast('Save as Template — opens the naming dialog.')"><svg class="i i-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Save as Template</button>
+          <button onclick="toast('Export JSON — downloads the form schema.')"><svg class="i i-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export JSON</button>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost btn-ico" title="AI Assist" onclick="openDlg('aiDlg')">
+        <svg class="i i-sm" viewBox="0 0 24 24" style="color:hsl(var(--primary))"><path d="m12 3-1.9 5.8L4 10.5l5.8 1.9L12 18l1.9-5.6 5.8-1.9-5.8-1.9Z"/><path d="M19 3v4M21 5h-4"/></svg>
+      </button>
+
+      <button class="btn btn-outline btn-xs" onclick="toast('Opens the live public form in a new tab — the real page, not a second renderer.')">
+        <svg class="i i-sm" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14 21 3"/></svg>
+        Open form
+      </button>
+
+      <div class="rel">
+        <button class="btn btn-primary btn-xs" onclick="openPreflight()">
+          <svg class="i i-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg>
+          Publish
+        </button>
+        <span class="anno l" style="top:-9px;right:-9px">3
+          <span class="tp"><b>§1.5 / §3.6</b> — Publish now runs a pre-flight check first: a poll with no counted question, a payment form with no amount, a required field permanently hidden. Blocking only for what guarantees a broken form.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================ CANVAS MODE ============================ -->
+<div class="editor" id="viewCanvas">
+
+  <!-- ---- LEFT: field palette, v2 intentions ---- -->
+  <aside class="palette" id="palette">
+    <div class="pal-head rel">
+      <h2>Add a question</h2>
+      <p>Drag onto the form, or click to add</p>
+      <span class="anno l" style="top:12px;right:8px">4
+        <span class="tp"><b>§3.2</b> — Was 17 widget names: Text Input, Long Text, Radio Buttons, Multi-Select, Display Value, Table Grid. Now 8 intentions. Nobody thinks "I need a radio button" — they think "which department are they in". Everything else is still here under <b>More question types</b>.</span>
+      </span>
+    </div>
+    <div class="pal-body scrollbar-subtle">
+      <div class="stack" style="gap:1px" id="intentList"></div>
+      <button class="pal-more" onclick="this.nextElementSibling.classList.toggle('open')">
+        <span>More question types</span>
+        <svg class="i i-sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="pal-chips" id="moreTypes"></div>
+      <div id="surveyPal" class="hidden">
+        <div class="pal-sec">Survey questions</div>
+        <div class="pal-chips open" id="surveyTypes"></div>
+      </div>
+    </div>
+  </aside>
+  <div class="resizer" data-resize="palette"></div>
+
+  <!-- ---- CENTRE: the form ---- -->
+  <main class="canvas scrollbar-subtle">
+    <div class="canvas-in">
+      <div class="form-card" id="formCard">
+        <div class="form-card-head">
+          <h1 id="cardTitle">Team offsite sign-up</h1>
+          <textarea class="form-desc" id="cardDesc" rows="1"
+            placeholder="Add a description for your form (optional)"
+            oninput="autoGrow(this);markDirty()">Tell us whether you're coming and what you'd like to eat.</textarea>
+        </div>
+        <div class="form-card-body">
+          <div class="fields" id="fieldList"></div>
+          <button class="add-q-btn" onclick="addField('text')">
+            <svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            Add a question
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="resizer" data-resize="inspector"></div>
+
+  <!-- ---- RIGHT: Form setup (v2 replaces the Field Inspector) ---- -->
+  <aside class="inspector" id="inspector">
+    <div class="insp-head rel">
+      <div style="flex:1">
         <h2>Form setup</h2>
-        <p>Settings for the whole form. This panel does not change when you select a question.</p>
-        <div class="anno" style="top:12px;right:10px">4
-          <div class="tip"><b>§3.3 / §3.4</b> — The right panel used to be the Field Inspector: 21 accordion sections that changed with the selection. It now holds only form-wide things, so it can be ignored.</div>
+        <p>Settings for the whole form. This panel no longer changes when you select a question.</p>
+      </div>
+      <span class="anno l" style="top:10px;right:8px">5
+        <span class="tp"><b>§3.3</b> — This was the <b>Field Inspector</b>: 21 accordion sections that swapped contents every time you clicked a different field, with the label edited here rather than where the label appears. All of it moved onto the question. What is left is form-wide, so it can be ignored.</span>
+      </span>
+    </div>
+
+    <div class="insp-body scrollbar-subtle">
+
+      <!-- §3.4 form type, asked once -->
+      <div class="fg rel">
+        <span class="t">What kind of form is this?</span>
+        <span class="s">Was three separate enable-checkboxes in three peer tabs, alongside Appearance which is not a form type at all.</span>
+        <button class="rcard on" data-ft="collect" onclick="setFormType('collect')">
+          <span class="rd on"></span><span class="tx"><b>Collect answers</b><i>An ordinary form.</i></span></button>
+        <button class="rcard" data-ft="voting" onclick="setFormType('voting')">
+          <span class="rd"></span><span class="tx"><b>Poll or vote</b><i>Count answers to one question.</i></span></button>
+        <button class="rcard" data-ft="assessment" onclick="setFormType('assessment')">
+          <span class="rd"></span><span class="tx"><b>Quiz or assessment</b><i>Score answers, set a pass mark.</i></span></button>
+        <button class="rcard" data-ft="survey" onclick="setFormType('survey')">
+          <span class="rd"></span><span class="tx"><b>Survey</b><i>NPS, CSAT, Likert and ranking.</i></span></button>
+        <span class="anno l" style="top:2px;right:0">6
+          <span class="tp"><b>§1.4 / §3.4</b> — Assessment, Voting and Survey are mutually exclusive, but were three checkboxes in three tabs — a state machine drawn as a settings form. One question, four answers; only the matching tab appears.</span>
+        </span>
+      </div>
+
+      <!-- the follow-up that closes the §1.1 gap -->
+      <div class="followup" id="pollFollowup">
+        <h4><svg class="i i-sm" viewBox="0 0 24 24" style="color:hsl(var(--primary))"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          Which question are people voting on?</h4>
+        <p>A poll needs one counted question. Today you have to know to go back to the field settings and find "Poll Question" — so it is asked here, where the poll was turned on. Either place works; they stay in sync.</p>
+        <div id="pollChoices"></div>
+      </div>
+
+      <!-- §3.4 What's set up -->
+      <div class="fg rel">
+        <span class="t">What's set up</span>
+        <span class="s">Everything switched on, in one list, each a link to the control that switched it on.</span>
+        <div class="smap"><div class="sh">On for this form</div><div id="setupList"></div></div>
+        <span class="anno" style="top:26px;left:-10px">7
+          <span class="tp"><b>§3.4</b> — The map of the editor that does not exist today. Somebody opening a form they did not build has no way to find out what is enabled except opening all ten settings tabs one by one.</span>
+        </span>
+      </div>
+
+      <div class="fg">
+        <span class="t">Sections</span>
+        <div class="snav" id="setupNav"></div>
+      </div>
+
+      <div class="fg">
+        <span class="t">Form structure</span>
+        <span class="s">Single page or split into steps.</span>
+        <div class="snav">
+          <button onclick="setMode('settings');setSettingsTab('layout')">
+            <svg class="i i-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+            Layout and steps <span class="cnt" id="layoutCount">Single page</span></button>
+          <button onclick="openDlg('varDlg')">
+            <svg class="i i-sm" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11h.01M8 15h2M12 15h2"/></svg>
+            Data calculations <span class="cnt" id="varCount">2 variables</span></button>
         </div>
       </div>
 
-      <div class="panel-body">
-
-        <!-- form type, asked once (§3.4) -->
-        <div class="field-group relative">
-          <label>What kind of form is this?</label>
-          <p class="hint">Was three checkboxes in three separate tabs — a state machine drawn as a settings form.</p>
-          <button class="radio-card sel" data-type="collect" onclick="setFormType('collect')">
-            <span class="rc-dot"></span><span><b>Collect answers</b><span>An ordinary form.</span></span>
-          </button>
-          <button class="radio-card" data-type="poll" onclick="setFormType('poll')">
-            <span class="rc-dot"></span><span><b>Poll or vote</b><span>Count answers to one question.</span></span>
-          </button>
-          <button class="radio-card" data-type="quiz" onclick="setFormType('quiz')">
-            <span class="rc-dot"></span><span><b>Quiz or assessment</b><span>Score the answers.</span></span>
-          </button>
-          <button class="radio-card" data-type="survey" onclick="setFormType('survey')">
-            <span class="rc-dot"></span><span><b>Survey</b><span>NPS, CSAT, Likert and ranking.</span></span>
-          </button>
-        </div>
-
-        <!-- the follow-up that closes the §1.1 gap -->
-        <div class="followup" id="pollFollowup">
-          <div class="fu-h">
-            <svg class="icon icon-sm" viewBox="0 0 24 24" style="color:hsl(var(--primary))"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-            Which question are people voting on?
-          </div>
-          <p class="fu-p">A poll needs one counted question. Today you have to know to go back to the field settings and find it — so it is asked here, where the poll was turned on.</p>
-          <button class="fu-opt" onclick="pickPollQ(this,'Which activity should we do?')">
-            Which activity should we do?
-            <svg class="icon icon-sm tick" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
-          </button>
-          <button class="fu-opt" onclick="pickPollQ(this,'Any dietary requirements?')">
-            Any dietary requirements?
-            <svg class="icon icon-sm tick" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
-          </button>
-        </div>
-
-        <!-- What's set up (§3.4) -->
-        <div class="field-group relative">
-          <label>What's set up</label>
-          <p class="hint">Everything switched on, in one list. Currently there is nowhere to see this — you open all ten tabs.</p>
-          <div class="setup-map">
-            <div class="sm-h">On for this form</div>
-            <div id="setupList"></div>
-          </div>
-          <div class="anno left" style="top:34px;left:-8px">3
-            <div class="tip"><b>§3.4</b> — The map of the editor that does not exist today. Somebody opening a form they did not build has no way to find out what is enabled.</div>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label>Everything else</label>
-          <div class="tabs">
-            <button class="tab on"><svg class="icon icon-sm t-ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>General</button>
-            <button class="tab"><svg class="icon icon-sm t-ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Who can use it</button>
-            <button class="tab"><svg class="icon icon-sm t-ic" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="3"/><circle cx="10" cy="20" r="2.5"/></svg>Appearance</button>
-            <button class="tab"><svg class="icon icon-sm t-ic" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>After submit</button>
-          </div>
-        </div>
-
-      </div>
-    </aside>
-
-  </div>
+    </div>
+  </aside>
 </div>
 
-<!-- ================= PRE-FLIGHT DIALOG ================= -->
-<div class="scrim" id="preflight" onclick="if(event.target===this)closePreflight()">
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pfTitle">
-    <div class="d-head">
-      <h3 id="pfTitle">Ready to publish — <span id="pfCount">1 thing</span> to look at</h3>
-      <p>Nothing is live yet. You can publish anyway.</p>
-    </div>
-    <div class="checks" id="pfChecks"></div>
-    <div class="d-foot">
-      <button class="btn btn-outline" onclick="closePreflight()">Back to editing</button>
-      <button class="btn btn-primary" onclick="publish()">Publish anyway</button>
+<!-- ============================ PREVIEW MODE ============================ -->
+<div class="settings hidden" id="viewPreview">
+  <div class="settings-body scrollbar-subtle">
+    <div class="pv-wrap">
+      <div class="pv-card">
+        <h2 id="pvTitle">Team offsite sign-up</h2>
+        <p class="d" id="pvDesc"></p>
+        <div id="pvStepper" class="hidden"></div>
+        <div id="pvErrSum"></div>
+        <div class="stack gap4" style="margin-top:22px" id="pvFields"></div>
+        <div class="row" style="margin-top:24px;gap:8px" id="pvActions"></div>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="legend">
-  <h4>Annotation mode</h4>
-  <p>Numbered markers point at the six changes in <b>docs/EDITOR_V2_DESIGN.md</b>. Hover one to read what it replaces.</p>
+<!-- ============================ SETTINGS MODE ============================ -->
+<div class="settings hidden" id="viewSettings">
+  <div class="settings-hdr">
+    <div class="in">
+      <nav role="tablist">
+        <button class="on" id="stab-layout" onclick="setSettingsTab('layout')">
+          <svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>Layout</button>
+        <button id="stab-form" onclick="setSettingsTab('form')">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.63.68 1.1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>Form settings</button>
+      </nav>
+      <p class="note" id="settingsNote">Structure, pages, and respondent navigation</p>
+    </div>
+  </div>
+  <div class="settings-body scrollbar-subtle">
+
+    <!-- ---- LAYOUT TAB ---- -->
+    <div id="settingsLayout">
+      <div class="lay-wrap">
+        <div class="stack gap3">
+          <div class="sec-lbl"><div class="t">Form type</div><div class="s">Choose how respondents move through your form.</div></div>
+          <div class="opt-cards">
+            <button class="ocard on" id="lay-single" onclick="setLayoutMode('single')">
+              <span class="rd on"></span><span class="tx"><b>Single page</b><i>All fields on one scrollable page</i></span></button>
+            <button class="ocard" id="lay-multi" onclick="setLayoutMode('multiStep')">
+              <span class="rd"></span><span class="tx"><b>Multi-step</b><i>Split fields into guided steps</i></span></button>
+          </div>
+        </div>
+
+        <div class="stack gap3">
+          <div class="sec-lbl"><div class="t">Page layout</div><div class="s">Controls how wide the form renders.</div></div>
+          <div class="opt-cards">
+            <button class="ocard on" id="ori-v" onclick="setOrientation('vertical')">
+              <span class="rd on"></span><span class="tx"><b>Vertical</b><i>Narrow, centered card</i></span></button>
+            <button class="ocard" id="ori-h" onclick="setOrientation('horizontal')">
+              <span class="rd"></span><span class="tx"><b>Horizontal</b><i>Full width, fields side by side</i></span></button>
+          </div>
+        </div>
+
+        <div id="stepSection" class="hidden stack gap3">
+          <div class="sec-lbl"><div class="t">Progress indicator</div><div class="s">How step progress is shown to respondents.</div></div>
+          <div class="opt-cards" style="grid-template-columns:repeat(3,1fr)">
+            <button class="ocard on stepper-style" onclick="pickOne(this,'.stepper-style')">
+              <span class="rd on"></span><span class="tx"><b>Progress</b><i>Segmented bar</i></span></button>
+            <button class="ocard stepper-style" onclick="pickOne(this,'.stepper-style')">
+              <span class="rd"></span><span class="tx"><b>Steps</b><i>Numbered circles</i></span></button>
+            <button class="ocard stepper-style" onclick="pickOne(this,'.stepper-style')">
+              <span class="rd"></span><span class="tx"><b>Minimal</b><i>Step X of Y text</i></span></button>
+          </div>
+
+          <div class="sect" style="margin-top:4px">
+            <div class="row">
+              <div class="lt" style="flex:1">
+                <div class="t" style="font-size:14px;font-weight:600">Allow going back</div>
+                <div class="s" style="margin-top:2px;font-size:12px;color:hsl(var(--muted-foreground))">Respondents can return to previous steps.</div>
+              </div>
+              <span class="sw on" onclick="this.classList.toggle('on');markDirty()"></span>
+            </div>
+          </div>
+
+          <div class="sec-lbl" style="margin-top:8px"><div class="t">Steps</div><div class="s">Organize fields into the order respondents see them.</div></div>
+          <div class="stack gap3" id="stepsEditor"></div>
+          <button class="btn btn-outline btn-sm" style="align-self:flex-start" onclick="addStep()">
+            <svg class="i i-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add step</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- FORM SETTINGS TAB ---- -->
+    <div id="settingsForm" class="hidden">
+      <div class="set-split">
+        <aside class="set-side scrollbar-subtle">
+          <p class="cap">Sections</p>
+          <div class="list" id="setTabs"></div>
+        </aside>
+        <div class="set-main" id="setPanels"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ============================ DIALOGS ============================ -->
+
+<!-- pre-flight -->
+<div class="scrim" id="preflight" onclick="if(event.target===this)closeDlg('preflight')">
+  <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="pfT">
+    <div class="dlg-h"><h3 id="pfT">Ready to publish</h3><p>Nothing is live yet. You can publish anyway.</p></div>
+    <div class="dlg-b" id="pfBody"></div>
+    <div class="dlg-f">
+      <button class="btn btn-outline" onclick="closeDlg('preflight')">Back to editing</button>
+      <button class="btn btn-primary" onclick="publish()" id="pfGo">Publish</button>
+    </div>
+  </div>
+</div>
+
+<!-- conditional visibility (the real modal, reachable from ⋮) -->
+<div class="scrim" id="visDlg" onclick="if(event.target===this)closeDlg('visDlg')">
+  <div class="dlg" role="dialog" aria-modal="true">
+    <div class="dlg-h"><h3>Only show this sometimes</h3>
+      <p>Was <b>Conditional Visibility</b>. The question appears only when these conditions match.</p></div>
+    <div class="dlg-b">
+      <div class="row"><span style="font-size:12px;font-weight:600">Show when</span>
+        <select class="inp" id="visLogic" style="width:auto;height:32px;font-size:12px">
+          <option value="and">ALL conditions match</option><option value="or">ANY condition matches</option>
+        </select></div>
+      <div class="stack gap2" id="visConds"></div>
+      <button class="btn btn-soft" onclick="addVisCond()"><svg class="i i-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add condition</button>
+    </div>
+    <div class="dlg-f">
+      <button class="btn btn-outline" onclick="clearVis()">Remove rule</button>
+      <button class="btn btn-primary" onclick="saveVis()">Save rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- limit the answer (Input Validation + Constraints, merged per §7) -->
+<div class="scrim" id="valDlg" onclick="if(event.target===this)closeDlg('valDlg')">
+  <div class="dlg" role="dialog" aria-modal="true">
+    <div class="dlg-h"><h3>Limit the answer</h3>
+      <p>Was <b>Input Validation</b> and <b>Constraints &amp; Defaults</b> — two sections enforcing the same thing, where the stricter silently won.</p></div>
+    <div class="dlg-b">
+      <div class="grid2">
+        <div class="stack gap2"><label class="lbl">Minimum length</label><input class="inp" type="number" id="vMin" placeholder="No minimum"></div>
+        <div class="stack gap2"><label class="lbl">Maximum length</label><input class="inp" type="number" id="vMax" placeholder="No maximum"></div>
+      </div>
+      <div class="stack gap2"><label class="lbl">Default value</label><input class="inp" id="vDef" placeholder="Shown when the form loads"></div>
+      <div class="stack gap2"><label class="lbl">Pattern (regex)</label><input class="inp" id="vPat" placeholder="e.g. ^[A-Z]{2}[0-9]{4}$"></div>
+      <div class="stack gap2"><label class="lbl">Message when it doesn't match</label><input class="inp" id="vMsg" placeholder="Enter a valid code"></div>
+      <label class="row" style="gap:8px;cursor:pointer" onclick="tgc('vUniq')">
+        <span class="cb" id="vUniq"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span style="font-size:13px">Unique submission value</span></label>
+    </div>
+    <div class="dlg-f">
+      <button class="btn btn-outline" onclick="clearVal()">Remove limits</button>
+      <button class="btn btn-primary" onclick="saveVal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- generic "configure" modals that already exist in the product -->
+<div class="scrim" id="genDlg" onclick="if(event.target===this)closeDlg('genDlg')">
+  <div class="dlg" role="dialog" aria-modal="true">
+    <div class="dlg-h"><h3 id="genT">Configure</h3><p id="genP"></p></div>
+    <div class="dlg-b" id="genB"></div>
+    <div class="dlg-f">
+      <button class="btn btn-outline" onclick="clearGen()">Remove</button>
+      <button class="btn btn-primary" onclick="saveGen()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- data calculations -->
+<div class="scrim" id="varDlg" onclick="if(event.target===this)closeDlg('varDlg')">
+  <div class="dlg" role="dialog" aria-modal="true">
+    <div class="dlg-h"><h3>Data calculations</h3><p>Variables computed from answers, usable in display fields and conditions.</p></div>
+    <div class="dlg-b">
+      <div class="stack gap2" id="varList"></div>
+      <button class="btn btn-soft" onclick="addVar()"><svg class="i i-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add variable</button>
+    </div>
+    <div class="dlg-f"><button class="btn btn-primary" onclick="closeDlg('varDlg')">Done</button></div>
+  </div>
+</div>
+
+<!-- CSV bulk import of options -->
+<div class="scrim" id="csvDlg" onclick="if(event.target===this)closeDlg('csvDlg')">
+  <div class="dlg" role="dialog" aria-modal="true">
+    <div class="dlg-h"><h3>Bulk import options</h3><p>One option per line. <code>Label,value</code> to set both.</p></div>
+    <div class="dlg-b">
+      <textarea class="inp" id="csvText" rows="8" placeholder="Chennai&#10;Bengaluru,blr&#10;Hyderabad"></textarea>
+      <p class="hint" id="csvCount">0 options</p>
+    </div>
+    <div class="dlg-f">
+      <button class="btn btn-outline" onclick="closeDlg('csvDlg')">Cancel</button>
+      <button class="btn btn-primary" onclick="applyCsv()">Replace options</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI assist -->
+<div class="scrim" id="aiDlg" onclick="if(event.target===this)closeDlg('aiDlg')">
+  <div class="dlg" role="dialog" aria-modal="true">
+    <div class="dlg-h"><h3>Build with AI (form-level)</h3><p>Describe the change you want to make to the entire form.</p></div>
+    <div class="dlg-b"><textarea class="inp" rows="5" placeholder="e.g. add a DOB field"></textarea></div>
+    <div class="dlg-f">
+      <button class="btn btn-outline" onclick="closeDlg('aiDlg')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeDlg('aiDlg');toast('AI editing is a backend call — not wired in this mockup.')">Submit</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-/* =======================================================================
-   State. Small enough to keep in one object; this is a mockup, not an app.
-   ======================================================================= */
-const INTENTS = [
-  {id:'text',     label:'A short answer',            sub:'Name, job title, a word or two', icon:'M4 7V5h16v2M9 19h6M12 5v14'},
-  {id:'textarea', label:'A long answer',             sub:'A paragraph or more',            icon:'M4 6h16M4 10h16M4 14h12M4 18h8'},
-  {id:'radio',    label:'One choice from a list',    sub:'Pick a single option',           icon:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'},
-  {id:'checkbox', label:'Several choices',           sub:'Pick any number of options',     icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'},
-  {id:'number',   label:'A number',                  sub:'How many, how much',             icon:'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18'},
-  {id:'date',     label:'A date or time',            sub:'When something happens',         icon:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z'},
-  {id:'file',     label:'A file',                    sub:'A document or picture',          icon:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12'},
-  {id:'rating',   label:'A rating or score',         sub:'Stars, or 1 to 10',              icon:'m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z'},
-];
-
-/* Intentions map to field types. The distinction people are asked to make
-   today — radio vs dropdown, text vs long text — is a consequence of the
-   answer, not a question worth asking. */
-const TYPE_LABEL = {
-  text:'Short answer', textarea:'Long answer', radio:'One choice', select:'One choice',
-  checkbox:'Several choices', multiselect:'Several choices', number:'Number',
-  date:'Date', file:'File upload', rating:'Rating', signature:'Signature',
-  table:'Table grid', likert:'Likert matrix', nps:'NPS 0–10', ranking:'Ranking',
-  ces:'Effort score', html:'Custom HTML', display:'Display value'
+/* ==========================================================================
+   STATE — mirrors builderSlice: schema.fields, schema.variables, settings, layout
+   ========================================================================== */
+const S = {
+  formName:'Team offsite sign-up',
+  formDescription:"Tell us whether you're coming and what you'd like to eat.",
+  published:false,
+  formType:'collect',                    // collect | voting | assessment | survey
+  layout:{ mode:'single', orientation:'vertical', steps:[] },
+  settings:{
+    isFormActive:true, botProtection:true, dedupe:'email', team:'Marketing',
+    otp:false, payment:false, partial:true, theme:'default',
+  },
+  variables:[
+    {id:'v1', name:'attendee_count', formula:'1'},
+    {id:'v2', name:'meal_cost', formula:'attendee_count * 850'},
+  ],
+  fields:[],
+  selectedId:null,
+  openMenu:null,
+  mode:'canvas',
 };
 
-let questions = [
-  { id:1, type:'text', label:'What is your name?', desc:'', required:true, open:false, options:[], rules:[] },
-  { id:2, type:'text', label:'What is your work email address?', desc:'We only use this to send the calendar invite.',
-    required:true, open:false, options:[], rules:[], guess:'email' },
-  { id:3, type:'radio', label:'Which activity should we do?', desc:'', required:true, open:true,
-    options:['Escape room','Cooking class','Go-karting','Museum tour'], rules:[] },
-  { id:4, type:'checkbox', label:'Any dietary requirements?', desc:'', required:false, open:false,
-    options:['Vegetarian','Vegan','Gluten-free','Nut allergy','None'],
-    rules:[{icon:'eye', text:'Only shown when <b>Are you coming?</b> is <b>Yes</b>'}] },
-  { id:5, type:'select', label:'Which office are you travelling from?', desc:'', required:true, open:false,
-    options:['Chennai','Bengaluru','Hyderabad','Mumbai','Delhi','Pune','Kolkata','Remote'], rules:[] },
+let nid = 1;
+const uid = () => 'field_' + (Date.now() + (nid++));
+
+/* Field type catalogue — the real list from FieldPalette.tsx */
+const TYPE_LABEL = {
+  text:'Text', email:'Email', phone:'Phone', number:'Number', select:'Dropdown',
+  radio:'Radio', checkbox:'Checkbox', multiselect:'Multi-Select', date:'Date',
+  time:'Time', textarea:'Long Text', file:'File', rating:'Rating',
+  signature:'Signature', html:'HTML', display:'Display Value', table:'Table Grid',
+  nps:'NPS', csat:'CSAT', ces:'Effort Score', likert:'Likert Matrix', ranking:'Ranking',
+};
+/* v2 §3.2 — what the type is called in the question's own type picker */
+const TYPE_FRIENDLY = {
+  text:'Short answer', textarea:'Long answer', email:'Email address', phone:'Phone number',
+  number:'Number', select:'One choice', radio:'One choice', checkbox:'Several choices',
+  multiselect:'Several choices', date:'Date', time:'Time', file:'File upload',
+  rating:'Rating', signature:'Signature', html:'Custom HTML', display:'Display value',
+  table:'Table grid', nps:'NPS 0–10', csat:'CSAT', ces:'Effort score',
+  likert:'Likert matrix', ranking:'Ranking',
+};
+const DEFAULT_LABEL = {
+  text:'Text Field', email:'Email Address', phone:'Phone Number', number:'Number',
+  select:'Dropdown', radio:'Radio Buttons', checkbox:'Checkboxes', date:'Date', time:'Time',
+  textarea:'Long Text', file:'File Upload', rating:'Rating', signature:'Signature',
+  html:'Custom HTML', display:'Display Value', table:'Table Grid',
+  nps:'How likely are you to recommend us?', csat:'How satisfied are you with your experience?',
+  ces:'How easy was it to complete your goal?',
+  likert:'How much do you agree with each statement?',
+  ranking:'Rank these items in order of preference',
+};
+const HAS_OPTIONS = t => ['select','radio','checkbox','multiselect','ranking'].includes(t);
+const IS_TEXTY   = t => ['text','email','phone','number','textarea'].includes(t);
+
+/* v2 §3.2 — eight intentions in place of seventeen mechanisms */
+const INTENTS = [
+  {t:'text',     b:'A short answer',        i:'Name, job title, a word or two', d:'M4 7V5h16v2M9 19h6M12 5v14'},
+  {t:'textarea', b:'A long answer',         i:'A paragraph or more',            d:'M4 6h16M4 10h16M4 14h12M4 18h8'},
+  {t:'radio',    b:'One choice from a list',i:'Pick a single option',           d:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'},
+  {t:'checkbox', b:'Several choices',       i:'Pick any number of options',     d:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'},
+  {t:'number',   b:'A number',              i:'How many, how much',             d:'M4 9h16M4 15h16M10 3 8 21M16 3l-2 18'},
+  {t:'date',     b:'A date or time',        i:'When something happens',         d:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z'},
+  {t:'file',     b:'A file',                i:'A document or picture',          d:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12'},
+  {t:'rating',   b:'A rating or score',     i:'Stars, or 1 to 10',              d:'m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z'},
 ];
-let nextId = 6, openMenu = null, formType = 'collect', pollQuestion = null, saveTimer = null;
+const MORE_TYPES   = ['email','phone','time','select','multiselect','signature','table','html','display'];
+const SURVEY_TYPES = ['nps','csat','ces','likert','ranking'];
 
-/* =======================================================================
-   Rendering
-   ======================================================================= */
-const svg = (d, cls='icon') => `<svg class="${cls}" viewBox="0 0 24 24">${d.split('|').map(p=>`<path d="${p}"/>`).join('')}</svg>`;
+/* ==========================================================================
+   Seed data
+   ========================================================================== */
+function seed(){
+  const mk = o => Object.assign({
+    id:uid(), type:'text', label:'', placeholder:'', helpText:'', required:false,
+    unique:false, width:'full', options:[], validation:{}, rules:[], alerts:[],
+    supportDocuments:[], showWhen:null, fieldLinking:null, externalValidation:null,
+    fileConfig:null, isPollQuestion:false, correctAnswer:null, points:1, guess:null,
+  }, o);
+  S.fields = [
+    mk({type:'text',  label:'What is your name?', placeholder:'Jane Doe', required:true}),
+    mk({type:'email', label:'What is your work email address?', placeholder:'you@company.com',
+        helpText:'We only use this to send the calendar invite.', required:true, unique:true,
+        validation:{pattern:'', message:''},
+        externalValidation:{enabled:true, url:'https://directory.internal/api/verify', method:'POST', trigger:'auto'}}),
+    mk({type:'radio', label:'Are you coming?', required:true, width:'half',
+        options:[{label:'Yes',value:'yes'},{label:'No',value:'no'},{label:'Not sure yet',value:'maybe'}]}),
+    mk({type:'radio', label:'Which activity should we do?', required:true,
+        options:[{label:'Escape room',value:'escape'},{label:'Cooking class',value:'cooking'},
+                 {label:'Go-karting',value:'karting'},{label:'Museum tour',value:'museum'}]}),
+    mk({type:'checkbox', label:'Any dietary requirements?',
+        options:[{label:'Vegetarian',value:'veg'},{label:'Vegan',value:'vegan'},
+                 {label:'Gluten-free',value:'gf'},{label:'Nut allergy',value:'nut'},{label:'None',value:'none'}],
+        showWhen:{logic:'and', conditions:[{fieldId:null, field:'Are you coming?', operator:'equals', value:'yes'}]},
+        alerts:[{id:'a1', message:'Kitchen needs 5 days notice for nut-free meals.'}]}),
+    mk({type:'select', label:'Which office are you travelling from?', required:true,
+        options:['Chennai','Bengaluru','Hyderabad','Mumbai','Delhi','Pune','Kolkata','Remote']
+                 .map(c=>({label:c, value:c.toLowerCase()}))}),
+    mk({type:'number', label:'How many nights will you stay?', width:'half',
+        validation:{min:0, max:4}}),
+    mk({type:'file', label:'Upload your travel receipt', helpText:'PDF or image, up to 5 MB.',
+        fileConfig:{accept:['image/*','.pdf'], maxSize:5242880, multiple:false},
+        supportDocuments:[{id:'d1', label:'Expenses policy.pdf'}]}),
+  ];
+  S.layout.steps = [
+    {id:'s1', title:'About you',   order:0, fieldIds:S.fields.slice(0,2).map(f=>f.id), lockOnComplete:false},
+    {id:'s2', title:'The offsite', order:1, fieldIds:S.fields.slice(2,6).map(f=>f.id), lockOnComplete:false},
+    {id:'s3', title:'Travel',      order:2, fieldIds:S.fields.slice(6).map(f=>f.id),   lockOnComplete:false},
+  ];
+}
+const F  = id => S.fields.find(f=>f.id===id);
+const IX = id => S.fields.findIndex(f=>f.id===id);
 
-function renderIntents(){
-  document.getElementById('intentList').innerHTML = INTENTS.map(i=>`
-    <button class="intent" onclick="addQuestion('${i.id}')">
-      <span class="glyph">${svg(i.icon,'icon icon-sm')}</span>
-      <span class="txt"><b>${i.label}</b><span>${i.sub}</span></span>
+/* ==========================================================================
+   Small helpers
+   ========================================================================== */
+const svg = (d,c='i') => `<svg class="${c}" viewBox="0 0 24 24">${d.split('|').map(p=>`<path d="${p}"/>`).join('')}</svg>`;
+const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const ICON = {
+  check:'M20 6 9 17l-5-5', warn:'M12 9v4|M12 17h.01|M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z',
+  eye:'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z|M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+  shield:'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z', globe:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z|M2 12h20|M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z',
+  link:'M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7|M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7',
+  calc:'M4 3h16v18H4z|M8 7h8|M8 11h2|M12 11h2|M16 11h.01|M8 15h2|M12 15h2|M16 15h.01',
+  alert:'M12 9v4|M12 17h.01|M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z',
+  doc:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6',
+  poll:'M18 20V10|M12 20V4|M6 20v-6', star:'m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z',
+  copy:'M9 9h13v13H9z|M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+  trash:'M3 6h18|M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
+  plus:'M12 5v14M5 12h14', x:'M18 6 6 18M6 6l12 12', info:'M12 16v-4|M12 8h.01|M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z',
+  file:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|M17 8l-5-5-5 5|M12 3v12',
+  sheet:'M4 3h16v18H4z|M4 9h16|M4 15h16|M10 3v18', clip:'M9 11l3 3L22 4|M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+  lock:'M5 11h14v10H5z|M8 11V7a4 4 0 0 1 8 0v4', users:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2|M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8|M23 21v-2a4 4 0 0 0-3-3.87',
+  palette:'M12 22a10 10 0 1 1 0-20c5.5 0 10 3.6 10 8 0 3-2.5 4-4.5 4H15a2 2 0 0 0-1.4 3.4A2 2 0 0 1 12 22Z',
+  key:'M15 7a4 4 0 1 1-4 4l-7 7v3h3l7-7',
+  card:'M2 6h20v12H2z|M2 10h20', grid:'M3 3h18v18H3z|M3 9h18M3 15h18M9 3v18M15 3v18',
+};
+
+function toast(m){ const t=document.getElementById('toast'); t.innerHTML=m; t.classList.add('show');
+  clearTimeout(toast._); toast._=setTimeout(()=>t.classList.remove('show'),3600); }
+function tog(id){ const e=document.getElementById(id); document.querySelectorAll('.dropdown.open').forEach(d=>{if(d!==e)d.classList.remove('open')}); e.classList.toggle('open'); }
+function openDlg(id){ document.getElementById(id).classList.add('open'); }
+function closeDlg(id){ document.getElementById(id).classList.remove('open'); }
+function tgc(id){ document.getElementById(id).classList.toggle('on'); }
+function autoGrow(el){ el.style.height='auto'; el.style.height=el.scrollHeight+'px'; }
+function pickOne(btn,sel){ document.querySelectorAll(sel).forEach(b=>{b.classList.remove('on');const r=b.querySelector('.rd');if(r)r.classList.remove('on')});
+  btn.classList.add('on'); const r=btn.querySelector('.rd'); if(r)r.classList.add('on'); markDirty(); }
+
+let saveT;
+function markDirty(){
+  const a=document.getElementById('autosave');
+  a.classList.add('busy'); document.getElementById('saveTxt').textContent='Saving…';
+  clearTimeout(saveT);
+  saveT=setTimeout(()=>{ a.classList.remove('busy');
+    document.getElementById('saveTxt').textContent = S.published ? 'All changes published' : 'All changes saved'; },700);
+  if(S.published){ const p=document.getElementById('statePill');
+    p.className='pill pill-dirty'; document.getElementById('stateTxt').textContent='Published · unpublished changes'; }
+}
+
+/* ==========================================================================
+   PALETTE
+   ========================================================================== */
+function renderPalette(){
+  document.getElementById('intentList').innerHTML = INTENTS.map(x=>`
+    <button class="intent" draggable="true" ondragstart="dragNew(event,'${x.t}')" onclick="addField('${x.t}')">
+      <span class="g">${svg(x.d,'i i-sm')}</span>
+      <span class="t"><b>${x.b}</b><i>${x.i}</i></span>
+      <svg class="i i-xs grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>
     </button>`).join('');
+  document.getElementById('moreTypes').innerHTML = MORE_TYPES
+    .map(t=>`<button class="chip" onclick="addField('${t}')">${TYPE_FRIENDLY[t]}</button>`).join('');
+  document.getElementById('surveyTypes').innerHTML = SURVEY_TYPES
+    .map(t=>`<button class="chip" onclick="addField('${t}')">${TYPE_FRIENDLY[t]}</button>`).join('');
+  document.getElementById('surveyPal').classList.toggle('hidden', S.formType!=='survey');
 }
 
-/* The mock answer control, rendered at the size a respondent sees it.
-   Showing the real control is the whole point of editing on the canvas. */
-function answerControl(q){
-  const many = q.options.length > 6;
-  switch(q.type){
-    case 'textarea': return `<div class="mock-input mock-textarea">Their answer…</div>`;
-    case 'number':   return `<div class="mock-input" style="max-width:180px">0</div>`;
-    case 'date':     return `<div class="mock-input" style="max-width:200px">dd / mm / yyyy</div>`;
-    case 'file':     return `<div class="mock-input" style="display:flex;align-items:center;gap:8px">
-                        ${svg('M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|M17 8l-5-5-5 5|M12 3v12','icon icon-sm')}
-                        Choose a file</div>`;
-    case 'rating':   return `<div style="display:flex;gap:5px;color:var(--ink-300)">${
-                        [1,2,3,4,5].map(()=>svg('m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z','icon')).join('')}</div>`;
-    case 'signature':return `<div class="mock-input" style="height:70px;display:grid;place-items:center;font-style:italic">Sign here</div>`;
-    case 'radio': case 'select': case 'checkbox': case 'multiselect': {
-      const single = q.type==='radio'||q.type==='select';
-      if(many && single) return `<div class="mock-select"><span>Choose one…</span>${svg('m6 9 6 6 6-6','icon icon-sm')}</div>`;
-      const shape = single ? 'mock-radio' : 'mock-check';
-      return q.options.map(o=>`<div class="mock-opt"><span class="${shape}"></span><span>${o}</span></div>`).join('')
-        + (q.open ? `<button class="opt-add" onclick="addOption(${q.id});event.stopPropagation()"><span class="${shape}" style="opacity:.5"></span><span>Add an option</span></button>` : '');
-    }
-    default: return `<div class="mock-input">Their answer…</div>`;
+/* ==========================================================================
+   CANVAS — the question, edited on the question (§3.3)
+   ========================================================================== */
+function liveControl(f){
+  const many = f.options.length>6, open = S.selectedId===f.id;
+  switch(f.type){
+    case 'textarea': return `<div class="m-inp" style="min-height:64px">${esc(f.placeholder)||'Their answer…'}</div>`;
+    case 'number':   return `<div class="m-inp" style="max-width:180px">${esc(f.placeholder)||'0'}</div>`;
+    case 'date':     return `<div class="m-inp" style="max-width:200px">dd / mm / yyyy</div>`;
+    case 'time':     return `<div class="m-inp" style="max-width:140px">--:--</div>`;
+    case 'file':     return `<div class="m-inp row">${svg(ICON.file,'i i-sm')}<span>Choose a file</span></div>`;
+    case 'signature':return `<div class="sig-pad">Sign here</div>`;
+    case 'rating':   return `<div class="stars">${[1,2,3,4,5].map(()=>svg(ICON.star,'i')).join('')}</div>`;
+    case 'nps':      return `<div class="nps-row">${Array.from({length:11},(_,i)=>`<span>${i}</span>`).join('')}</div>`;
+    case 'csat': case 'ces':
+      return `<div class="nps-row">${[1,2,3,4,5].map(i=>`<span>${i}</span>`).join('')}</div>`;
+    case 'likert': return `<table class="likert-tbl"><thead><tr><th></th>
+        ${['Strongly disagree','Disagree','Neutral','Agree','Strongly agree'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${['The venue was good','The food was good'].map(r=>`<tr><td>${r}</td>${[0,1,2,3,4].map(()=>`<td><span class="m-rd" style="display:inline-block"></span></td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    case 'ranking': return f.options.map((o,i)=>`<div class="m-opt"><span style="font-size:11px;color:var(--ink-400);width:14px">${i+1}</span><span>${esc(o.label)}</span></div>`).join('');
+    case 'table': return `<table class="grid-tbl"><thead><tr><th>Item</th><th>Qty</th><th>Notes</th></tr></thead>
+        <tbody><tr><td>—</td><td>—</td><td>—</td></tr></tbody></table>`;
+    case 'display': return `<div class="m-inp" style="background:var(--plum-50);border-color:var(--plum-200);color:var(--plum-800)">{{ meal_cost }}</div>`;
+    case 'html':    return `<div class="m-inp" style="font-family:ui-monospace,monospace;font-size:12px">&lt;p&gt;Custom markup&lt;/p&gt;</div>`;
+    case 'select': case 'multiselect':
+      if(!open) return `<div class="m-sel"><span>${esc(f.placeholder)||'Choose…'}</span>${svg('m6 9 6 6 6-6','i i-sm')}</div>`;
+      break;
+    case 'radio': case 'checkbox': break;
+    default:
+      return `<div class="m-inp">${esc(f.placeholder)||'Their answer…'}</div>`;
   }
+  /* option-based, expanded: options are edited in place */
+  const single = f.type==='radio'||f.type==='select';
+  const shape  = single?'m-rd':'m-cb';
+  if(!open){
+    if(many&&single) return `<div class="m-sel"><span>Choose one…</span>${svg('m6 9 6 6 6-6','i i-sm')}</div>`;
+    return f.options.map(o=>`<div class="m-opt"><span class="${shape}"></span><span>${esc(o.label)}</span></div>`).join('');
+  }
+  return f.options.map((o,i)=>`
+    <div class="m-opt">
+      <span class="${shape}"></span>
+      <input class="oi" value="${esc(o.label)}" oninput="setOpt('${f.id}',${i},this.value)" placeholder="Option ${i+1}">
+      <button class="ox" onclick="delOpt('${f.id}',${i});event.stopPropagation()" aria-label="Remove option">${svg(ICON.x,'i i-sm')}</button>
+    </div>`).join('')
+    + `<button class="opt-add" onclick="addOpt('${f.id}');event.stopPropagation()">
+         <span class="${shape}" style="opacity:.45"></span><u>Add an option</u></button>
+       <div class="opt-tools">
+         <button class="btn btn-outline btn-xs" onclick="openCsv('${f.id}');event.stopPropagation()">
+           ${svg(ICON.sheet,'i i-sm')} Bulk import (CSV)</button>
+       </div>`;
 }
 
-/* The presentation note (§3.2): the editor knows the option count, so it
-   makes the radio-vs-dropdown decision and says so, reversibly. */
-function autoNote(q){
-  const single = q.type==='radio'||q.type==='select';
-  if(!single || q.options.length <= 6) return '';
-  return `<div class="auto-note">
-      ${svg('M12 16v-4|M12 8h.01','icon icon-sm')}
-      <span>Shown as a dropdown because there are ${q.options.length} options.
-      <a href="#" onclick="toast('Would pin it to radio buttons regardless of count.');return false">Show as a list instead</a></span>
-    </div>`;
+function noteFor(f){
+  const single = f.type==='radio'||f.type==='select';
+  if(single && f.options.length>6)
+    return `<div class="q-note">${svg(ICON.info,'i i-sm')}<span>Shown as a dropdown because there are ${f.options.length} options.
+      <a href="#" onclick="forceRadio('${f.id}');return false">Show as a list instead</a></span></div>`;
+  if(f.type==='textarea' && (f.validation.maxLength||0)>0 && f.validation.maxLength<=80)
+    return `<div class="q-note">${svg(ICON.info,'i i-sm')}<span>A ${f.validation.maxLength}-character limit is short for a long answer.
+      <a href="#" onclick="setType('${f.id}','text');return false">Make it a short answer</a></span></div>`;
+  return '';
 }
 
-function guessChip(q){
-  if(!q.guess || !q.open) return '';
-  return `<div class="guess">
-      ${svg('M12 16v-4|M12 8h.01','icon icon-sm')}
-      <span class="g-txt">This looks like an email question. Check the address is valid?</span>
-      <button class="btn btn-sm btn-primary" onclick="applyGuess(${q.id});event.stopPropagation()">Yes</button>
-      <button class="btn btn-sm btn-ghost" onclick="dismissGuess(${q.id});event.stopPropagation()">No</button>
-    </div>`;
+/* v2 §3.2 — offered, never applied */
+function guessFor(f){
+  if(S.selectedId!==f.id || f._noGuess) return '';
+  const l=(f.label||'').toLowerCase();
+  if(f.type==='text' && /e-?mail/.test(l))
+    return guessChip(f.id,'This looks like an email question. Check the address is valid?','email');
+  if(f.type==='text' && /(phone|mobile|contact number)/.test(l))
+    return guessChip(f.id,'This looks like a phone question. Use a phone field?','phone');
+  if(f.type==='text' && /(how many|how much|number of|count)/.test(l))
+    return guessChip(f.id,'This looks like it wants a number. Use a number field?','number');
+  if(f.type==='text' && /(when|date|day of)/.test(l))
+    return guessChip(f.id,'This looks like it wants a date. Use a date field?','date');
+  return '';
 }
+const guessChip=(id,msg,to)=>`<div class="q-guess">${svg(ICON.info,'i i-sm')}<span>${msg}</span>
+  <button class="btn btn-primary btn-xs" onclick="setType('${id}','${to}');event.stopPropagation()">Yes</button>
+  <button class="btn btn-ghost btn-xs" onclick="dismissGuess('${id}');event.stopPropagation()">No</button></div>`;
 
-function menu(q){
-  const isChoice = ['radio','select','checkbox','multiselect'].includes(q.type);
-  const hasVis = q.rules.some(r=>r.icon==='eye');
-  return `<div class="menu ${openMenu===q.id?'open':''}" id="menu-${q.id}" onclick="event.stopPropagation()">
-    <button class="menu-item" onclick="dup(${q.id})">${svg('M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2Z|M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1','icon icon-sm mi-ic')}Duplicate</button>
-    <button class="menu-item danger" onclick="del(${q.id})">${svg('M3 6h18|M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2','icon icon-sm mi-ic')}Delete</button>
-    <div class="menu-sep"></div>
-    <div class="menu-cap">This question</div>
-    <button class="menu-item" onclick="setRule(${q.id},'limit')">${svg('M9 11l3 3L22 4|M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11','icon icon-sm mi-ic')}Limit the answer…</button>
-    <button class="menu-item" onclick="setRule(${q.id},'eye')">${svg('M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z','icon icon-sm mi-ic')}Only show this sometimes…${hasVis?'<span class="set">Set</span>':''}</button>
-    <button class="menu-item" onclick="setRule(${q.id},'copy')">${svg('M8 8V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-3|M14 8H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2Z','icon icon-sm mi-ic')}Fill from another question…</button>
-    <button class="menu-item" onclick="setRule(${q.id},'ext')">${svg('M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7|M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7','icon icon-sm mi-ic')}Check with another system…</button>
-    <button class="menu-item" onclick="setRule(${q.id},'calc')">${svg('M4 3h16v18H4z|M8 7h8|M8 11h2|M12 11h2|M16 11h.01|M8 15h2|M12 15h2|M16 15h.01','icon icon-sm mi-ic')}Calculate from other answers…</button>
-    <button class="menu-item" onclick="setRule(${q.id},'alert')">${svg('M12 9v4|M12 17h.01|M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z','icon icon-sm mi-ic')}Show a message when…</button>
-    <button class="menu-item" onclick="setRule(${q.id},'doc')">${svg('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6','icon icon-sm mi-ic')}Attach a document…</button>
-    ${formType==='poll'&&isChoice?`<div class="menu-sep"></div><button class="menu-item" onclick="pickPollFromMenu(${q.id})">${svg('M18 20V10|M12 20V4|M6 20v-6','icon icon-sm mi-ic')}Count this in the poll${pollQuestion===q.label?'<span class="set">On</span>':''}</button>`:''}
-    ${formType==='quiz'?`<div class="menu-sep"></div><button class="menu-item" onclick="setRule(${q.id},'score')">${svg('m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z','icon icon-sm mi-ic')}Score this question…</button>`:''}
+/* the rules a question carries, stated on the question */
+function rulesFor(f){
+  const r=[];
+  if(f.showWhen?.conditions?.length){
+    const c=f.showWhen.conditions[0];
+    r.push([ICON.eye, `Only shown when <b>${esc(c.field)}</b> ${esc(c.operator==='equals'?'is':c.operator)} <b>${esc(c.value)}</b>`
+      + (f.showWhen.conditions.length>1?` <b>+${f.showWhen.conditions.length-1}</b>`:''), 'vis']);
+  }
+  const v=f.validation||{};
+  const bits=[];
+  if(v.minLength) bits.push(`at least ${v.minLength} characters`);
+  if(v.maxLength) bits.push(`at most ${v.maxLength} characters`);
+  if(v.min!=null) bits.push(`no less than ${v.min}`);
+  if(v.max!=null) bits.push(`no more than ${v.max}`);
+  if(v.pattern)   bits.push(`matching a pattern`);
+  if(f.unique)    bits.push(`not already used`);
+  if(bits.length) r.push([ICON.clip, `Answer must be <b>${bits.join('</b>, <b>')}</b>`, 'val']);
+  if(f.externalValidation?.enabled)
+    r.push([ICON.globe, `Checked against <b>${esc(f.externalValidation.url.replace(/^https?:\/\//,'').split('/')[0])}</b>`, 'ext']);
+  if(f.fieldLinking?.enabled)
+    r.push([ICON.link, `Filled from <b>${esc(f.fieldLinking.sourceLabel)}</b>`, 'lnk']);
+  if(f.alerts?.length)
+    r.push([ICON.alert, `Shows a message: <b>${esc(f.alerts[0].message.slice(0,42))}${f.alerts[0].message.length>42?'…':''}</b>`, 'alr']);
+  if(f.supportDocuments?.length)
+    r.push([ICON.doc, `<b>${esc(f.supportDocuments[0].label)}</b> attached`, 'doc']);
+  if(f.fileConfig?.accept?.length)
+    r.push([ICON.file, `Accepts <b>${f.fileConfig.accept.join(', ')}</b>, up to <b>${Math.round(f.fileConfig.maxSize/1048576)} MB</b>`, 'file']);
+  if(S.formType==='voting' && f.isPollQuestion)
+    r.push([ICON.poll, `<b>Counted in the poll</b>`, 'poll']);
+  if(S.formType==='assessment' && f.correctAnswer)
+    r.push([ICON.clip, `Correct answer <b>${esc(f.correctAnswer)}</b> · <b>${f.points} pt${f.points!==1?'s':''}</b>`, 'score']);
+  return r;
+}
+const RULE_KEY_TO_CLEAR = {vis:'showWhen', ext:'externalValidation', lnk:'fieldLinking',
+  alr:'alerts', doc:'supportDocuments', file:'fileConfig', poll:'isPollQuestion', score:'correctAnswer'};
+
+function qMenu(f){
+  const choice = HAS_OPTIONS(f.type);
+  const it=(icon,label,fn,on)=>`<button class="mi" onclick="${fn};event.stopPropagation()">${svg(icon,'i i-sm')}${label}${on?'<span class="on-tag">Set</span>':''}</button>`;
+  return `<div class="qmenu ${S.openMenu===f.id?'open':''}" onclick="event.stopPropagation()">
+    ${it(ICON.copy,'Duplicate',`dupField('${f.id}')`)}
+    <button class="mi danger" onclick="delField('${f.id}');event.stopPropagation()">${svg(ICON.trash,'i i-sm')}Delete</button>
+    <div class="msep"></div>
+    <div class="mcap">This question</div>
+    ${it(ICON.clip,'Limit the answer…',`openVal('${f.id}')`, !!(f.validation&&Object.keys(f.validation).filter(k=>f.validation[k]!=null&&f.validation[k]!=='').length)||f.unique)}
+    ${it(ICON.eye,'Only show this sometimes…',`openVis('${f.id}')`, !!f.showWhen?.conditions?.length)}
+    ${it(ICON.link,'Fill from another question…',`openGen('${f.id}','lnk')`, !!f.fieldLinking?.enabled)}
+    ${it(ICON.globe,'Check with another system…',`openGen('${f.id}','ext')`, !!f.externalValidation?.enabled)}
+    ${it(ICON.calc,'Calculate from other answers…',`openDlg('varDlg')`, S.variables.length>0)}
+    ${it(ICON.alert,'Show a message when…',`openGen('${f.id}','alr')`, !!f.alerts?.length)}
+    ${it(ICON.doc,'Attach a document…',`openGen('${f.id}','doc')`, !!f.supportDocuments?.length)}
+    ${f.type==='file' ? it(ICON.file,'File types and size…',`openGen('${f.id}','file')`, !!f.fileConfig) : ''}
+    ${f.type==='table' ? it(ICON.grid,'Table columns…',`openGen('${f.id}','tbl')`, false) : ''}
+    ${choice ? it(ICON.sheet,'Bulk import options (CSV)…',`openCsv('${f.id}')`) : ''}
+    ${S.formType==='voting' && choice ? `<div class="msep"></div>${it(ICON.poll,'Count this in the poll',`togglePoll('${f.id}')`, f.isPollQuestion)}` : ''}
+    ${S.formType==='assessment' && choice ? `<div class="msep"></div>${it(ICON.clip,'Score this question…',`openGen('${f.id}','score')`, !!f.correctAnswer)}` : ''}
   </div>`;
 }
 
-const RULE_TEXT = {
-  eye:  {icon:'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z', text:'Only shown when <b>Are you coming?</b> is <b>Yes</b>'},
-  limit:{icon:'M9 11l3 3L22 4', text:'Answer must be <b>between 2 and 60 characters</b>'},
-  copy: {icon:'M8 8V5a2 2 0 0 1 2-2h9', text:'Filled from <b>What is your name?</b>'},
-  ext:  {icon:'M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7', text:'Checked against <b>the staff directory</b>'},
-  calc: {icon:'M4 3h16v18H4z', text:'Calculated from <b>Nights</b> × <b>Rate</b>'},
-  alert:{icon:'M12 9v4', text:'Shows a message when the answer is <b>None</b>'},
-  doc:  {icon:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12', text:'<b>Offsite agenda.pdf</b> attached'},
-  score:{icon:'m12 2 3.09 6.26L22 9.27', text:'Worth <b>5 points</b>, correct answer set'},
-};
+function renderFields(){
+  const list=document.getElementById('fieldList');
+  if(S.fields.length===0){
+    list.innerHTML=`<div class="empty-canvas"><div class="ec-i">${svg(ICON.plus,'i')}</div>
+      <p>Drag and drop a question here</p>
+      <p>Or click a question type from the panel on the left to add it</p></div>`;
+    return;
+  }
+  const stepOf = id => S.layout.mode==='multiStep'
+    ? S.layout.steps.find(s=>s.fieldIds.includes(id)) : null;
+  let lastStep=null, html='';
 
-function renderQuestions(){
-  document.getElementById('questions').innerHTML = questions.map((q,i)=>`
-    <div class="q ${q.open?'open':''}" id="q-${q.id}" style="margin-bottom:12px" onclick="openQ(${q.id})">
-      <button class="q-grab" onclick="event.stopPropagation()" title="Drag to reorder">
-        ${svg('M8 6h.01|M8 12h.01|M8 18h.01|M16 6h.01|M16 12h.01|M16 18h.01','icon icon-sm')}
-      </button>
-
-      <div class="q-main">
-        ${q.open ? `
-          <input class="q-label-edit" value="${q.label.replace(/"/g,'&quot;')}"
-                 oninput="editLabel(${q.id},this.value)" onclick="event.stopPropagation()"
-                 placeholder="Type your question">
-          ${q.desc || q.descOpen
-            ? `<input class="q-desc-edit" value="${(q.desc||'').replace(/"/g,'&quot;')}"
-                      oninput="editDesc(${q.id},this.value)" onclick="event.stopPropagation()"
-                      placeholder="Add a description">`
-            : `<button class="add-desc" onclick="openDesc(${q.id});event.stopPropagation()">
-                 ${svg('M12 5v14|M5 12h14','icon icon-sm')} Add a description</button>`}
-          ${guessChip(q)}
-        ` : `
-          <div class="q-label">${i+1}. ${q.label}${q.required?'<span class="req">*</span>':''}</div>
-          ${q.desc?`<div class="q-desc">${q.desc}</div>`:''}
-        `}
-
-        <div class="q-answer">${answerControl(q)}</div>
-        ${autoNote(q)}
+  S.fields.forEach((f,i)=>{
+    const st=stepOf(f.id);
+    if(st && st!==lastStep){
+      html+=`<div class="step-sep"><span class="ln"></span><span class="tx">${esc(st.title||'Step '+(st.order+1))}</span><span class="ln"></span></div>`;
+      lastStep=st;
+    }
+    const open=S.selectedId===f.id, rules=rulesFor(f);
+    html+=`
+    <div class="q ${open?'sel':''}" id="q-${f.id}" data-id="${f.id}" draggable="true"
+         ondragstart="dragStart(event,'${f.id}')" ondragover="dragOver(event,'${f.id}')"
+         ondrop="dropOn(event,'${f.id}')" ondragend="dragEnd()" onclick="selectField('${f.id}')">
+      <div class="q-top">
+        <span class="q-grip" title="Drag to reorder">${svg('M9 6h.01|M9 12h.01|M9 18h.01|M15 6h.01|M15 12h.01|M15 18h.01','i')}</span>
+        <div class="q-body">
+          ${open ? `
+            <input class="q-lab-inp" value="${esc(f.label)}" placeholder="Type your question"
+                   oninput="setLabel('${f.id}',this.value)" onclick="event.stopPropagation()">
+            ${(f.helpText||f._descOpen)
+              ? `<input class="q-desc-inp" value="${esc(f.helpText)}" placeholder="Add a description"
+                        oninput="setHelp('${f.id}',this.value)" onclick="event.stopPropagation()">`
+              : `<button class="add-desc" onclick="openDesc('${f.id}');event.stopPropagation()">${svg(ICON.plus,'i i-xs')}Add a description</button>`}
+            ${guessFor(f)}
+          ` : `
+            <div class="q-title"><span class="num">${i+1}.</span>
+              <span class="lb">${esc(f.label)||'Untitled question'}</span>
+              ${f.required?'<span class="req">*</span>':''}</div>
+            <div class="q-meta"><span class="tag">${TYPE_LABEL[f.type]||f.type}</span>
+              ${f.placeholder?`<span class="ph">${esc(f.placeholder)}</span>`:''}
+              ${f.width!=='full'?`<span class="tag">${f.width==='half'?'50%':'33%'}</span>`:''}</div>
+          `}
+          <div class="q-live">${liveControl(f)}</div>
+          ${noteFor(f)}
+        </div>
+        <div class="q-acts">
+          <button class="btn btn-ghost btn-ico" title="Duplicate"
+            onclick="dupField('${f.id}');event.stopPropagation()">${svg(ICON.copy,'i i-sm')}</button>
+          <button class="btn btn-ghost btn-ico del" title="Delete"
+            onclick="delField('${f.id}');event.stopPropagation()">${svg(ICON.trash,'i i-sm')}</button>
+        </div>
       </div>
 
-      ${q.rules.length ? `<div class="q-rules">${q.rules.map(r=>`
-        <span class="rule">${svg(r.icon,'icon icon-sm')}<span>${r.text}</span></span>`).join('')}</div>` : ''}
+      ${rules.length?`<div class="q-rules">${rules.map(([ic,tx,key])=>`
+        <span class="rule">${svg(ic,'i i-xs')}<span>${tx}</span>
+          <button class="x" title="Remove" onclick="clearRule('${f.id}','${key}');event.stopPropagation()">${svg(ICON.x,'i i-xs')}</button>
+        </span>`).join('')}</div>`:''}
 
-      ${q.open ? `
+      ${open?`
         <div class="q-foot" onclick="event.stopPropagation()">
-          <button class="type-select" onclick="cycleType(${q.id})" title="Change the question type">
-            ${TYPE_LABEL[q.type]||q.type}
-            ${svg('m6 9 6 6 6-6','icon icon-sm')}
-          </button>
-          <div class="spacer"></div>
-          <button class="toggle ${q.required?'active':''}" onclick="toggleReq(${q.id})">
-            <span class="switch ${q.required?'on':''}"></span> Required
-          </button>
-          <button class="dot-btn ${q.rules.length?'configured':''}" onclick="toggleMenu(${q.id});event.stopPropagation()" title="More">
-            <span class="marker"></span>
-            ${svg('M12 5h.01|M12 12h.01|M12 19h.01','icon')}
-          </button>
+          <button class="type-pick" onclick="cycleType('${f.id}')" title="Change the question type">
+            ${TYPE_FRIENDLY[f.type]||f.type}${svg('m6 9 6 6 6-6','i i-xs')}</button>
+          <div class="w-pick" title="Field width">
+            ${['full','half','third'].map(w=>`<button class="${f.width===w?'on':''}" onclick="setWidth('${f.id}','${w}')">${w==='full'?'100%':w==='half'?'50%':'33%'}</button>`).join('')}
+          </div>
+          <span class="sp"></span>
+          <button class="tgl ${f.required?'on':''}" onclick="toggleReq('${f.id}')">
+            <span class="sw ${f.required?'on':''}"></span>Required</button>
+          <button class="dots ${rules.length?'cfg':''}" onclick="toggleMenu('${f.id}');event.stopPropagation()" title="More">
+            <span class="mk"></span>${svg('M12 5h.01|M12 12h.01|M12 19h.01','i')}</button>
         </div>
-        ${menu(q)}
-      ` : ''}
+        ${qMenu(f)}
+      `:''}
 
-      ${i===2 ? `<div class="anno" style="top:14px;right:-9px">7
-        <div class="tip"><b>§3.3</b> — The label is edited where the label is. The answer control is live and at real size. Everything advanced is one click away under <b>⋮</b>, in plain language, instead of 21 accordion sections in a panel on the right.</div>
-      </div>` : ''}
-      ${i===3 ? `<div class="anno" style="bottom:12px;right:-9px">8
-        <div class="tip"><b>§3.3</b> — Configuration you cannot see is configuration you will forget. Rules set on a question are stated on the question, so a form you wrote three months ago still explains itself.</div>
-      </div>` : ''}
-      ${i===4 ? `<div class="anno" style="bottom:14px;right:-9px">9
-        <div class="tip"><b>§3.2</b> — Radio vs dropdown is not a question anybody should be asked. The editor knows there are 8 options and decides, then says so, reversibly.</div>
-      </div>` : ''}
-    </div>`).join('');
+      ${i===3?`<span class="anno l" style="top:12px;right:-10px">8
+        <span class="tp"><b>§3.3</b> — The label is edited where the label appears, in the form's own type, and the answer control below it is live and at real respondent size. The footer strip carries type, width, required and <b>⋮</b>.</span></span>`:''}
+      ${i===4?`<span class="anno l dn" style="bottom:10px;right:-10px">9
+        <span class="tp"><b>§3.3</b> — Configuration you cannot see is configuration you will forget. Every rule set on a question is stated on the question, removable inline, so a form you wrote three months ago still explains itself.</span></span>`:''}
+      ${i===5?`<span class="anno l dn" style="bottom:14px;right:-10px">10
+        <span class="tp"><b>§3.2</b> — Radio vs dropdown is not a question anybody should be asked; it follows from the option count. The editor decides, says so, and lets you override.</span></span>`:''}
+    </div>`;
+  });
+  list.innerHTML=html;
 }
 
-/* "What's set up" is derived, never hand-maintained — that is the only way
-   it stays true. */
-function renderSetup(){
-  const items = [];
-  if(formType==='poll')   items.push(['Poll'+(pollQuestion?` · counting "${pollQuestion}"`:' · no counted question yet'), formType==='poll'&&!pollQuestion]);
-  if(formType==='quiz')   items.push(['Quiz — answers are scored', false]);
-  if(formType==='survey') items.push(['Survey — NPS and Likert available', false]);
-  items.push(['One response per email address', false]);
-  items.push(['Bot protection on', false]);
-  items.push(['Responses go to the Marketing team', false]);
-  if(questions.some(q=>q.rules.some(r=>r.icon==='eye'))) items.push(['1 question shown conditionally', false]);
+/* ---- field mutations ---- */
+function selectField(id){ if(S.selectedId===id) return; S.selectedId=id; S.openMenu=null; render(); }
+function setLabel(id,v){ F(id).label=v; markDirty();
+  const t=document.getElementById('cardTitle'); if(t){} renderSetup(); renderStepsEditor(); }
+function setHelp(id,v){ F(id).helpText=v; markDirty(); }
+function openDesc(id){ F(id)._descOpen=true; render(); }
+function toggleReq(id){ const f=F(id); f.required=!f.required; render(); markDirty(); }
+function setWidth(id,w){ F(id).width=w; render(); markDirty(); }
+function toggleMenu(id){ S.openMenu = S.openMenu===id?null:id; render(); }
+function setOpt(id,i,v){ F(id).options[i].label=v;
+  F(id).options[i].value = v.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'') || 'option_'+(i+1);
+  markDirty(); }
+function addOpt(id){
+  const f=F(id); f.options.push({label:'', value:'option_'+(f.options.length+1)});
+  render(); markDirty();
+  const ins=document.querySelectorAll(`#q-${id} .m-opt .oi`);
+  ins[ins.length-1]?.focus();
+}
+function delOpt(id,i){ F(id).options.splice(i,1); render(); markDirty(); }
+function forceRadio(id){ F(id)._forceList=true; toast('Would pin this to a list regardless of option count.'); }
+function dismissGuess(id){ F(id)._noGuess=true; render(); }
 
-  document.getElementById('setupList').innerHTML = items.map(([t,warn])=>`
-    <button class="sm-row" onclick="toast('Jumps to the control that switched this on.')">
-      <span class="sm-ic" style="${warn?'color:hsl(var(--warning))':''}">${svg(warn?'M12 9v4|M12 17h.01|M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z':'M20 6 9 17l-5-5','icon icon-sm')}</span>
-      <span>${t}</span>
-      <span class="sm-go">${svg('m9 18 6-6-6-6','icon icon-sm')}</span>
-    </button>`).join('');
-}
-
-function render(){ renderQuestions(); renderSetup(); }
-
-/* =======================================================================
-   Behaviour
-   ======================================================================= */
-function openQ(id){ questions.forEach(q=>q.open=(q.id===id)); openMenu=null; render(); markDirty(); }
-function editLabel(id,v){ const q=find(id); q.label=v; markDirty();
-  // live-update the collapsed heading without a full re-render (which would
-  // steal focus from the input being typed into)
-  renderSetup(); }
-function editDesc(id,v){ find(id).desc=v; markDirty(); }
-function openDesc(id){ find(id).descOpen=true; render(); }
-function toggleReq(id){ const q=find(id); q.required=!q.required; render(); markDirty(); }
-function toggleMenu(id){ openMenu = openMenu===id ? null : id; render(); }
-function find(id){ return questions.find(q=>q.id===id); }
-
-function addQuestion(type){
-  const q = { id:nextId++, type, label:'', desc:'', required:false, open:true,
-              options:['radio','select','checkbox','multiselect'].includes(type)?['Option 1','Option 2']:[], rules:[] };
-  questions.forEach(x=>x.open=false);
-  questions.push(q); openMenu=null; render(); markDirty();
-  const el = document.querySelector(`#q-${q.id} .q-label-edit`);
-  if(el){ el.focus(); el.scrollIntoView({behavior:'smooth',block:'center'}); }
-}
-function addOption(id){
-  const q=find(id); q.options.push('Option '+(q.options.length+1)); render(); markDirty();
-}
-function dup(id){
-  const q=find(id), i=questions.indexOf(q);
-  questions.forEach(x=>x.open=false);
-  questions.splice(i+1,0,{...q,id:nextId++,open:true,options:[...q.options],rules:[...q.rules]});
-  openMenu=null; render(); markDirty(); toast('Question duplicated');
-}
-function del(id){
-  questions = questions.filter(q=>q.id!==id); openMenu=null; render(); markDirty(); toast('Question deleted');
-}
-function setRule(id,kind){
-  const q=find(id), r=RULE_TEXT[kind];
-  if(!q.rules.some(x=>x.icon===r.icon)) q.rules.push(r);
-  openMenu=null; render(); markDirty();
-  toast('Opens the existing modal — these all already exist as standalone dialogs.');
+function setType(id,t){
+  const f=F(id); f.type=t;
+  if(HAS_OPTIONS(t) && f.options.length===0)
+    f.options=[{label:'Option 1',value:'option_1'},{label:'Option 2',value:'option_2'}];
+  if(!HAS_OPTIONS(t)) f.options=[];
+  render(); markDirty();
 }
 function cycleType(id){
-  const q=find(id);
-  const order = ['text','textarea','radio','checkbox','number','date','file','rating'];
-  const i = order.indexOf(q.type);
-  q.type = order[(i+1) % order.length];
-  if(['radio','checkbox'].includes(q.type) && q.options.length===0) q.options=['Option 1','Option 2'];
+  const f=F(id);
+  const order=['text','textarea','email','phone','number','date','time','radio','checkbox','select','multiselect','file','rating','signature'];
+  setType(id, order[(order.indexOf(f.type)+1)%order.length]);
+}
+function addField(type){
+  const f={ id:uid(), type, label:DEFAULT_LABEL[type]||'New Field', placeholder:'', helpText:'',
+    required:false, unique:false, width:'full',
+    options:HAS_OPTIONS(type)?[{label:'Option 1',value:'option_1'},{label:'Option 2',value:'option_2'}]:[],
+    validation:{}, rules:[], alerts:[], supportDocuments:[], showWhen:null, fieldLinking:null,
+    externalValidation:null, fileConfig:null, isPollQuestion:false, correctAnswer:null, points:1 };
+  S.fields.push(f); S.selectedId=f.id; S.openMenu=null;
+  if(S.layout.mode==='multiStep' && S.layout.steps.length)
+    S.layout.steps[S.layout.steps.length-1].fieldIds.push(f.id);
+  render(); markDirty();
+  const el=document.querySelector(`#q-${f.id} .q-lab-inp`);
+  if(el){ el.focus(); el.select(); el.scrollIntoView({behavior:'smooth',block:'center'}); }
+}
+function dupField(id){
+  const f=F(id), i=IX(id);
+  const c=JSON.parse(JSON.stringify(f)); c.id=uid(); c.label=f.label;
+  S.fields.splice(i+1,0,c); S.selectedId=c.id; S.openMenu=null;
+  S.layout.steps.forEach(s=>{ if(s.fieldIds.includes(id)) s.fieldIds.push(c.id); });
+  render(); markDirty(); toast('Question duplicated.');
+}
+function delField(id){
+  S.fields=S.fields.filter(f=>f.id!==id);
+  S.layout.steps.forEach(s=>s.fieldIds=s.fieldIds.filter(x=>x!==id));
+  if(S.selectedId===id) S.selectedId=null;
+  S.openMenu=null; render(); markDirty();
+}
+function clearRule(id,key){
+  const f=F(id), k=RULE_KEY_TO_CLEAR[key];
+  if(key==='val'){ f.validation={}; f.unique=false; }
+  else if(k==='alerts'||k==='supportDocuments') f[k]=[];
+  else if(k==='isPollQuestion') f[k]=false;
+  else f[k]=null;
   render(); markDirty();
 }
-function applyGuess(id){
-  const q=find(id); q.guess=null;
-  if(!q.rules.some(r=>r.text.includes('valid email'))) q.rules.push({icon:'M9 11l3 3L22 4', text:'Must be a <b>valid email address</b>'});
-  render(); markDirty(); toast('Offered, never applied on its own — a guess that acts by itself is worse than no guess.');
-}
-function dismissGuess(id){ find(id).guess=null; render(); }
-
-function setFormType(t){
-  formType = t; pollQuestion = null;
-  document.querySelectorAll('.radio-card').forEach(c=>c.classList.toggle('sel',c.dataset.type===t));
-  document.getElementById('pollFollowup').classList.toggle('show', t==='poll');
-  render(); markDirty();
-}
-function pickPollQ(el,label){
-  document.querySelectorAll('.fu-opt').forEach(o=>o.classList.remove('sel'));
-  el.classList.add('sel'); pollQuestion = label; renderSetup(); markDirty();
-}
-function pickPollFromMenu(id){
-  pollQuestion = find(id).label; openMenu=null;
-  document.querySelectorAll('.fu-opt').forEach(o=>o.classList.toggle('sel', o.textContent.trim()===pollQuestion));
-  render(); markDirty(); toast('Both halves of the poll job are now linked — set it in either place.');
+function togglePoll(id){
+  const f=F(id);
+  if(!f.isPollQuestion) S.fields.forEach(x=>x.isPollQuestion=false);
+  f.isPollQuestion=!f.isPollQuestion; S.openMenu=null; render(); markDirty();
 }
 
-/* Autosave: a sentence, and an honest one. */
-function markDirty(){
-  const dot=document.getElementById('saveDot'), txt=document.getElementById('saveText');
-  dot.className='saving-dot busy'; txt.textContent='Saving…';
-  clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>{ dot.className='saving-dot on'; txt.textContent='All changes saved'; },700);
+/* ---- drag and drop reorder ---- */
+let dragId=null, dragNewType=null;
+function dragNew(e,t){ dragNewType=t; e.dataTransfer.effectAllowed='copy'; }
+function dragStart(e,id){ dragId=id; e.dataTransfer.effectAllowed='move';
+  setTimeout(()=>document.getElementById('q-'+id)?.classList.add('dragging'),0); }
+function dragOver(e){ e.preventDefault(); }
+function dropOn(e,overId){
+  e.preventDefault(); e.stopPropagation();
+  if(dragNewType){ addField(dragNewType); dragNewType=null; return; }
+  if(!dragId||dragId===overId) return;
+  const from=IX(dragId), to=IX(overId);
+  const [m]=S.fields.splice(from,1); S.fields.splice(to,0,m);
+  dragId=null; render(); markDirty();
 }
+function dragEnd(){ document.querySelectorAll('.q.dragging').forEach(e=>e.classList.remove('dragging')); dragId=null; dragNewType=null; }
 
-/* Pre-flight: derived from the schema, so it cannot go stale. */
-function openPreflight(){
-  const checks=[];
-  if(formType==='poll' && !pollQuestion)
-    checks.push(['warn',`This poll doesn't count any questions yet.<a href="#" class="fix" onclick="closePreflight();return false">Fix this</a>`]);
-  if(questions.length===0)
-    checks.push(['warn','This form has no questions.']);
-  if(questions.some(q=>!q.label.trim()))
-    checks.push(['warn','One question has no text yet.']);
+/* ==========================================================================
+   Modals reached from ⋮ — the ones that already exist in the product
+   ========================================================================== */
+let dlgFieldId=null, genKind=null;
 
-  const req = questions.filter(q=>q.required).length;
-  checks.push(['ok',`${questions.length} question${questions.length===1?'':'s'}, ${req} required`]);
-  checks.push(['ok','Responses go to the Marketing team']);
-  checks.push(['ok','Bot protection is on']);
-
-  const warns = checks.filter(c=>c[0]==='warn').length;
-  document.getElementById('pfCount').textContent = warns===0 ? 'nothing' : `${warns} thing${warns===1?'':'s'}`;
-  document.getElementById('pfChecks').innerHTML = checks.map(([k,t])=>`
-    <div class="check ${k}">
-      <span class="c-ic">${svg(k==='warn'?'M12 9v4|M12 17h.01|M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z':'M20 6 9 17l-5-5','icon')}</span>
-      <span>${t}</span>
+function openVis(id){
+  dlgFieldId=id; S.openMenu=null;
+  const f=F(id);
+  document.getElementById('visLogic').value=f.showWhen?.logic||'and';
+  visConds = f.showWhen?.conditions ? JSON.parse(JSON.stringify(f.showWhen.conditions))
+    : [{field:'', operator:'equals', value:''}];
+  renderVis(); render(); openDlg('visDlg');
+}
+let visConds=[];
+const OPS=['equals','not equals','contains','does not contain','is empty','is not empty','greater than','less than','is one of'];
+function renderVis(){
+  const others=S.fields.filter(f=>f.id!==dlgFieldId);
+  document.getElementById('visConds').innerHTML=visConds.map((c,i)=>`
+    <div class="cond">
+      <select class="inp" style="flex:1;min-width:120px" onchange="visConds[${i}].field=this.value">
+        <option value="">Choose a question…</option>
+        ${others.map(o=>`<option ${c.field===o.label?'selected':''}>${esc(o.label)}</option>`).join('')}
+      </select>
+      <select class="inp" style="width:130px" onchange="visConds[${i}].operator=this.value">
+        ${OPS.map(o=>`<option ${c.operator===o?'selected':''}>${o}</option>`).join('')}
+      </select>
+      <input class="inp" style="flex:1;min-width:90px" value="${esc(c.value)}"
+             placeholder="Value" oninput="visConds[${i}].value=this.value">
+      <button class="btn btn-ghost btn-ico" onclick="visConds.splice(${i},1);renderVis()">${svg(ICON.x,'i i-sm')}</button>
     </div>`).join('');
-  document.getElementById('preflight').classList.add('open');
 }
-function closePreflight(){ document.getElementById('preflight').classList.remove('open'); }
+function addVisCond(){ visConds.push({field:'',operator:'equals',value:''}); renderVis(); }
+function saveVis(){
+  const f=F(dlgFieldId);
+  const kept=visConds.filter(c=>c.field);
+  f.showWhen = kept.length ? {logic:document.getElementById('visLogic').value, conditions:kept} : null;
+  closeDlg('visDlg'); render(); markDirty();
+}
+function clearVis(){ F(dlgFieldId).showWhen=null; closeDlg('visDlg'); render(); markDirty(); }
+
+function openVal(id){
+  dlgFieldId=id; S.openMenu=null;
+  const v=F(id).validation||{};
+  vset('vMin',v.minLength??v.min??''); vset('vMax',v.maxLength??v.max??'');
+  vset('vDef',v.defaultValue??''); vset('vPat',v.pattern??''); vset('vMsg',v.message??'');
+  document.getElementById('vUniq').classList.toggle('on', !!F(id).unique);
+  render(); openDlg('valDlg');
+}
+const vset=(id,v)=>document.getElementById(id).value=v;
+const vget=id=>document.getElementById(id).value.trim();
+function saveVal(){
+  const f=F(dlgFieldId), num=f.type==='number';
+  const mn=vget('vMin'), mx=vget('vMax');
+  f.validation={};
+  if(mn) f.validation[num?'min':'minLength']=Number(mn);
+  if(mx) f.validation[num?'max':'maxLength']=Number(mx);
+  if(vget('vDef')) f.validation.defaultValue=vget('vDef');
+  if(vget('vPat')) f.validation.pattern=vget('vPat');
+  if(vget('vMsg')) f.validation.message=vget('vMsg');
+  f.unique=document.getElementById('vUniq').classList.contains('on');
+  closeDlg('valDlg'); render(); markDirty();
+}
+function clearVal(){ const f=F(dlgFieldId); f.validation={}; f.unique=false; closeDlg('valDlg'); render(); markDirty(); }
+
+const GEN = {
+  lnk:{t:'Fill from another question', p:'Was <b>Smart Connections</b> — a name that did not distinguish it from External Validation or Data Calculations.',
+    body:()=>`<div class="stack gap2"><label class="lbl">Copy the answer from</label>
+      <select class="inp" id="gSrc">${S.fields.filter(f=>f.id!==dlgFieldId).map(f=>`<option>${esc(f.label)}</option>`).join('')}</select>
+      <p class="hint">The respondent can still edit the copied value.</p></div>`},
+  ext:{t:'Check with another system', p:'Was <b>External Validation</b>. Verifies the answer against a third-party API.',
+    body:()=>{const e=F(dlgFieldId).externalValidation||{};return `
+      <div class="stack gap2"><label class="lbl">Endpoint URL</label>
+        <input class="inp" id="gUrl" value="${esc(e.url||'')}" placeholder="https://api.example.com/verify"></div>
+      <div class="grid2">
+        <div class="stack gap2"><label class="lbl">Method</label>
+          <select class="inp" id="gMethod"><option ${e.method==='GET'?'selected':''}>GET</option><option ${e.method!=='GET'?'selected':''}>POST</option></select></div>
+        <div class="stack gap2"><label class="lbl">Run the check</label>
+          <select class="inp" id="gTrig"><option value="auto" ${e.trigger!=='manual'?'selected':''}>When they leave the field</option>
+            <option value="manual" ${e.trigger==='manual'?'selected':''}>When they press a button</option></select></div>
+      </div>`}},
+  alr:{t:'Show a message when…', p:'Was <b>Custom Alerts</b>. A message shown to the respondent when their answer matches.',
+    body:()=>{const a=(F(dlgFieldId).alerts||[])[0]||{};return `
+      <div class="stack gap2"><label class="lbl">Message</label>
+        <textarea class="inp" id="gMsg" rows="3" placeholder="Kitchen needs 5 days notice…">${esc(a.message||'')}</textarea></div>`}},
+  doc:{t:'Attach a document', p:'Was <b>Support Documents</b>. A reference guide or link shown beside the question.',
+    body:()=>{const d=(F(dlgFieldId).supportDocuments||[])[0]||{};return `
+      <div class="stack gap2"><label class="lbl">Document name</label>
+        <input class="inp" id="gDoc" value="${esc(d.label||'')}" placeholder="Expenses policy.pdf"></div>`}},
+  file:{t:'File types and size', p:'Was <b>File Upload Settings</b>. Narrows what the form-level upload policy already allows.',
+    body:()=>{const c=F(dlgFieldId).fileConfig||{accept:[],maxSize:5242880};return `
+      <div class="stack gap2"><label class="lbl">Allowed file types</label>
+        ${['image/*','.pdf','.doc,.docx','.xls,.xlsx','.txt'].map((t,i)=>`
+          <label class="row" style="gap:8px;cursor:pointer" onclick="tgc('gf${i}')">
+            <span class="cb ${c.accept?.includes(t)?'on':''}" id="gf${i}" data-t="${t}"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span style="font-size:13px">${t}</span></label>`).join('')}</div>
+      <div class="stack gap2"><label class="lbl">Maximum file size (MB)</label>
+        <input class="inp" type="number" id="gSize" value="${Math.round((c.maxSize||5242880)/1048576)}"></div>
+      <div class="callout plum">The form-level policy in <b>Access &amp; Security</b> is the ceiling; this can only narrow it.</div>`}},
+  tbl:{t:'Table columns', p:'Was <b>Table Configuration</b>.',
+    body:()=>`<div class="stack gap2"><label class="lbl">Columns (one per line)</label>
+      <textarea class="inp" rows="4">Item&#10;Qty&#10;Notes</textarea></div>`},
+  score:{t:'Score this question', p:'Was <b>Assessment Scoring</b>.',
+    body:()=>{const f=F(dlgFieldId);return `
+      <div class="stack gap2"><label class="lbl">Correct answer</label>
+        <select class="inp" id="gAns">${f.options.map(o=>`<option ${f.correctAnswer===o.label?'selected':''}>${esc(o.label)}</option>`).join('')}</select></div>
+      <div class="stack gap2"><label class="lbl">Points</label>
+        <input class="inp" type="number" id="gPts" value="${f.points||1}" min="0"></div>`}},
+};
+function openGen(id,kind){
+  dlgFieldId=id; genKind=kind; S.openMenu=null;
+  const g=GEN[kind];
+  document.getElementById('genT').textContent=g.t;
+  document.getElementById('genP').innerHTML=g.p;
+  document.getElementById('genB').innerHTML=g.body();
+  render(); openDlg('genDlg');
+}
+function saveGen(){
+  const f=F(dlgFieldId);
+  if(genKind==='lnk') f.fieldLinking={enabled:true, sourceLabel:document.getElementById('gSrc').value};
+  if(genKind==='ext'){ const u=document.getElementById('gUrl').value.trim();
+    f.externalValidation = u ? {enabled:true, url:u, method:document.getElementById('gMethod').value,
+      trigger:document.getElementById('gTrig').value} : null; }
+  if(genKind==='alr'){ const m=document.getElementById('gMsg').value.trim();
+    f.alerts = m ? [{id:'a'+Date.now(), message:m}] : []; }
+  if(genKind==='doc'){ const d=document.getElementById('gDoc').value.trim();
+    f.supportDocuments = d ? [{id:'d'+Date.now(), label:d}] : []; }
+  if(genKind==='file'){
+    const acc=[...document.querySelectorAll('#genB .cb.on')].map(e=>e.dataset.t).filter(Boolean);
+    f.fileConfig={accept:acc, maxSize:(Number(document.getElementById('gSize').value)||5)*1048576, multiple:false}; }
+  if(genKind==='score'){ f.correctAnswer=document.getElementById('gAns').value;
+    f.points=Number(document.getElementById('gPts').value)||1; }
+  closeDlg('genDlg'); render(); markDirty();
+}
+function clearGen(){
+  const f=F(dlgFieldId), map={lnk:'fieldLinking',ext:'externalValidation',alr:'alerts',
+    doc:'supportDocuments',file:'fileConfig',score:'correctAnswer'};
+  const k=map[genKind];
+  if(k) f[k] = (k==='alerts'||k==='supportDocuments') ? [] : null;
+  closeDlg('genDlg'); render(); markDirty();
+}
+
+function openCsv(id){ dlgFieldId=id; S.openMenu=null;
+  document.getElementById('csvText').value=F(id).options.map(o=>o.label).join('\n');
+  countCsv(); render(); openDlg('csvDlg'); }
+function countCsv(){ const n=document.getElementById('csvText').value.split('\n').filter(l=>l.trim()).length;
+  document.getElementById('csvCount').textContent=n+' option'+(n===1?'':'s'); }
+function applyCsv(){
+  const f=F(dlgFieldId);
+  f.options=document.getElementById('csvText').value.split('\n').map(l=>l.trim()).filter(Boolean)
+    .map((l,i)=>{ const [lab,val]=l.split(','); return {label:lab.trim(),
+      value:(val||lab).trim().toLowerCase().replace(/[^a-z0-9]+/g,'_')||'option_'+(i+1)}; });
+  closeDlg('csvDlg'); render(); markDirty();
+}
+
+function addVar(){ S.variables.push({id:'v'+Date.now(), name:'new_variable', formula:'0'}); renderVars(); markDirty(); }
+function renderVars(){
+  document.getElementById('varList').innerHTML=S.variables.map((v,i)=>`
+    <div class="cond">
+      <input class="inp" style="flex:1" value="${esc(v.name)}" oninput="S.variables[${i}].name=this.value">
+      <span style="font-size:12px;color:hsl(var(--muted-foreground))">=</span>
+      <input class="inp" style="flex:2" value="${esc(v.formula)}" oninput="S.variables[${i}].formula=this.value">
+      <button class="btn btn-ghost btn-ico" onclick="S.variables.splice(${i},1);renderVars();renderSetup()">${svg(ICON.x,'i i-sm')}</button>
+    </div>`).join('') || '<p class="hint">No variables yet.</p>';
+  document.getElementById('varCount').textContent=S.variables.length+' variable'+(S.variables.length===1?'':'s');
+}
+
+/* ==========================================================================
+   RIGHT PANEL — form type, follow-up, What's set up
+   ========================================================================== */
+function setFormType(t){
+  S.formType=t;
+  document.querySelectorAll('[data-ft]').forEach(b=>{
+    const on=b.dataset.ft===t; b.classList.toggle('on',on); b.querySelector('.rd').classList.toggle('on',on); });
+  document.getElementById('pollFollowup').classList.toggle('show', t==='voting');
+  if(t!=='voting') S.fields.forEach(f=>f.isPollQuestion=false);
+  renderPalette(); render(); markDirty();
+}
+function renderPollChoices(){
+  const box=document.getElementById('pollChoices');
+  const choices=S.fields.filter(f=>HAS_OPTIONS(f.type));
+  box.innerHTML = choices.length
+    ? choices.map(f=>`<button class="fu ${f.isPollQuestion?'on':''}" onclick="togglePoll('${f.id}')">
+        <span>${esc(f.label)||'Untitled question'}</span>${svg(ICON.check,'i i-sm tk')}</button>`).join('')
+    : '<p class="hint">Add a choice question first — a poll counts answers to one of them.</p>';
+}
+function renderSetup(){
+  const rows=[];
+  if(S.formType==='voting'){
+    const q=S.fields.find(f=>f.isPollQuestion);
+    rows.push([q?`Poll · counting “${q.label}”`:'Poll · no counted question yet', !q, 'voting']);
+  }
+  if(S.formType==='assessment') rows.push(['Quiz · answers are scored', false, 'assessment']);
+  if(S.formType==='survey')     rows.push(['Survey · NPS and Likert available', false, 'survey']);
+  if(S.layout.mode==='multiStep') rows.push([`${S.layout.steps.length} steps`, false, 'layout']);
+  if(S.settings.dedupe==='email') rows.push(['One response per email address', false, 'access']);
+  if(S.settings.botProtection)    rows.push(['Bot protection on', false, 'access']);
+  if(S.settings.otp)              rows.push(['Email verification required', false, 'authentication']);
+  if(S.settings.partial)          rows.push(['Save and resume enabled', false, 'authentication']);
+  if(S.settings.payment)          rows.push(['Payment collected', false, 'payment']);
+  rows.push([`Responses go to the ${S.settings.team} team`, false, 'team']);
+  const cond=S.fields.filter(f=>f.showWhen?.conditions?.length).length;
+  if(cond) rows.push([`${cond} question${cond===1?'':'s'} shown conditionally`, false, null]);
+  const ext=S.fields.filter(f=>f.externalValidation?.enabled).length;
+  if(ext) rows.push([`${ext} answer${ext===1?'':'s'} checked with another system`, false, null]);
+  if(S.variables.length) rows.push([`${S.variables.length} calculated variable${S.variables.length===1?'':'s'}`, false, null]);
+  if(!S.settings.isFormActive) rows.push(['Not accepting responses', true, 'general']);
+
+  document.getElementById('setupList').innerHTML = rows.map(([t,warn,tab])=>`
+    <button class="srow" onclick="${tab?`setMode('settings');setSettingsTab('form');setSetTab('${tab}')`:`toast('Set on the question itself.')`}">
+      <span style="color:${warn?'hsl(var(--warning))':'hsl(var(--success))'};display:flex">${svg(warn?ICON.warn:ICON.check,'i i-sm')}</span>
+      <span>${t}</span><span class="go">${svg('m9 18 6-6-6-6','i i-sm')}</span></button>`).join('');
+
+  document.getElementById('setupBadge').textContent = rows.filter(r=>!r[1]).length;
+  document.getElementById('layoutCount').textContent =
+    S.layout.mode==='multiStep' ? `${S.layout.steps.length} steps` : 'Single page';
+  document.getElementById('varCount').textContent = S.variables.length+' variable'+(S.variables.length===1?'':'s');
+  renderPollChoices();
+}
+
+/* the ten real settings sections, as a jump list */
+const SET_TABS=[
+  {id:'general',       label:'General',           icon:ICON.grid},
+  {id:'after-submit',  label:'After submission',  icon:ICON.check},
+  {id:'access',        label:'Access & Security', icon:ICON.shield},
+  {id:'team',          label:'Team & Sharing',    icon:ICON.users},
+  {id:'appearance',    label:'Appearance',        icon:ICON.palette},
+  {id:'authentication',label:'Authentication',    icon:ICON.key},
+  {id:'payment',       label:'Payment',           icon:ICON.card},
+  {id:'assessment',    label:'Assessment',        icon:ICON.clip, only:'assessment'},
+  {id:'voting',        label:'Voting',            icon:ICON.poll, only:'voting'},
+  {id:'survey',        label:'Survey',            icon:ICON.poll, only:'survey'},
+];
+function renderSetupNav(){
+  document.getElementById('setupNav').innerHTML = SET_TABS
+    .filter(t=>!t.only || t.only===S.formType)
+    .map(t=>`<button onclick="setMode('settings');setSettingsTab('form');setSetTab('${t.id}')">
+      ${svg(t.icon,'i i-sm')}${t.label}</button>`).join('');
+}
+
+/* ==========================================================================
+   SETTINGS WORKSPACE
+   ========================================================================== */
+let setTab='general';
+function setSettingsTab(t){
+  document.getElementById('stab-layout').classList.toggle('on', t==='layout');
+  document.getElementById('stab-form').classList.toggle('on', t==='form');
+  document.getElementById('settingsLayout').classList.toggle('hidden', t!=='layout');
+  document.getElementById('settingsForm').classList.toggle('hidden', t!=='form');
+  document.getElementById('settingsNote').textContent = t==='layout'
+    ? 'Structure, pages, and respondent navigation'
+    : 'Behavior, access, appearance, and completion';
+  if(t==='layout') renderStepsEditor();
+}
+function setSetTab(id){
+  setTab=id; renderSetTabs();
+  document.querySelectorAll('.set-panel').forEach(p=>p.classList.toggle('on', p.dataset.tab===id));
+  document.querySelector('.set-main')?.scrollTo(0,0);
+}
+function renderSetTabs(){
+  document.getElementById('setTabs').innerHTML = SET_TABS
+    .filter(t=>!t.only || t.only===S.formType)
+    .map(t=>`<button class="set-tab ${setTab===t.id?'on':''}" onclick="setSetTab('${t.id}')">
+      ${svg(t.icon,'i i-sm')}${t.label}${settingOn(t.id)?'<span class="dot"></span>':''}</button>`).join('');
+}
+function settingOn(id){
+  return ({general:!S.settings.isFormActive, access:S.settings.botProtection, team:true,
+    authentication:S.settings.otp||S.settings.partial, payment:S.settings.payment,
+    voting:S.formType==='voting', assessment:S.formType==='assessment', survey:S.formType==='survey'})[id]||false;
+}
+const swRow=(t,s,on,fn)=>`<div class="srowline"><div class="lt"><div class="t">${t}</div><div class="s">${s}</div></div>
+  <span class="sw ${on?'on':''}" onclick="${fn}"></span></div>`;
+
+function renderSetPanels(){
+  const P=(id,title,sub,inner)=>`<div class="set-panel ${setTab===id?'on':''}" data-tab="${id}">
+    <div class="set-h"><h2>${title}</h2><p>${sub}</p></div>${inner}</div>`;
+
+  document.getElementById('setPanels').innerHTML = [
+    P('general','General settings','Control the form’s availability and basic response metadata.',`
+      <div class="sect"><div class="hd"><div class="t">Form availability</div>
+        <div class="s">Choose whether respondents can access this form and optionally schedule when it closes.</div></div>
+        ${swRow('Allow form submissions','When disabled, public visitors cannot view or submit this form.',
+          S.settings.isFormActive,`S.settings.isFormActive=!S.settings.isFormActive;renderSetPanels();renderSetTabs();renderSetup();markDirty()`)}
+        <div class="srowline"><div class="lt" style="flex:1"><div class="t">Close automatically on</div>
+          <div class="s">Leave empty to keep the form open indefinitely.</div></div>
+          <input class="inp" type="datetime-local" style="width:220px" onchange="markDirty()"></div>
+      </div>
+      <div class="sect"><div class="hd"><div class="t">Response metadata</div>
+        <div class="s">What is recorded alongside each response.</div></div>
+        ${swRow('Record IP address','Stored on the submission and shown under technical details.',true,'this.classList.toggle("on");markDirty()')}
+        ${swRow('Record browser and device','Useful when a respondent reports a problem.',true,'this.classList.toggle("on");markDirty()')}
+      </div>`),
+
+    P('after-submit','After-submit template','Choose the page shown after submission and while results are processing.',`
+      <div class="sect"><div class="hd"><div class="t">Completion experience</div>
+        <div class="s">Choose the page shown after submission and while results are processing.</div></div>
+        <div class="opt-cards">
+          ${['Minimal','Celebration','Receipt','Redirect'].map((t,i)=>`
+            <button class="ocard ${i===0?'on':''} pst" onclick="pickOne(this,'.pst')">
+              <span class="rd ${i===0?'on':''}"></span><span class="tx"><b>${t}</b>
+              <i>${['A short thank-you','Confetti and a tick','Shows their answers back','Sends them elsewhere'][i]}</i></span></button>`).join('')}
+        </div>
+        <div class="stack gap2" style="border-top:1px solid hsl(var(--border)/.7);padding-top:16px">
+          <label class="lbl">Thank-you message</label>
+          <textarea class="inp" rows="2" onchange="markDirty()">Thanks — see you at the offsite.</textarea></div>
+      </div>
+      <div class="sect"><div class="hd"><div class="t">Response details and actions</div>
+        <div class="s">Buttons shown on the confirmation page.</div></div>
+        ${swRow('Show a summary of their answers','Respondents can review what they submitted.',true,'this.classList.toggle("on");markDirty()')}
+        ${swRow('Allow downloading a PDF receipt','Adds a download button to the confirmation page.',false,'this.classList.toggle("on");markDirty()')}
+      </div>`),
+
+    P('access','Access and security','Who can reach the form, and what protects it.',`
+      <div class="sect"><div class="hd"><div class="t">Bot protection</div></div>
+        ${swRow('Bot protection','Powered by Cloudflare. Every public submission is checked for automated traffic. Most people never see anything — it runs in the background.',
+          S.settings.botProtection,`S.settings.botProtection=!S.settings.botProtection;renderSetPanels();renderSetTabs();renderSetup();markDirty()`)}
+      </div>
+      <div class="sect"><div class="hd"><div class="t">Duplicate responses</div>
+        <div class="s">How the form decides that two responses came from the same person.</div></div>
+        ${[['none','Allow unlimited responses'],['ip','One response per IP address'],['email','One response per email address']]
+          .map(([v,l])=>`<button class="ocard ${S.settings.dedupe===v?'on':''}" style="width:100%"
+            onclick="S.settings.dedupe='${v}';renderSetPanels();renderSetup();markDirty()">
+            <span class="rd ${S.settings.dedupe===v?'on':''}"></span><span class="tx"><b>${l}</b></span></button>`).join('')}
+      </div>
+      <div class="sect"><div class="hd"><div class="t">File uploads</div>
+        <div class="s">The ceiling for every upload question on this form. A question can narrow it, never widen it.</div></div>
+        <div class="grid2">
+          <div class="stack gap2"><label class="lbl">Maximum file size (MB)</label>
+            <input class="inp" type="number" value="5" onchange="markDirty()"></div>
+          <div class="stack gap2"><label class="lbl">Maximum files per response</label>
+            <input class="inp" type="number" value="10" onchange="markDirty()"></div>
+        </div>
+        <div class="callout plum">Files are stored in the document management system. Individual questions inherit this and can only restrict it further.</div>
+      </div>`),
+
+    P('team','Team and sharing','Who inside your organization can see the responses.',`
+      <div class="sect"><div class="hd"><div class="t">Owning team</div>
+        <div class="s">Responses are visible to this team by default.</div></div>
+        <select class="inp" onchange="S.settings.team=this.value;renderSetup();markDirty()">
+          ${['Marketing','Operations','People','Finance'].map(t=>`<option ${S.settings.team===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="sect"><div class="hd"><div class="t">Response access</div>
+        <div class="s">What people outside the owning team may see.</div></div>
+        ${[['Cannot see responses'],['Can see totals only'],['Can view, identifying answers hidden'],['Can view responses'],['Can view and download']]
+          .map((l,i)=>`<button class="ocard ${i===1?'on':''} racc" style="width:100%" onclick="pickOne(this,'.racc')">
+            <span class="rd ${i===1?'on':''}"></span><span class="tx"><b>${l}</b></span></button>`).join('')}
+      </div>`),
+
+    P('appearance','Appearance','Colours, logo and the header respondents see.',`
+      <div class="sect"><div class="hd"><div class="t">Theme</div></div>
+        <div class="opt-cards">
+          ${['Default','Minimal','Bold','Dark'].map((t,i)=>`
+            <button class="ocard ${i===0?'on':''} thm" onclick="pickOne(this,'.thm')">
+              <span class="rd ${i===0?'on':''}"></span><span class="tx"><b>${t}</b></span></button>`).join('')}
+        </div>
+      </div>
+      <div class="sect"><div class="hd"><div class="t">Header and footer</div>
+        <div class="s">Branding shown above and below the form.</div></div>
+        ${swRow('Show organization logo','Displayed at the top of the public form.',true,'this.classList.toggle("on");markDirty()')}
+        <div class="stack gap2" style="border-top:1px solid hsl(var(--border)/.7);padding-top:16px">
+          <label class="lbl">Logo alignment</label>
+          <select class="inp" onchange="markDirty()"><option>Left</option><option>Center</option><option>Right</option></select></div>
+      </div>`),
+
+    P('authentication','Authentication','Whether respondents identify themselves before answering.',`
+      <div class="sect"><div class="hd"><div class="t">OTP Verification</div>
+        <div class="s">Respondents confirm an email address or phone number before the form opens.</div></div>
+        ${swRow('Require verification','A one-time code is sent before the questions appear.',
+          S.settings.otp,`S.settings.otp=!S.settings.otp;renderSetPanels();renderSetTabs();renderSetup();markDirty()`)}
+      </div>
+      <div class="sect"><div class="hd"><div class="t">Partial Submission (Save &amp; Resume)</div>
+        <div class="s">Progress is kept so a respondent can finish later.</div></div>
+        ${swRow('Allow save and resume','Answers so far are stored against their identity.',
+          S.settings.partial,`S.settings.partial=!S.settings.partial;renderSetPanels();renderSetTabs();renderSetup();markDirty()`)}
+      </div>`),
+
+    P('payment','Payment','Collect money as part of the submission.',`
+      <div class="sect"><div class="hd"><div class="t">Payment</div></div>
+        ${swRow('Collect a payment','Respondents are sent to a gateway before the response is recorded.',
+          S.settings.payment,`S.settings.payment=!S.settings.payment;renderSetPanels();renderSetTabs();renderSetup();markDirty()`)}
+        ${S.settings.payment?`
+        <div class="grid2" style="border-top:1px solid hsl(var(--border)/.7);padding-top:16px">
+          <div class="stack gap2"><label class="lbl">Payment Gateway</label>
+            <select class="inp"><option>PayU</option><option>Paytm</option></select></div>
+          <div class="stack gap2"><label class="lbl">Amount (₹)</label>
+            <input class="inp" type="number" placeholder="0" onchange="markDirty()"></div>
+        </div>
+        <div class="callout amber">No amount set yet — the pre-flight check will flag this before you publish.</div>`:''}
+      </div>`),
+
+    P('assessment','Assessment','Score the answers and show a result.',`
+      <div class="sect"><div class="hd"><div class="t">Scoring</div>
+        <div class="s">Set the correct answer and points on each question, from its ⋮ menu.</div></div>
+        <div class="grid2">
+          <div class="stack gap2"><label class="lbl">Pass Threshold (%)</label>
+            <input class="inp" type="number" value="60" onchange="markDirty()"></div>
+          <div class="stack gap2"><label class="lbl">Result Visibility</label>
+            <select class="inp"><option>Show score immediately</option><option>Hide until reviewed</option></select></div>
+        </div>
+        <div class="callout brand" id="scoredCount"></div>
+      </div>`),
+
+    P('voting','Voting','Count answers to one question and show a tally.',`
+      <div class="sect"><div class="hd"><div class="t">Counted question</div>
+        <div class="s">Set from the panel on the right, or from a question's ⋮ menu. Both stay in sync.</div></div>
+        <div id="votingCounted"></div>
+      </div>
+      <div class="sect"><div class="hd"><div class="t">Duplicate Vote Prevention</div></div>
+        ${[['none','Allow unlimited votes per visitor'],['ip','One vote per IP address'],['email','One vote per email address (requires an email field)']]
+          .map(([v,l])=>`<button class="ocard ${S.settings.dedupe===v?'on':''}" style="width:100%"
+            onclick="S.settings.dedupe='${v}';renderSetPanels();renderSetup();markDirty()">
+            <span class="rd ${S.settings.dedupe===v?'on':''}"></span><span class="tx"><b>${l}</b></span></button>`).join('')}
+      </div>
+      <div class="sect"><div class="hd"><div class="t">Results Visibility</div></div>
+        <select class="inp" onchange="markDirty()"><option>Show results after voting</option>
+          <option>Show results when the poll closes</option><option>Never show results</option></select>
+      </div>`),
+
+    P('survey','Survey','NPS, CSAT, Likert and ranking questions.',`
+      <div class="sect"><div class="hd"><div class="t">Survey options</div></div>
+        ${swRow('Show question numbers','Numbers each question on the public form.',true,'this.classList.toggle("on");markDirty()')}
+        ${swRow('Show progress','Displays how far through the survey they are.',true,'this.classList.toggle("on");markDirty()')}
+      </div>
+      <div class="sect"><div class="hd"><div class="t">Respondent identity</div></div>
+        ${['Anonymous','Pseudonymous','Identified'].map((l,i)=>`
+          <button class="ocard ${i===0?'on':''} rid" style="width:100%" onclick="pickOne(this,'.rid')">
+            <span class="rd ${i===0?'on':''}"></span><span class="tx"><b>${l}</b></span></button>`).join('')}
+      </div>`),
+  ].join('');
+
+  const sc=document.getElementById('scoredCount');
+  if(sc){ const n=S.fields.filter(f=>f.correctAnswer).length;
+    sc.innerHTML = n ? `<b>${n}</b> question${n===1?'':'s'} scored, ${S.fields.filter(f=>f.correctAnswer).reduce((a,f)=>a+(f.points||1),0)} points total.`
+                     : 'No questions scored yet. Open a choice question’s ⋮ menu and choose <b>Score this question…</b>'; }
+  const vc=document.getElementById('votingCounted');
+  if(vc){ const q=S.fields.find(f=>f.isPollQuestion);
+    vc.innerHTML = q ? `<div class="callout brand">Counting <b>${esc(q.label)}</b>.</div>`
+      : `<div class="callout amber">No question is counted yet. The pre-flight check will block publishing.</div>`; }
+}
+
+/* ---- layout / steps ---- */
+function setLayoutMode(m){
+  S.layout.mode=m;
+  document.getElementById('lay-single').classList.toggle('on',m==='single');
+  document.getElementById('lay-single').querySelector('.rd').classList.toggle('on',m==='single');
+  document.getElementById('lay-multi').classList.toggle('on',m==='multiStep');
+  document.getElementById('lay-multi').querySelector('.rd').classList.toggle('on',m==='multiStep');
+  document.getElementById('stepSection').classList.toggle('hidden',m!=='multiStep');
+  renderStepsEditor(); render(); markDirty();
+}
+function setOrientation(o){
+  S.layout.orientation=o;
+  document.getElementById('ori-v').classList.toggle('on',o==='vertical');
+  document.getElementById('ori-v').querySelector('.rd').classList.toggle('on',o==='vertical');
+  document.getElementById('ori-h').classList.toggle('on',o==='horizontal');
+  document.getElementById('ori-h').querySelector('.rd').classList.toggle('on',o==='horizontal');
+  document.getElementById('formCard').classList.toggle('wide',o==='horizontal');
+  markDirty();
+}
+function addStep(){
+  S.layout.steps.push({id:'s'+Date.now(), title:'Step '+(S.layout.steps.length+1),
+    order:S.layout.steps.length, fieldIds:[], lockOnComplete:false});
+  renderStepsEditor(); render(); markDirty();
+}
+function removeStep(id){
+  S.layout.steps=S.layout.steps.filter(s=>s.id!==id);
+  S.layout.steps.forEach((s,i)=>s.order=i);
+  renderStepsEditor(); render(); markDirty();
+}
+function toggleStepField(sid,fid){
+  const s=S.layout.steps.find(x=>x.id===sid);
+  if(s.fieldIds.includes(fid)) s.fieldIds=s.fieldIds.filter(x=>x!==fid);
+  else { S.layout.steps.forEach(o=>o.fieldIds=o.fieldIds.filter(x=>x!==fid)); s.fieldIds.push(fid); }
+  renderStepsEditor(); render(); markDirty();
+}
+function renderStepsEditor(){
+  const box=document.getElementById('stepsEditor'); if(!box) return;
+  box.innerHTML=S.layout.steps.map((s,i)=>`
+    <div class="step-card">
+      <div class="sc-h">
+        <span style="color:var(--ink-400)">${svg('M9 6h.01|M9 12h.01|M9 18h.01|M15 6h.01|M15 12h.01|M15 18h.01','i i-sm')}</span>
+        <input class="inp" style="flex:1;height:32px" value="${esc(s.title)}"
+               oninput="S.layout.steps[${i}].title=this.value;render();markDirty()">
+        <span class="tag">${s.fieldIds.length} field${s.fieldIds.length===1?'':'s'}</span>
+        <button class="btn btn-ghost btn-ico" onclick="removeStep('${s.id}')">${svg(ICON.trash,'i i-sm')}</button>
+      </div>
+      <div class="sc-b">
+        <label class="lbl" style="font-size:12px;color:hsl(var(--muted-foreground))">Fields in this step</label>
+        ${S.fields.length===0?'<p class="hint">No fields yet — add fields to your form first.</p>':
+          S.fields.map(f=>{
+            const mine=s.fieldIds.includes(f.id);
+            const other=!mine && S.layout.steps.some(o=>o.id!==s.id&&o.fieldIds.includes(f.id));
+            const oname=other?S.layout.steps.find(o=>o.fieldIds.includes(f.id)).title:'';
+            return `<label class="fchk ${other?'taken':''}" onclick="${other?'':`toggleStepField('${s.id}','${f.id}')`}"
+                     title="${other?'Allocated to '+esc(oname):''}">
+              <span class="cb ${mine?'on':''}"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span>${esc(f.label)||'Untitled'}</span>
+              ${other?`<span class="tag" style="margin-left:auto">${esc(oname)}</span>`:''}
+            </label>`; }).join('')}
+        <label class="row" style="gap:8px;cursor:pointer;border-top:1px solid hsl(var(--border));padding-top:10px;margin-top:4px"
+               onclick="S.layout.steps[${i}].lockOnComplete=!S.layout.steps[${i}].lockOnComplete;renderStepsEditor();markDirty()">
+          <span class="cb ${s.lockOnComplete?'on':''}"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span style="font-size:12px">Lock step after confirming</span></label>
+      </div>
+    </div>`).join('');
+}
+
+/* ==========================================================================
+   PREVIEW — the same validation the published form runs (§6 / §7)
+   ========================================================================== */
+let pvValues={}, pvTouched={}, pvStep=0, pvSubmitted=false;
+
+function pvVisible(f){
+  if(!f.showWhen?.conditions?.length) return true;
+  const test=c=>{
+    const src=S.fields.find(x=>x.label===c.field);
+    const v=src?(pvValues[src.id]??''):'';
+    const val=String(v).toLowerCase(), want=String(c.value).toLowerCase();
+    switch(c.operator){
+      case 'equals': return val===want;
+      case 'not equals': return val!==want;
+      case 'contains': return val.includes(want);
+      case 'does not contain': return !val.includes(want);
+      case 'is empty': return !val;
+      case 'is not empty': return !!val;
+      case 'greater than': return Number(v)>Number(c.value);
+      case 'less than': return Number(v)<Number(c.value);
+      default: return true;
+    }
+  };
+  return S.formType && (f.showWhen.logic==='or' ? f.showWhen.conditions.some(test) : f.showWhen.conditions.every(test));
+}
+function pvValidate(f){
+  const v=pvValues[f.id];
+  const empty = v===undefined||v===null||v===''||(Array.isArray(v)&&v.length===0);
+  if(f.required && empty) return 'This question needs an answer';
+  if(empty) return null;
+  const s=Array.isArray(v)?v.join(', '):String(v);
+  const c=f.validation||{};
+  if(c.minLength && s.length<c.minLength) return `Use at least ${c.minLength} characters`;
+  if(c.maxLength && s.length>c.maxLength) return `Use at most ${c.maxLength} characters`;
+  if(c.min!=null && Number(v)<c.min) return `Enter ${c.min} or more`;
+  if(c.max!=null && Number(v)>c.max) return `Enter ${c.max} or less`;
+  if(f.type==='email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return 'Enter a valid email address';
+  if(c.pattern){ try{ if(!new RegExp(c.pattern).test(s)) return c.message||'That format is not accepted'; }catch{} }
+  return null;
+}
+function pvFieldsOnStep(){
+  const vis=S.fields.filter(pvVisible);
+  if(S.layout.mode!=='multiStep'||!S.layout.steps.length) return vis;
+  const st=S.layout.steps[pvStep];
+  return vis.filter(f=>st.fieldIds.includes(f.id));
+}
+function pvSet(id,v){ pvValues[id]=v; pvTouched[id]=true; renderPreview(); }
+function pvToggle(id,val){
+  const cur=Array.isArray(pvValues[id])?pvValues[id]:[];
+  pvValues[id]=cur.includes(val)?cur.filter(x=>x!==val):[...cur,val];
+  pvTouched[id]=true; renderPreview();
+}
+function pvControl(f,err){
+  const v=pvValues[f.id]??'';
+  const d=`id="pv-${f.id}" class="pv-inp" ${err?'aria-invalid="true"':''}`;
+  switch(f.type){
+    case 'textarea': return `<textarea ${d} rows="3" placeholder="${esc(f.placeholder)}"
+      oninput="pvValues['${f.id}']=this.value" onblur="pvSet('${f.id}',this.value)">${esc(v)}</textarea>`;
+    case 'number': return `<input ${d} type="number" value="${esc(v)}" placeholder="${esc(f.placeholder)}"
+      oninput="pvValues['${f.id}']=this.value" onblur="pvSet('${f.id}',this.value)">`;
+    case 'date': case 'time': return `<input ${d} type="${f.type}" value="${esc(v)}" onchange="pvSet('${f.id}',this.value)">`;
+    case 'file': return `<div class="pv-inp row" style="color:var(--ink-400)">${svg(ICON.file,'i i-sm')}Choose a file</div>`;
+    case 'signature': return `<div class="sig-pad">Sign here</div>`;
+    case 'rating': return `<div class="stars" id="pv-${f.id}">${[1,2,3,4,5].map(n=>
+      `<button onclick="pvSet('${f.id}',${n})" style="color:${Number(v)>=n?'#F59E0B':'var(--ink-300)'}">${svg(ICON.star,'i')}</button>`).join('')}</div>`;
+    case 'nps': return `<div class="nps-row" id="pv-${f.id}">${Array.from({length:11},(_,i)=>
+      `<button class="" onclick="pvSet('${f.id}',${i})"><span style="${String(v)===String(i)?'background:hsl(var(--primary));color:#fff;border-color:hsl(var(--primary))':''}">${i}</span></button>`).join('')}</div>`;
+    case 'csat': case 'ces': return `<div class="nps-row" id="pv-${f.id}">${[1,2,3,4,5].map(i=>
+      `<button onclick="pvSet('${f.id}',${i})"><span style="${String(v)===String(i)?'background:hsl(var(--primary));color:#fff;border-color:hsl(var(--primary))':''}">${i}</span></button>`).join('')}</div>`;
+    case 'select': return `<select ${d} onchange="pvSet('${f.id}',this.value)">
+      <option value="">Choose…</option>${f.options.map(o=>`<option value="${esc(o.value)}" ${v===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`;
+    case 'radio': {
+      if(f.options.length>6 && !f._forceList) return `<select ${d} onchange="pvSet('${f.id}',this.value)">
+        <option value="">Choose…</option>${f.options.map(o=>`<option value="${esc(o.value)}" ${v===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`;
+      return `<div id="pv-${f.id}">${f.options.map(o=>`
+        <label class="pv-opt" onclick="pvSet('${f.id}','${esc(o.value)}')">
+          <span class="rd ${v===o.value?'on':''}"></span>${esc(o.label)}</label>`).join('')}</div>`;
+    }
+    case 'checkbox': case 'multiselect': {
+      const arr=Array.isArray(v)?v:[];
+      return `<div id="pv-${f.id}">${f.options.map(o=>`
+        <label class="pv-opt" onclick="pvToggle('${f.id}','${esc(o.value)}')">
+          <span class="cb ${arr.includes(o.value)?'on':''}"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>${esc(o.label)}</label>`).join('')}</div>`;
+    }
+    case 'display': return `<div class="pv-inp" style="background:var(--plum-50);border-color:var(--plum-200);color:var(--plum-800)">₹ 8,500</div>`;
+    case 'html': return `<div style="font-size:14px;color:hsl(var(--muted-foreground))">Custom markup renders here.</div>`;
+    case 'table': return `<table class="grid-tbl"><thead><tr><th>Item</th><th>Qty</th><th>Notes</th></tr></thead><tbody><tr><td>—</td><td>—</td><td>—</td></tr></tbody></table>`;
+    case 'likert': return `<table class="likert-tbl"><thead><tr><th></th>${['Strongly disagree','Disagree','Neutral','Agree','Strongly agree'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${['The venue was good','The food was good'].map(r=>`<tr><td>${r}</td>${[0,1,2,3,4].map(()=>`<td><span class="rd" style="display:inline-grid"></span></td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    default: return `<input ${d} value="${esc(v)}" placeholder="${esc(f.placeholder)}"
+      oninput="pvValues['${f.id}']=this.value" onblur="pvSet('${f.id}',this.value)">`;
+  }
+}
+function renderPreview(){
+  document.getElementById('pvTitle').textContent=S.formName||'Untitled form';
+  const d=document.getElementById('pvDesc'); d.textContent=S.formDescription; d.style.display=S.formDescription?'':'none';
+
+  const multi = S.layout.mode==='multiStep' && S.layout.steps.length>0;
+  const stp=document.getElementById('pvStepper');
+  stp.classList.toggle('hidden',!multi);
+  if(multi) stp.innerHTML=`<div class="stepper">${S.layout.steps.map((s,i)=>
+    `<span class="sg ${i<=pvStep?'on':''}" title="${esc(s.title)}"></span>`).join('')}</div>
+    <p style="font-size:12px;color:hsl(var(--muted-foreground));margin:-14px 0 18px">
+      Step ${pvStep+1} of ${S.layout.steps.length} · ${esc(S.layout.steps[pvStep].title)}</p>`;
+
+  const on=pvFieldsOnStep();
+  const errs=[];
+  document.getElementById('pvFields').innerHTML = on.map(f=>{
+    const show = pvTouched[f.id]||pvSubmitted;
+    const e = show ? pvValidate(f) : null;
+    if(e) errs.push({id:f.id, label:f.label});
+    return `<div class="pv-f ${e?'bad':''}" id="pvf-${f.id}" data-field-invalid="${e?'true':''}">
+      <label class="pv-lab">${esc(f.label)||'Untitled question'}${f.required?'<span class="req">*</span>':''}</label>
+      ${f.helpText&&!e?`<p class="pv-help">${esc(f.helpText)}</p>`:''}
+      ${pvControl(f,e)}
+      ${e?`<p class="pv-err">${svg(ICON.warn,'i i-sm')}<span>${e}</span></p>`:''}
+      ${f.externalValidation?.enabled&&!e&&pvValues[f.id]?`<p style="font-size:13px;color:hsl(var(--success));display:flex;gap:6px;align-items:center">${svg(ICON.check,'i i-sm')}Verified</p>`:''}
+    </div>`;
+  }).join('') || '<p style="font-size:14px;color:hsl(var(--muted-foreground))">No questions on this step.</p>';
+
+  /* §6 — the summary only when more than one thing is wrong */
+  document.getElementById('pvErrSum').innerHTML = errs.length>1 ? `
+    <div class="err-sum"><p>${svg(ICON.warn,'i')} ${errs.length} answers need your attention</p>
+      <ul>${errs.map(e=>`<li><button onclick="pvJump('${e.id}')">${esc(e.label)}</button></li>`).join('')}</ul></div>` : '';
+
+  const last = !multi || pvStep>=S.layout.steps.length-1;
+  document.getElementById('pvActions').innerHTML=`
+    ${multi&&pvStep>0?`<button class="btn btn-outline" style="flex:1" onclick="pvPrev()">Previous</button>`:''}
+    <button class="btn btn-primary" style="flex:1" onclick="${last?'pvSubmit()':'pvNext()'}">${last?'Submit':'Next'}</button>`;
+}
+function pvJump(id){
+  const el=document.getElementById('pvf-'+id);
+  el?.scrollIntoView({behavior:'smooth',block:'center'});
+  document.getElementById('pv-'+id)?.focus?.();
+}
+function pvSweep(){
+  const bad=pvFieldsOnStep().filter(f=>pvValidate(f));
+  bad.forEach(f=>pvTouched[f.id]=true);
+  renderPreview();
+  if(bad.length){ requestAnimationFrame(()=>requestAnimationFrame(()=>pvJump(bad[0].id))); return false; }
+  return true;
+}
+function pvNext(){ if(pvSweep()){ pvStep++; pvSubmitted=false; renderPreview(); window.scrollTo(0,0); } }
+function pvPrev(){ pvStep--; renderPreview(); }
+function pvSubmit(){ pvSubmitted=true; if(pvSweep()) toast('Validation passed. A real submission would post to the API here.'); }
+
+/* ==========================================================================
+   Modes, pre-flight, publish
+   ========================================================================== */
+function setMode(m){
+  S.mode=m;
+  document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('on', b.dataset.mode===m));
+  document.getElementById('viewCanvas').classList.toggle('hidden', m!=='canvas');
+  document.getElementById('viewPreview').classList.toggle('hidden', m!=='preview');
+  document.getElementById('viewSettings').classList.toggle('hidden', m!=='settings');
+  if(m==='preview'){ pvValues={}; pvTouched={}; pvStep=0; pvSubmitted=false; renderPreview(); }
+  if(m==='settings'){ renderSetTabs(); renderSetPanels(); renderStepsEditor(); }
+}
+
+/* §1.5 — derived from the schema, so it cannot go stale */
+function preflight(){
+  const out=[];
+  if(S.fields.length===0) out.push(['err','This form has no questions yet.']);
+  const blank=S.fields.filter(f=>!f.label.trim()).length;
+  if(blank) out.push(['warn',`${blank} question${blank===1?'':'s'} ${blank===1?'has':'have'} no text yet.`]);
+
+  if(S.formType==='voting' && !S.fields.some(f=>f.isPollQuestion))
+    out.push(['err','This poll doesn’t count any questions yet.<a href="#" onclick="closeDlg(\'preflight\');setMode(\'canvas\');return false">Fix this</a>']);
+  if(S.formType==='assessment' && !S.fields.some(f=>f.correctAnswer))
+    out.push(['err','This quiz has no correct answers set, so nothing can be scored.']);
+  if(S.settings.payment) out.push(['err','Payment is on but no amount is set.<a href="#" onclick="closeDlg(\'preflight\');setMode(\'settings\');setSettingsTab(\'form\');setSetTab(\'payment\');return false">Fix this</a>']);
+  if(S.settings.dedupe==='email' && !S.fields.some(f=>f.type==='email'))
+    out.push(['warn','One response per email is on, but the form has no email question.']);
+
+  /* a required question that a condition can never satisfy */
+  S.fields.filter(f=>f.required && f.showWhen?.conditions?.length).forEach(f=>{
+    const c=f.showWhen.conditions[0];
+    const src=S.fields.find(x=>x.label===c.field);
+    if(src && HAS_OPTIONS(src.type) && c.value && !src.options.some(o=>
+      o.value.toLowerCase()===String(c.value).toLowerCase() || o.label.toLowerCase()===String(c.value).toLowerCase()))
+      out.push(['err',`“${f.label}” is required but only shows when “${c.field}” is “${c.value}”, which is not one of its options.`]);
+  });
+
+  if(S.layout.mode==='multiStep'){
+    const assigned=new Set(S.layout.steps.flatMap(s=>s.fieldIds));
+    const orphan=S.fields.filter(f=>!assigned.has(f.id)).length;
+    if(orphan) out.push(['warn',`${orphan} question${orphan===1?'':'s'} ${orphan===1?'is':'are'} not on any step, so ${orphan===1?'it':'they'} will not be shown.`]);
+  }
+  if(!S.settings.isFormActive) out.push(['warn','The form is set to not accept responses.']);
+
+  const req=S.fields.filter(f=>f.required).length;
+  out.push(['ok',`${S.fields.length} question${S.fields.length===1?'':'s'}, ${req} required`]);
+  out.push(['ok',`Responses go to the ${S.settings.team} team`]);
+  if(S.settings.botProtection) out.push(['ok','Bot protection is on']);
+  if(S.layout.mode==='multiStep') out.push(['ok',`${S.layout.steps.length} steps`]);
+  return out;
+}
+function openPreflight(){
+  const c=preflight();
+  const bad=c.filter(x=>x[0]!=='ok').length, hard=c.filter(x=>x[0]==='err').length;
+  document.getElementById('pfT').textContent = bad===0
+    ? 'Ready to publish' : `Ready to publish — ${bad} thing${bad===1?'':'s'} to look at`;
+  document.getElementById('pfBody').innerHTML=c.map(([k,t])=>`
+    <div class="chk ${k}"><span class="ci">${svg(k==='ok'?ICON.check:ICON.warn,'i')}</span><span>${t}</span></div>`).join('');
+  const go=document.getElementById('pfGo');
+  go.textContent = hard ? 'Publish anyway' : 'Publish';
+  openDlg('preflight');
+}
 function publish(){
-  closePreflight();
+  closeDlg('preflight'); S.published=true;
   const p=document.getElementById('statePill');
-  p.className='pill pill-live'; p.textContent='Published';
-  toast('Published. Edits from here show as "Published · n unpublished changes".');
+  p.className='pill pill-live'; document.getElementById('stateTxt').textContent='Published';
+  document.getElementById('saveTxt').textContent='All changes published';
+  toast('Published. Later edits show as “Published · unpublished changes”.');
 }
 
+/* rename */
+function startRename(){
+  document.getElementById('nameBtn').classList.add('hidden');
+  const i=document.getElementById('nameInp');
+  i.classList.remove('hidden'); i.focus(); i.select();
+}
+function endRename(){
+  const i=document.getElementById('nameInp');
+  S.formName=i.value.trim()||'Untitled form';
+  document.getElementById('nameTxt').textContent=S.formName;
+  document.getElementById('cardTitle').textContent=S.formName;
+  i.classList.add('hidden'); document.getElementById('nameBtn').classList.remove('hidden');
+  markDirty();
+}
+
+/* column resizing, as in FormBuilderPage */
+let resizing=null;
+document.addEventListener('pointerdown',e=>{
+  const h=e.target.closest('.resizer'); if(!h) return;
+  resizing={which:h.dataset.resize, x:e.clientX,
+    w:(h.dataset.resize==='palette'?document.getElementById('palette'):document.getElementById('inspector')).offsetWidth};
+  document.body.style.cursor='col-resize'; document.body.style.userSelect='none'; e.preventDefault();
+});
+document.addEventListener('pointermove',e=>{
+  if(!resizing) return;
+  const d=e.clientX-resizing.x;
+  if(resizing.which==='palette'){
+    document.getElementById('palette').style.width=Math.min(360,Math.max(190,resizing.w+d))+'px';
+  }else{
+    document.getElementById('inspector').style.width=Math.min(460,Math.max(260,resizing.w-d))+'px';
+  }
+});
+document.addEventListener('pointerup',()=>{ resizing=null; document.body.style.cursor=''; document.body.style.userSelect=''; });
+
+/* misc wiring */
 function toggleAnno(){
-  document.body.classList.toggle('annotate');
+  document.body.classList.toggle('anno-on');
   document.getElementById('annoBtn').style.color =
-    document.body.classList.contains('annotate') ? 'hsl(var(--destructive))' : '';
+    document.body.classList.contains('anno-on')?'hsl(var(--destructive))':'';
 }
-let toastTimer;
-function toast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),3200);
+document.addEventListener('click',()=>{
+  document.querySelectorAll('.dropdown.open').forEach(d=>d.classList.remove('open'));
+  if(S.openMenu){ S.openMenu=null; render(); }
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    document.querySelectorAll('.scrim.open').forEach(d=>d.classList.remove('open'));
+    if(S.openMenu){ S.openMenu=null; render(); }
+  }
+});
+document.getElementById('nameInp').addEventListener('blur',endRename);
+document.getElementById('nameInp').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key==='Escape') endRename(); });
+document.getElementById('cardDesc').addEventListener('input',e=>{ S.formDescription=e.target.value; });
+document.getElementById('csvText').addEventListener('input',countCsv);
+document.getElementById('fieldList').addEventListener('dragover',e=>e.preventDefault());
+document.getElementById('fieldList').addEventListener('drop',e=>{
+  if(dragNewType){ e.preventDefault(); addField(dragNewType); dragNewType=null; }
+});
+
+/* ---- master render ---- */
+function render(){
+  renderFields();
+  renderSetup();
+  renderSetupNav();
+  if(S.mode==='settings'){ renderSetTabs(); renderSetPanels(); }
 }
 
-document.addEventListener('click',()=>{ if(openMenu!==null){ openMenu=null; render(); } });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePreflight(); if(openMenu!==null){openMenu=null;render();} } });
-
-renderIntents(); render();
+seed();
+renderPalette();
+renderVars();
+render();
+autoGrow(document.getElementById('cardDesc'));
 </script>
 </body>
 </html>
