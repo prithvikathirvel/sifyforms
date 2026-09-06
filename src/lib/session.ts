@@ -109,13 +109,16 @@ export function hadSession(): boolean {
 
 /** The sentence shown to the person, by reason. */
 export const SESSION_END_MESSAGE: Record<SessionEndReason, { title: string; description: string }> = {
+  // These are read aloud by the toast, with no room for a second paragraph, so
+  // each one carries the reassurance too: the first thing anyone wonders when
+  // they are bounced to a sign-in screen is whether their work survived.
   expired: {
     title: 'Your session has expired',
-    description: 'You were signed out because your sign-in timed out. Sign in again to pick up where you left off.',
+    description: 'You were signed out after a spell of inactivity. Everything you saved is safe — sign in again to carry on.',
   },
   unauthorized: {
     title: 'You have been signed out',
-    description: 'Your access was revoked or your account changed. Sign in again to continue.',
+    description: 'Your access changed, so we ended the session. Everything you saved is safe — sign in again to carry on.',
   },
   'signed-out': {
     title: 'Signed out',

@@ -166,6 +166,7 @@ function FieldControl({
   values,
   formId,
   dmsEnabled,
+  onReject,
 }: {
   field: FormField;
   value: unknown;
@@ -174,6 +175,8 @@ function FieldControl({
   values: Record<string, unknown>;
   formId?: string;
   dmsEnabled: boolean;
+  /** A file the browser refused, routed to this question's error slot. */
+  onReject: (message: string) => void;
 }) {
   const options = resolveOptions(field, values);
   const disabled = !!field.disabled;
@@ -299,6 +302,7 @@ function FieldControl({
             hideLabel
             deferUpload
             publicDownload
+            onReject={onReject}
           />
         );
       }
@@ -309,6 +313,7 @@ function FieldControl({
           onChange={(v) => onChange(v)}
           disabled={disabled}
           hideLabel
+          onReject={onReject}
         />
       );
     case 'nps':
@@ -413,6 +418,9 @@ export default function FormPreview({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [extValidation, setExtValidation] = useState<Record<string, { loading: boolean; ok?: boolean; message?: string }>>({});
+  // Files the browser refused. Kept beside the normal errors rather than in a
+  // toast, so the preview shows a respondent exactly what a respondent sees.
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
 
   const steps = useMemo(
     () => [...(layout?.steps || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
@@ -529,7 +537,10 @@ export default function FormPreview({
         </div>
       );
     }
-    const error = touched[field.id] ? validateField(field, values[field.id]) : null;
+    // A refused file wins over "this is required": it is the more specific
+    // thing that just went wrong, and it shows without waiting for a blur,
+    // because choosing a file is itself the interaction.
+    const error = fileErrors[field.id] || (touched[field.id] ? validateField(field, values[field.id]) : null);
     return (
       <div
         key={field.id}
@@ -561,6 +572,18 @@ export default function FormPreview({
           }}
           formId={formId}
           dmsEnabled
+          onReject={(message) =>
+            setFileErrors((prev) => {
+              if (!message) {
+                if (!prev[field.id]) return prev;
+                const next = { ...prev };
+                delete next[field.id];
+                return next;
+              }
+              if (prev[field.id] === message) return prev;
+              return { ...prev, [field.id]: message };
+            })
+          }
         />
         {field.helpText && !error && <p className="text-[13px] text-muted-foreground">{field.helpText}</p>}
         {error && <FieldError fieldId={field.id} message={error} />}

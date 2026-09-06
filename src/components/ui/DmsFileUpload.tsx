@@ -4,6 +4,7 @@ import { Label } from './label';
 import { Card } from './card';
 import { Upload, X, File, Image, FileText, Download, CheckCircle2 } from 'lucide-react';
 import { toast } from './toast';
+import { FieldError } from './field-feedback';
 import type { FormField, FormFileValue } from '../../types';
 import {
   getDownloadUrl,
@@ -26,6 +27,19 @@ interface DmsFileUploadProps {
   error?: string;
   disabled?: boolean;
   hideLabel?: boolean;
+  /**
+   * Report a rejected file to the owning form.
+   *
+   * A file that is too large is a wrong answer to this question, so it has to
+   * appear where every other wrong answer appears — under the question, in the
+   * error slot the form already owns and already scrolls to. It was a toast,
+   * which is dismissible, disappears on a timer, and can be missed entirely by
+   * someone whose attention is on the file picker they just closed.
+   *
+   * When the owner does not supply this, the message is rendered here instead.
+   * There is no path on which it becomes a toast.
+   */
+  onReject?: (message: string) => void;
   /** When true (default), files stay local until final form submission. */
   deferUpload?: boolean;
   /** Public form respondents must use the public download endpoint. */
@@ -42,8 +56,11 @@ export default function DmsFileUpload({
   hideLabel = false,
   deferUpload = true,
   publicDownload = false,
+  onReject,
 }: DmsFileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
+  // Only used when the owner has not claimed the error slot.
+  const [localRejection, setLocalRejection] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form-wide upload rules. Whatever a single question asks for, the form's
@@ -73,11 +90,13 @@ export default function DmsFileUpload({
   const maxSizeMb = Math.max(1, Math.round(maxSizeBytes / (1024 * 1024)));
 
   const validateFile = (file: File): string | null => {
+    // Every message names the limit and the actual value, because "file too
+    // large" leaves the person guessing how much smaller it needs to be.
     if (minSizeBytes && file.size < minSizeBytes) {
-      return `File size must be at least ${(minSizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+      return `This file is ${formatFileSize(file.size)}. It needs to be at least ${(minSizeBytes / (1024 * 1024)).toFixed(1)} MB.`;
     }
     if (file.size > maxSizeBytes) {
-      return `File size exceeds ${maxSizeMb} MB`;
+      return `This file is ${formatFileSize(file.size)}. Choose one under ${maxSizeMb} MB.`;
     }
     if (fileConfig.accept && fileConfig.accept.length > 0) {
       const isAccepted = fileConfig.accept.some((acceptType: string) => {
@@ -85,7 +104,7 @@ export default function DmsFileUpload({
         if (acceptType.endsWith('/*')) return file.type.startsWith(acceptType.replace('/*', '/'));
         return file.type === acceptType;
       });
-      if (!isAccepted) return `File type not allowed. Accepted: ${fileConfig.accept.join(', ')}`;
+      if (!isAccepted) return `This file type is not accepted. Choose ${fileConfig.accept.join(', ')}.`;
     }
     // The form's own rules, worded exactly as the API words them.
     const rejection = describeUploadRejection(
@@ -96,29 +115,59 @@ export default function DmsFileUpload({
     return null;
   };
 
+  /** Send a rejection to whoever owns this question's error slot. */
+  const reject = (message: string) => {
+    if (onReject) onReject(message);
+    else setLocalRejection(message);
+  };
+
+  const clearRejection = () => {
+    if (onReject) onReject('');
+    else setLocalRejection(null);
+  };
+
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     const fileArray = Array.from(files);
     if (currentFiles.length + fileArray.length > maxFiles) {
-      toast.warning(`Maximum ${maxFiles} files allowed`);
+      reject(
+        maxFiles === 1
+          ? 'Only one file can be attached here. Remove the current one first.'
+          : `Only ${maxFiles} files can be attached here.`
+      );
       return;
     }
 
     const validFiles: File[] = [];
+    const rejected: string[] = [];
     for (const file of fileArray) {
       const err = validateFile(file);
-      if (err) {
-        toast.error(`${file.name}: ${err}`);
-      } else {
-        validFiles.push(file);
-      }
+      // With one file the name is on screen already; with several it is the
+      // only way to know which one was refused.
+      if (err) rejected.push(fileArray.length > 1 ? `${file.name} — ${err}` : err);
+      else validFiles.push(file);
     }
-    if (validFiles.length === 0) return;
+
+    if (validFiles.length === 0) {
+      reject(rejected.join(' '));
+      return;
+    }
 
     const pending = validFiles.map(createPendingLocalFile);
     const updated = multiple ? [...currentFiles, ...pending] : pending;
     onChange(updated);
+
+    if (rejected.length === 0) {
+      clearRejection();
+      return;
+    }
+    // Some accepted, some refused. The accepted ones have just been written to
+    // the form, and that write re-runs the form's own validation for this
+    // question, which would wipe a message set in the same tick. Setting it
+    // after that settles is the difference between the person seeing why their
+    // second file vanished and them thinking the upload silently ate it.
+    queueMicrotask(() => reject(rejected.join(' ')));
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -137,6 +186,7 @@ export default function DmsFileUpload({
 
   const removeFile = (index: number) => {
     const next = currentFiles.filter((_, i) => i !== index);
+    clearRejection();
     onChange(next.length > 0 ? next : null);
   };
 
@@ -259,7 +309,9 @@ export default function DmsFileUpload({
           that wrapper hides this component's label it renders both, so
           repeating it here produced the duplicate line under the control. */}
       {!hideLabel && field.helpText && <p className="text-sm text-muted-foreground">{field.helpText}</p>}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {(error || localRejection) && (
+        <FieldError fieldId={field.id} message={(error || localRejection) as string} />
+      )}
     </div>
   );
 }

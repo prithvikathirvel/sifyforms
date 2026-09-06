@@ -3,8 +3,8 @@ import { Button } from './button';
 import { Label } from './label';
 import { Card } from './card';
 import { Upload, X, File, Image, FileText, Download, Eye } from 'lucide-react';
-import { toast } from './toast';
 import type { FormField } from '../../types';
+import { FieldError } from './field-feedback';
 import { useUploadRules } from '../../hooks/useUploadRules';
 import { acceptAttribute, describeAllowedTypes, describeUploadRejection } from '../../lib/formPolicy';
 
@@ -15,6 +15,12 @@ interface FileUploadProps {
   error?: string;
   disabled?: boolean;
   hideLabel?: boolean; // Add option to hide label when rendered by parent
+  /**
+   * Report a rejected file to the owning form, so the message lands in the
+   * question's error slot rather than in a toast that disappears on a timer.
+   * Without it the message is rendered here. It is never a toast.
+   */
+  onReject?: (message: string) => void;
 }
 
 interface FilePreview {
@@ -23,9 +29,10 @@ interface FilePreview {
   url: string;
 }
 
-export default function FileUpload({ field, value, onChange, error, disabled, hideLabel = false }: FileUploadProps) {
+export default function FileUpload({ field, value, onChange, error, disabled, hideLabel = false, onReject }: FileUploadProps) {
   const [previews, setPreviews] = useState<FilePreview[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [localRejection, setLocalRejection] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form-wide upload rules, matching what the API enforces.
@@ -79,10 +86,10 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
   const validateFile = (file: File): string | null => {
     // Check file size
     if (file.size < minSize) {
-      return `File size must be at least ${formatFileSize(minSize)}`;
+      return `This file is ${formatFileSize(file.size)}. It needs to be at least ${formatFileSize(minSize)}.`;
     }
     if (file.size > maxSize) {
-      return `File size exceeds ${formatFileSize(maxSize)}`;
+      return `This file is ${formatFileSize(file.size)}. Choose one under ${formatFileSize(maxSize)}.`;
     }
 
     // Check file type
@@ -99,7 +106,7 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
       });
 
       if (!isAccepted) {
-        return `File type ${file.type} is not allowed. Accepted types: ${fileConfig.accept.join(', ')}`;
+        return `This file type is not accepted. Choose ${fileConfig.accept.join(', ')}.`;
       }
     }
 
@@ -113,17 +120,32 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
     return null;
   };
 
+  /** Send a rejection to whoever owns this question's error slot. */
+  const reject = (message: string) => {
+    if (onReject) onReject(message);
+    else setLocalRejection(message);
+  };
+
+  const clearRejection = () => {
+    if (onReject) onReject('');
+    else setLocalRejection(null);
+  };
+
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     const fileArray = Array.from(files);
     const validFiles: File[] = [];
-    const errors: string[] = [];
+    const rejected: string[] = [];
 
     // Check max files limit
     const currentFiles = value instanceof FileList ? Array.from(value) : (value as File[]) || [];
     if (currentFiles.length + fileArray.length > maxFiles) {
-      errors.push(`Maximum ${maxFiles} files allowed`);
+      reject(
+        maxFiles === 1
+          ? 'Only one file can be attached here. Remove the current one first.'
+          : `Only ${maxFiles} files can be attached here.`
+      );
       return;
     }
 
@@ -131,16 +153,17 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
     fileArray.forEach((file) => {
       const validationError = validateFile(file);
       if (validationError) {
-        errors.push(`${file.name}: ${validationError}`);
+        rejected.push(fileArray.length > 1 ? `${file.name} — ${validationError}` : validationError);
       } else {
         validFiles.push(file);
       }
     });
 
-    if (errors.length > 0) {
-      toast.error({ title: 'Some files could not be added', description: errors.join('\n') });
+    if (rejected.length > 0) {
+      reject(rejected.join(' '));
       return;
     }
+    clearRejection();
 
     if (multiple) {
       const newFiles = [...currentFiles, ...validFiles];
@@ -173,6 +196,7 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
   const removeFile = (index: number) => {
     const currentFiles = value instanceof FileList ? Array.from(value) : (value as File[]) || [];
     const newFiles = currentFiles.filter((_, i) => i !== index);
+    clearRejection();
     
     if (multiple) {
       onChange(newFiles.length > 0 ? newFiles : null);
@@ -332,8 +356,8 @@ export default function FileUpload({ field, value, onChange, error, disabled, hi
         <p className="text-sm text-muted-foreground">{field.helpText}</p>
       )}
 
-      {error && (
-        <p className="text-sm text-destructive">{error}</p>
+      {(error || localRejection) && (
+        <FieldError fieldId={field.id} message={(error || localRejection) as string} />
       )}
     </div>
   );

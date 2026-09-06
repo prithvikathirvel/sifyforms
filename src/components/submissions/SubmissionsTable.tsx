@@ -238,26 +238,40 @@ export default function SubmissionsTable({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 p-4 sm:p-5 lg:p-6">
-      {/* What happened, in three numbers, before any table appears. */}
-      <section aria-label="Response summary" className="grid shrink-0 gap-3 sm:grid-cols-3">
-        <SummaryCard label="Total responses" value={pagination.total.toLocaleString()} hint="Everything received so far" />
-        <SummaryCard
-          label="Unread"
-          value={newCount.toLocaleString()}
-          hint={newCount > 0 ? 'Not opened yet, on this page' : 'You are all caught up'}
-          tone={newCount > 0 ? 'accent' : 'muted'}
-        />
-        <SummaryCard
-          label="Most recent"
-          value={latest ? relativeTime(latest) : '—'}
-          hint={latest ? formatDateTime(latest) : 'No responses yet'}
-        />
-      </section>
+    <div className="flex h-full min-h-0 flex-col p-4 sm:p-5 lg:p-6">
+      {/*
+       * One surface, not four.
+       *
+       * The previous version stacked three bordered stat boxes above a fourth
+       * bordered box holding the table, which read as an admin template: four
+       * competing rectangles, four sets of edges, and no sense of what belonged
+       * to what. The numbers describe the table, so they live on the table's
+       * own card, separated by a rule rather than by a gap. That single change
+       * removes three borders and three shadows from the page and leaves one
+       * calm panel.
+       */}
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-16px_rgba(15,23,42,0.16)]">
+        {/* The three numbers worth knowing before reading any row. */}
+        <div
+          aria-label="Response summary"
+          className="flex shrink-0 flex-wrap items-center gap-x-8 gap-y-4 px-5 pb-4 pt-4 sm:px-6 sm:pt-5"
+        >
+          <Stat label="Total responses" value={pagination.total.toLocaleString()} />
+          <Stat
+            label="Unread"
+            value={newCount.toLocaleString()}
+            tone={newCount > 0 ? 'accent' : 'muted'}
+            dot={newCount > 0}
+          />
+          <Stat
+            label="Latest"
+            value={latest ? relativeTime(latest) : '—'}
+            title={latest ? formatDateTime(latest) : undefined}
+          />
+        </div>
 
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
         {/* Toolbar */}
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/70 px-4 py-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-y border-border/70 bg-ink-50/40 px-4 py-2.5 sm:px-5">
           <div className="relative min-w-[12rem] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -372,14 +386,14 @@ export default function SubmissionsTable({
                     <th
                       scope="col"
                       style={{ left: 0, width: NUMBER_COL_WIDTH }}
-                      className="sticky z-30 border-b border-r border-border bg-ink-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                      className="sticky z-30 border-b border-border bg-ink-50/95 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-500 backdrop-blur-sm"
                     >
                       #
                     </th>
                     <th
                       scope="col"
                       style={{ left: NUMBER_COL_WIDTH, width: RECEIVED_COL_WIDTH }}
-                      className="sticky z-30 border-b border-r border-border bg-ink-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                      className="sticky z-30 border-b border-r border-border/70 bg-ink-50/95 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-500 backdrop-blur-sm"
                     >
                       Received
                     </th>
@@ -387,7 +401,7 @@ export default function SubmissionsTable({
                       <th
                         key={field.id}
                         scope="col"
-                        className="border-b border-border bg-ink-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                        className="border-b border-border bg-ink-50/95 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-500 backdrop-blur-sm"
                       >
                         <span className="block truncate" data-truncated-text={field.label || 'Untitled question'}>
                           {field.label || 'Untitled question'}
@@ -397,7 +411,7 @@ export default function SubmissionsTable({
                     <th
                       scope="col"
                       style={{ right: 0, width: ACTIONS_COL_WIDTH }}
-                      className="sticky z-30 border-b border-l border-border bg-ink-50 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                      className="sticky z-30 border-b border-l border-border/70 bg-ink-50/95 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-500 backdrop-blur-sm"
                     >
                       <span className="sr-only">Actions</span>
                     </th>
@@ -408,20 +422,23 @@ export default function SubmissionsTable({
                     const isOpen = open?.id === submission.id;
                     // Sticky cells need their own background or the scrolling
                     // answers show through them.
-                    const pinnedBg = isOpen ? 'bg-[#F2F4FF]' : 'bg-card group-hover:bg-ink-50';
+                    const pinnedBg = isOpen ? 'bg-[#F4F5FF]' : 'bg-card group-hover:bg-ink-50/70';
                     return (
                       <tr
                         key={submission.id}
                         onClick={() => setOpenSubmissionId(submission.id)}
-                        className={`group cursor-pointer border-b border-border/60 transition-colors last:border-b-0 ${
-                          isOpen ? 'bg-primary/[0.04]' : 'hover:bg-ink-50/70'
+                        className={`group cursor-pointer border-b border-border/40 transition-colors last:border-b-0 ${
+                          isOpen ? 'bg-primary/[0.035]' : 'hover:bg-ink-50/70'
                         }`}
                       >
                         <td
                           style={{ left: 0 }}
-                          className={`sticky z-10 border-r border-border/60 px-4 py-3 align-middle transition-colors ${pinnedBg}`}
+                          className={`sticky z-10 px-4 py-3.5 align-middle transition-colors ${pinnedBg}`}
                         >
-                          <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                          {/* The open row is marked at the edge rather than by
+                              shouting a fill colour across twelve columns. */}
+                          {isOpen && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[3px] bg-primary" />}
+                          <span className="flex items-center gap-1.5 tabular-nums font-medium text-ink-500">
                             {responseNumber(submission.id)}
                             {!submission.isRead && (
                               <span aria-label="Not opened yet" className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
@@ -430,16 +447,16 @@ export default function SubmissionsTable({
                         </td>
                         <td
                           style={{ left: NUMBER_COL_WIDTH }}
-                          className={`sticky z-10 border-r border-border/60 px-4 py-3 align-middle transition-colors ${pinnedBg}`}
+                          className={`sticky z-10 border-r border-border/70 px-4 py-3.5 align-middle transition-colors ${pinnedBg}`}
                         >
-                          <span className="block truncate text-foreground">{relativeTime(submission.createdAt)}</span>
-                          <span className="block truncate text-xs text-muted-foreground">{formatDateTime(submission.createdAt)}</span>
+                          <span className="block truncate font-medium text-foreground">{relativeTime(submission.createdAt)}</span>
+                          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{formatDateTime(submission.createdAt)}</span>
                         </td>
                         {columns.map((field) => {
                           const text = plainValue(field, submission.data[field.id]);
                           const redacted = submission.redactedFields?.includes(field.id);
                           return (
-                            <td key={field.id} className="px-4 py-3 align-middle">
+                            <td key={field.id} className="px-4 py-3.5 align-middle">
                               {redacted ? (
                                 <span className="italic text-muted-foreground">Hidden</span>
                               ) : text ? (
@@ -454,9 +471,15 @@ export default function SubmissionsTable({
                         })}
                         <td
                           style={{ right: 0 }}
-                          className={`sticky z-10 border-l border-border/60 px-3 py-3 text-right align-middle transition-colors ${pinnedBg}`}
+                          className={`sticky z-10 border-l border-border/70 px-3 py-3.5 text-right align-middle transition-colors ${pinnedBg}`}
                         >
-                          <div className="flex items-center justify-end gap-0.5">
+                          {/* Two buttons on every row is two hundred buttons on
+                              a full page, and a wall of them is what made this
+                              look busy. They fade in on the row you are on, and
+                              stay put for keyboard users via focus-within. */}
+                          <div className={`flex items-center justify-end gap-0.5 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100 ${
+                            isOpen ? 'opacity-100' : 'opacity-0'
+                          }`}>
                             <Button
                               type="button"
                               variant="ghost"
@@ -464,7 +487,7 @@ export default function SubmissionsTable({
                               onClick={(event) => { event.stopPropagation(); setOpenSubmissionId(submission.id); }}
                               className="h-8 rounded-lg px-2.5 text-xs font-semibold text-primary hover:bg-primary/[0.07]"
                             >
-                              View
+                              Open
                             </Button>
                             {canDelete && (
                               <Button
@@ -540,7 +563,7 @@ export default function SubmissionsTable({
 
         {/* Pagination: full width, under the thing it paginates, and it says
             plainly which responses are on screen. */}
-        <div className="flex shrink-0 flex-col gap-3 border-t border-border/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex shrink-0 flex-col gap-3 border-t border-border/70 bg-ink-50/40 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <p className="text-sm text-muted-foreground">
             {pagination.total === 0 ? (
               'No responses yet'
@@ -617,22 +640,42 @@ export default function SubmissionsTable({
   );
 }
 
-function SummaryCard({
+/**
+ * One number and its name.
+ *
+ * The number leads and the label sits under it in small caps, which is the
+ * arrangement that reads fastest: the eye lands on the figure it came for and
+ * only drops to the label if the figure is ambiguous. The old card put a
+ * shouting uppercase label first, a huge number second and a sentence of hint
+ * text third, which is three sizes of type to say one thing.
+ */
+function Stat({
   label,
   value,
-  hint,
   tone = 'muted',
+  dot = false,
+  title,
 }: {
   label: string;
   value: string;
-  hint: string;
   tone?: 'muted' | 'accent';
+  dot?: boolean;
+  title?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3.5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-2xl font-bold ${tone === 'accent' ? 'text-primary' : 'text-foreground'}`}>{value}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+    <div className="min-w-0">
+      <p
+        title={title}
+        className={`flex items-center gap-1.5 truncate font-display text-[22px] font-bold leading-tight ${
+          tone === 'accent' ? 'text-primary' : 'text-foreground'
+        }`}
+      >
+        {dot && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
+        {value}
+      </p>
+      <p className="mt-0.5 truncate text-[11px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
+        {label}
+      </p>
     </div>
   );
 }

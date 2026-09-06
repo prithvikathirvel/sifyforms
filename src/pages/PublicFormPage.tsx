@@ -2280,6 +2280,7 @@ export default function PublicFormPage() {
                 hideLabel={true}
                 deferUpload
                 publicDownload
+                onReject={(message) => onFileRejected(field.id, message)}
               />
             </>
           );
@@ -2292,6 +2293,7 @@ export default function PublicFormPage() {
               value={formValues[field.id] as FileList | File[] | null}
               onChange={(files) => setValue(field.id, files, { shouldValidate: true })}
               hideLabel={true}
+              onReject={(message) => onFileRejected(field.id, message)}
             />
           </>
         );
@@ -2486,6 +2488,22 @@ export default function PublicFormPage() {
    * to the banner, which is the right place for a message with no field to
    * attach to.
    */
+  /**
+   * A file the browser refused, reported as an answer to this question.
+   *
+   * It goes through the same `errors` map as a required field left blank, so it
+   * renders in the same place, in the same style, clears the same way, and is
+   * counted by the error summary. Nothing about a rejected upload deserves its
+   * own mechanism.
+   *
+   * No scrolling: the person is looking at the control they just used, and
+   * moving the page under them would be worse than saying nothing.
+   */
+  const onFileRejected = (fieldId: string, message: string) => {
+    if (message) setFieldError(fieldId, { type: 'file', message });
+    else clearErrors(fieldId);
+  };
+
   const applyServerFieldErrors = (responseData: any): string[] => {
     const details = responseData?.details;
     if (!details) return [];
