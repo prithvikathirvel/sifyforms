@@ -4,6 +4,7 @@ import { Clock, LogIn } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { logout } from '../../store/authSlice';
 import { onSessionEnded, SESSION_END_MESSAGE, type SessionEndReason } from '../../lib/session';
+import { isApplicationPath, isAuthPath } from '../../lib/appRoutes';
 import { Button } from '../ui/button';
 
 /**
@@ -19,7 +20,6 @@ import { Button } from '../ui/button';
  * why the page in front of you has stopped working. This one blocks, because
  * the application behind it no longer does anything useful.
  */
-const PUBLIC_PREFIXES = ['/auth/', '/payment/'];
 
 export default function SessionExpiryWatcher() {
   const navigate = useNavigate();
@@ -40,9 +40,12 @@ export default function SessionExpiryWatcher() {
   useEffect(() => onSessionEnded(({ reason: ended }) => {
     if (ended === 'signed-out') return;
     const path = pathRef.current;
-    // Public pages have no session to lose. A respondent filling in a form must
-    // never be interrupted by somebody else's expiry.
-    if (PUBLIC_PREFIXES.some((prefix) => path.startsWith(prefix)) || path === '/') return;
+    // Only the signed-in application can lose a session. A respondent filling
+    // in a published form is on a path made of two pieces of user-supplied
+    // text, so the test has to be "is this one of ours" rather than a list of
+    // public prefixes that could never name every form a customer publishes.
+    // The sign-in screen is excluded too: it says so itself, on load.
+    if (!isApplicationPath(path) || isAuthPath(path)) return;
     setReason(ended);
   }), []);
 

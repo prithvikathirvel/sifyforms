@@ -44,13 +44,25 @@ export function onSessionEnded(listener: Listener): () => void {
 /**
  * Announce that the session is over.
  *
+ * Nothing is announced to a browser that has never signed in. This is the same
+ * `hadSession()` rule the storage write below has always applied, and it has to
+ * cover the listeners too — applying it to only one of the two was the bug that
+ * put "Your session has expired" in front of respondents filling in a public
+ * form. They have no refresh cookie, so the exchange at page load returns 401,
+ * which is indistinguishable from an expiry unless somebody asks whether there
+ * was ever a session to lose.
+ *
  * The reason is also written to sessionStorage, because some endings are
  * followed by a full page navigation that destroys every listener before they
  * can react. The login screen reads it back and says what happened.
  */
 export function notifySessionEnded(reason: SessionEndReason): void {
+  // A sign-out is always the result of a deliberate action, so it is announced
+  // whatever the marker says. Every other reason has to have had a session.
+  if (reason !== 'signed-out' && !hadSession()) return;
+
   try {
-    if (reason !== 'signed-out' && hadSession()) {
+    if (reason !== 'signed-out') {
       sessionStorage.setItem(REASON_KEY, reason);
     }
   } catch {

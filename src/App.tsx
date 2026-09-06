@@ -1,12 +1,14 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store';
 import { useAppDispatch, useAppSelector } from './hooks/useAppDispatch';
 import { useEffect, useState } from 'react';
 import { fetchOrganizations } from './store/orgSlice';
-import { getSession, logout, restoreSession } from './store/authSlice';
+import { getSession, logout, restoreSession, sessionBootstrapSkipped } from './store/authSlice';
 import { Loader2 } from 'lucide-react';
 import { isCancelledPayload } from './lib/apiError';
+import { hadSession } from './lib/session';
+import { isApplicationPath } from './lib/appRoutes';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
@@ -32,13 +34,32 @@ import SessionExpiryWatcher from './components/auth/SessionExpiryWatcher';
  * Exchange the refresh cookie once, up front. Public pages render immediately;
  * only the guarded routes wait for the result, otherwise a reload would bounce
  * a signed-in user to the login screen.
+ *
+ * The exchange is skipped entirely when there is nothing to exchange. A
+ * respondent opening a published form has never signed in and holds no refresh
+ * cookie, so the call could only ever return 401 — a wasted round trip on the
+ * critical path of the page that matters most, and, before the guards below
+ * were corrected, the source of a "your session has expired" dialog shown to
+ * someone who never had one.
+ *
+ * The marker is not consulted on application routes. Someone who clears site
+ * data keeps a valid refresh cookie but loses the marker, and on `/dashboard`
+ * the right answer is to try the exchange and let it succeed.
  */
 function SessionBootstrap({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
+  const location = useLocation();
+
+  // Read once, at mount. The decision belongs to the page load, not to
+  // subsequent client-side navigation — by then the exchange has settled.
+  const [shouldRestore] = useState(
+    () => hadSession() || isApplicationPath(location.pathname)
+  );
 
   useEffect(() => {
-    dispatch(restoreSession());
-  }, [dispatch]);
+    if (shouldRestore) dispatch(restoreSession());
+    else dispatch(sessionBootstrapSkipped());
+  }, [dispatch, shouldRestore]);
 
   return <>{children}</>;
 }

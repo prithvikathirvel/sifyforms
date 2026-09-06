@@ -165,6 +165,17 @@ const authSlice = createSlice({
     setUser: (state, action: PayloadAction<User | null>) => {
       state.user = action.payload;
     },
+    /**
+     * Settle the bootstrap without a network call.
+     *
+     * Used when there is demonstrably nothing to restore — a browser that has
+     * never signed in, on a page that does not need a session. The guarded
+     * routes block on `bootstrapped`, so it still has to be set; skipping the
+     * flag would leave them spinning forever.
+     */
+    sessionBootstrapSkipped: (state) => {
+      state.bootstrapped = true;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -263,5 +274,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setUser } = authSlice.actions;
+export const { clearError, setUser, sessionBootstrapSkipped } = authSlice.actions;
 export default authSlice.reducer;
