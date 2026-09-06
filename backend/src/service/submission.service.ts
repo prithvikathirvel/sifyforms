@@ -217,6 +217,7 @@ export async function listSubmissions(
   page: number, limit: number,
   status?: string, search?: string,
   startDate?: string, endDate?: string,
+  sort?: string,
 ) {
   const form = await formDao.findFormByIdAndOrg(formId, orgId);
   if (!form) throw createError(404, 'Form not found');
@@ -231,27 +232,66 @@ export async function listSubmissions(
   else if (status === 'unread') filter.isRead = false;
   if (startDate) filter.createdAtGte = new Date(startDate);
   if (endDate) filter.createdAtLte = new Date(endDate);
+  filter.sort = sort === 'oldest' ? 'oldest' : 'newest';
+
+  const term = search?.trim();
+  // Whether this viewer has anything hidden from them. It depends on their
+  // access level and the form's policy, not on any individual row, so it can
+  // be decided before a single record is read.
+  const mustRedact = access.level === 'REDACTED' || access.policy === 'BLIND_REVIEW';
+
+  const shape = (rows: Awaited<ReturnType<typeof submissionDao.findSubmissionsByFormId>>) => rows
+    .map(s => viewSubmission(s, schema, access.level, access.policy))
+    .filter((s): s is NonNullable<ReturnType<typeof viewSubmission>> => s !== null);
+
+  if (term && mustRedact) {
+    /*
+     * The careful path.
+     *
+     * This viewer has fields masked, so the term cannot be handed to the
+     * database: `WHERE data LIKE '%0412345678%'` would happily return the row
+     * containing a phone number this person is not allowed to read, and the
+     * hit itself discloses the value. Instead every candidate row is redacted
+     * first and the term is matched against what the viewer would actually
+     * see, which is also what makes the count honest.
+     *
+     * The cost is loading the form's rows to answer one search. Acceptable
+     * because it only happens while someone is typing in the search box on a
+     * blind-review or redacted form, and it is the only way to search without
+     * leaking. The unredacted case below stays on the indexed path.
+     */
+    const all = await submissionDao.findSubmissionsForExport(formId);
+    const inFilter = all.filter(row => {
+      if (filter.isRead !== undefined && row.isRead !== filter.isRead) return false;
+      if (filter.createdAtGte && row.createdAt < filter.createdAtGte) return false;
+      if (filter.createdAtLte && row.createdAt > filter.createdAtLte) return false;
+      return true;
+    });
+    if (filter.sort === 'oldest') inFilter.reverse();
+
+    const needle = term.toLowerCase();
+    const matched = shape(inFilter).filter(s => JSON.stringify(s.data).toLowerCase().includes(needle));
+
+    const start = (page - 1) * limit;
+    return {
+      submissions: matched.slice(start, start + limit),
+      access: { level: access.level, policy: access.policy },
+      pagination: { page, limit, total: matched.length, totalPages: Math.ceil(matched.length / limit) },
+    };
+  }
+
+  if (term) filter.dataContains = term;
 
   const skip = (page - 1) * limit;
-
   const [submissions, total] = await Promise.all([
     submissionDao.findSubmissionsByFormId(formId, skip, limit, filter),
     submissionDao.countSubmissionsByFormId(formId, filter),
   ]);
 
-  // Shaped before anything else touches it, so no unredacted value can leak
-  // through a later code path such as search.
-  let result = submissions
-    .map(s => viewSubmission(s, schema, access.level, access.policy))
-    .filter((s): s is NonNullable<typeof s> => s !== null);
-
-  if (search) {
-    const searchLower = search.toLowerCase();
-    result = result.filter(s => JSON.stringify(s.data).toLowerCase().includes(searchLower));
-  }
-
   return {
-    submissions: result,
+    // Shaped before anything else touches it, so no unredacted value can leak
+    // through a later code path.
+    submissions: shape(submissions),
     access: { level: access.level, policy: access.policy },
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };

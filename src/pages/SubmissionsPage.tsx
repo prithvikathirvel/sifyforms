@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
-import { fetchSubmissions, deleteSubmission, exportSubmissions } from '../store/submissionsSlice';
+import { fetchSubmissions, deleteSubmission, bulkDeleteSubmissions, exportSubmissions } from '../store/submissionsSlice';
 import { fetchForm } from '../store/formsSlice';
 import { fetchFormAccess } from '../store/formSharingSlice';
 import AggregateResults from '../components/forms/AggregateResults';
@@ -12,6 +12,7 @@ import { Badge } from '../components/ui/badge';
 import { DataTable, type DataTableColumn } from '../components/ui/data-table';
 import { Pagination } from '../components/ui/pagination';
 import SubmissionsTable from '../components/submissions/SubmissionsTable';
+import { EMPTY_SUBMISSIONS_QUERY, type SubmissionsQuery } from '../components/submissions/query';
 import { Tooltip } from '../components/ui/tooltip';
 import api from '../lib/api';
 import type { AssessmentResult, VotingResult } from '../types';
@@ -716,21 +717,39 @@ export default function SubmissionsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('submissions');
 
+  /*
+   * The page owns the query and the table reads it.
+   *
+   * Search, status and date range are answered by the server, so they have to
+   * live where the fetch lives. The table used to filter whatever rows it was
+   * holding, which meant a search could not see page two and the count under
+   * the table described the wrong set.
+   */
+  const [query, setQuery] = useState<SubmissionsQuery>(EMPTY_SUBMISSIONS_QUERY);
+
   const formType = currentForm?.settings?.formType;
 
   useEffect(() => {
     if (formId) {
       dispatch(fetchForm(formId));
       dispatch(fetchFormAccess(formId));
-      // A 403 here means this person may see aggregate results but not rows.
-      dispatch(fetchSubmissions({ formId }));
     }
   }, [formId, dispatch]);
 
-  const handleExport = async (format: 'csv' | 'json') => {
+  // Re-runs whenever the question changes. Always from page one, because a
+  // filter that leaves you on page nine of a three-page result is a dead end.
+  // A 403 here means this person may see aggregate results but not rows.
+  useEffect(() => {
+    if (formId) dispatch(fetchSubmissions({ formId, page: 1, limit: pagination.limit, ...query }));
+    // `pagination.limit` is deliberately absent: changing the page size has
+    // its own handler, and depending on it here would fire a second request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formId, dispatch, query]);
+
+  const handleExport = async (format: 'csv' | 'json', ids?: string[]) => {
     if (!formId) return;
     try {
-      const result = await dispatch(exportSubmissions({ formId, format })).unwrap();
+      const result = await dispatch(exportSubmissions({ formId, format, ids })).unwrap();
       const blob = format === 'csv'
         ? new Blob([result.data], { type: 'text/csv' })
         : new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
@@ -753,14 +772,23 @@ export default function SubmissionsPage() {
     setDeleteConfirm(null);
   };
 
+  const handleBulkDelete = async (ids: string[]) => {
+    if (!formId || ids.length === 0) return;
+    await dispatch(bulkDeleteSubmissions({ formId, ids }));
+    // Refetched rather than patched locally: deleting rows changes the total,
+    // which changes the page boundaries, and the page you are on may now be
+    // partly or entirely empty.
+    dispatch(fetchSubmissions({ formId, page: 1, limit: pagination.limit, ...query }));
+  };
+
   const handlePageChange = (page: number) => {
-    if (formId) dispatch(fetchSubmissions({ formId, page, limit: pagination.limit }));
+    if (formId) dispatch(fetchSubmissions({ formId, page, limit: pagination.limit, ...query }));
   };
 
   const handleLimitChange = (limit: number) => {
     // Back to page one: keeping the page number while the page size changes
     // lands people somewhere they did not ask to be.
-    if (formId) dispatch(fetchSubmissions({ formId, page: 1, limit }));
+    if (formId) dispatch(fetchSubmissions({ formId, page: 1, limit, ...query }));
   };
 
 
@@ -929,16 +957,20 @@ export default function SubmissionsPage() {
 
         {currentTab === 'submissions' && canSeeRows && (
           <SubmissionsTable
+            formId={formId || ''}
             fields={currentForm?.schema.fields || []}
             submissions={submissions}
             pagination={pagination}
             isLoading={isLoading}
             error={error}
             canDelete={canDeleteRows}
+            query={query}
+            onQueryChange={(patch) => setQuery((current) => ({ ...current, ...patch }))}
             onPageChange={handlePageChange}
             onLimitChange={handleLimitChange}
             onDelete={(id) => setDeleteConfirm(id)}
-            onExport={access?.level === 'EXPORT' ? (format) => void handleExport(format) : undefined}
+            onBulkDelete={canDeleteRows ? (ids) => void handleBulkDelete(ids) : undefined}
+            onExport={access?.level === 'EXPORT' ? (format, ids) => void handleExport(format, ids) : undefined}
           />
         )}
       </main>

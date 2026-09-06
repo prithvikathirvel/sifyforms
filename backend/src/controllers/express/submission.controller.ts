@@ -74,12 +74,13 @@ export async function listSubmissions(req: AuthRequest, res: Response): Promise<
   try {
     const formId = getParamString(req.params.formId);
     const orgId = req.orgId as string;
-    const { page = '1', limit = '50', status, search, startDate, endDate } = req.query;
+    const { page = '1', limit = '50', status, search, startDate, endDate, sort } = req.query;
     logger.info('Express --> listSubmissions --> Request', { formId, orgId });
     const result = await submissionService.listSubmissions(
       formId, orgId, req.user!.id,
       parseInt(page as string, 10), parseInt(limit as string, 10),
       status as string, search as string, startDate as string, endDate as string,
+      sort as string,
     );
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {

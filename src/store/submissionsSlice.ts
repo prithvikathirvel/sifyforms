@@ -17,12 +17,43 @@ const initialState: SubmissionsState = {
   error: null,
 };
 
+/**
+ * The query the responses table runs.
+ *
+ * Every one of these is answered by the server. The table used to filter the
+ * fifty rows it happened to be holding, which meant a search could not find a
+ * response on page two and the count under the table described the wrong set.
+ */
+export interface SubmissionQuery {
+  formId: string;
+  page?: number;
+  limit?: number;
+  /** Free text, matched across every answer in the response. */
+  search?: string;
+  /** '', 'read' or 'unread'. */
+  status?: string;
+  /** ISO date strings, inclusive. */
+  startDate?: string;
+  endDate?: string;
+  sort?: 'newest' | 'oldest';
+}
+
 export const fetchSubmissions = createAsyncThunk(
   'submissions/fetchSubmissions',
-  async ({ formId, page = 1, limit = 50 }: { formId: string; page?: number; limit?: number }, { rejectWithValue }) => {
+  async ({ formId, page = 1, limit = 50, search, status, startDate, endDate, sort }: SubmissionQuery, { rejectWithValue }) => {
     try {
       const response = await api.get(`/submissions/forms/${formId}/submissions`, {
-        params: { page, limit },
+        // Empty values are dropped rather than sent as blanks, so the request
+        // URL reads as the question being asked and caches sensibly.
+        params: {
+          page,
+          limit,
+          ...(search ? { search } : {}),
+          ...(status ? { status } : {}),
+          ...(startDate ? { startDate } : {}),
+          ...(endDate ? { endDate } : {}),
+          ...(sort && sort !== 'newest' ? { sort } : {}),
+        },
       });
       return response.data;
     } catch (error: unknown) {
@@ -67,6 +98,19 @@ export const deleteSubmission = createAsyncThunk(
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
       return rejectWithValue(apiErrorMessage(err, 'Failed to delete submission'));
+    }
+  }
+);
+
+export const bulkDeleteSubmissions = createAsyncThunk(
+  'submissions/bulkDeleteSubmissions',
+  async ({ formId, ids }: { formId: string; ids: string[] }, { rejectWithValue }) => {
+    try {
+      await api.post(`/submissions/forms/${formId}/submissions/bulk-delete`, { ids });
+      return ids;
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      return rejectWithValue(apiErrorMessage(err, 'Failed to delete the selected responses'));
     }
   }
 );
@@ -117,6 +161,11 @@ const submissionsSlice = createSlice({
       .addCase(fetchSubmissions.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      .addCase(bulkDeleteSubmissions.fulfilled, (state, action) => {
+        const removed = new Set(action.payload);
+        state.submissions = state.submissions.filter(s => !removed.has(s.id));
+        state.pagination.total = Math.max(state.pagination.total - removed.size, 0);
       })
       .addCase(fetchSubmission.fulfilled, (state, action) => {
         state.currentSubmission = action.payload;

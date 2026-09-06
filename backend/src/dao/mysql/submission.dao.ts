@@ -44,13 +44,18 @@ export class MySQLSubmissionDao implements SubmissionDao {
         ...(filter.createdAtLte && { lte: filter.createdAtLte }),
       };
     }
+    // `data` is a LongText column holding JSON, so this is a plain LIKE over
+    // the serialised answers. Unindexed and therefore a scan, but it is the
+    // difference between a search that counts every matching response and one
+    // that only looks at the fifty rows already on screen.
+    if (filter.dataContains) where.data = { contains: filter.dataContains };
     return where;
   }
 
   async findSubmissionsByFormId(formId: string, skip: number, take: number, filter: SubmissionListFilter): Promise<SubmissionRecord[]> {
     return prisma.submission.findMany({
       where: this.buildWhere(formId, filter) as any,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: filter.sort === 'oldest' ? 'asc' : 'desc' },
       skip,
       take,
     });

@@ -36,6 +36,17 @@ export interface SubmissionListFilter {
   isRead?: boolean;
   createdAtGte?: Date;
   createdAtLte?: Date;
+  /**
+   * Free-text match against the stored answer payload.
+   *
+   * Only set by callers that have established the viewer may see every answer
+   * on this form. A viewer who has fields redacted must not be able to probe
+   * for a hidden value by searching for it, so for them the service filters
+   * after redaction instead of pushing the term down here.
+   */
+  dataContains?: string;
+  /** Order by receipt time. Defaults to newest first. */
+  sort?: 'newest' | 'oldest';
 }
 
 export interface SubmissionDao {
