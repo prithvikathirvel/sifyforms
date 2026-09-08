@@ -41,7 +41,7 @@ import type { FormField } from '../types';
 import { toast } from '../components/ui/toast';
 import { cn } from '../lib/utils';
 import FormPreview from '../components/builder/FormPreview';
-import { getSetupRows, HAS_OPTIONS, POLLABLE, defaultOptions, type SettingsSectionId } from '../components/builder/formSetup';
+import { getSetupRows, HAS_OPTIONS, POLLABLE, SETTINGS_SECTIONS, defaultOptions, type SettingsSectionId } from '../components/builder/formSetup';
 
 // Droppable canvas component. Clicks on the empty canvas collapse the
 // expanded question (v2 §3.3: editing happens on the question).
@@ -231,6 +231,8 @@ export default function FormBuilderPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [setupPanelWidth, setSetupPanelWidth] = useState(SETUP_PANEL_DEFAULT);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  /** Settings section shown inside the left panel; null = the Form setup summary. */
+  const [setupDrill, setSetupDrill] = useState<'layout' | SettingsSectionId | null>(null);
 
   // v2 — per-question modals (launched from the ⋮ menu) and data calculations
   const [fieldModal, setFieldModal] = useState<FieldModalKind | null>(null);
@@ -873,8 +875,8 @@ export default function FormBuilderPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  /** Jump from the Form setup panel into a settings section. */
-  const goToSettingsSection = (target: 'layout' | SettingsSectionId) => {
+  /** Remember which settings section was requested (shared by the panel and the mode switch). */
+  const persistSettingsTarget = (target: 'layout' | SettingsSectionId) => {
     try {
       const scope = formId ?? 'draft';
       window.sessionStorage.setItem(`sifyforms.builder.${scope}.settingsTab`, JSON.stringify(target === 'layout' ? 'layout' : 'form'));
@@ -884,7 +886,22 @@ export default function FormBuilderPage() {
     } catch {
       // Storage unavailable: the settings workspace simply opens on its last tab.
     }
+  };
+
+  /** Jump from the header's mode switch into the full settings workspace. */
+  const goToSettingsSection = (target: 'layout' | SettingsSectionId) => {
+    persistSettingsTarget(target);
     setMode('settings');
+  };
+
+  /**
+   * Open a settings section inside the left panel instead of leaving the
+   * editor. The panel is widened a little so the settings have room.
+   */
+  const openSectionInPanel = (target: 'layout' | SettingsSectionId) => {
+    persistSettingsTarget(target);
+    setSetupPanelWidth((w) => Math.max(w, 420));
+    setSetupDrill(target);
   };
 
   /** Pre-flight “Fix this” actions (v2 §3.6). */
@@ -1051,7 +1068,7 @@ export default function FormBuilderPage() {
               {([
                 { value: 'canvas' as const, icon: LayoutTemplate, label: 'Canvas' },
                 { value: 'preview' as const, icon: Eye, label: 'Preview' },
-                { value: 'settings' as const, icon: Settings, label: 'Form setup' },
+                { value: 'settings' as const, icon: Settings, label: 'Settings' },
               ]).map(({ value, icon: Icon, label }) => (
                 <button
                   key={value}
@@ -1358,18 +1375,37 @@ export default function FormBuilderPage() {
         <div className="min-h-0 flex-1 flex">
           {/* Form setup panel — on the left. The old field palette is gone:
               question types live in each question's own type picker, so the
-              form-wide panel takes the left edge (v2 §3.4). */}
+              form-wide panel takes the left edge (v2 §3.4). Clicking a section
+              opens it here, in place, with a way back. */}
           <aside
             className="relative shrink-0 overflow-hidden border-r border-border/70 bg-card"
             style={{ width: setupPanelWidth }}
           >
-            <FormSetupPanel
-              onOpenVariables={() => setVariablesOpen(true)}
-              onGoToSettings={(target) => {
-                if (target === 'canvas') setMode('canvas');
-                else goToSettingsSection(target);
-              }}
-            />
+            {setupDrill ? (
+              <div className="flex h-full flex-col">
+                <div className="flex shrink-0 items-center gap-1.5 border-b border-border/70 px-2 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setSetupDrill(null)}
+                    className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[11.5px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Form setup
+                  </button>
+                  <span className="ml-auto truncate pr-1.5 text-[11px] font-medium text-muted-foreground">
+                    {setupDrill === 'layout' ? 'Layout' : SETTINGS_SECTIONS.find((x) => x.id === setupDrill)?.label}
+                  </span>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <SettingsPanel formId={formId} />
+                </div>
+              </div>
+            ) : (
+              <FormSetupPanel
+                onOpenVariables={() => setVariablesOpen(true)}
+                onOpenSection={openSectionInPanel}
+              />
+            )}
           </aside>
 
           {/* Panel resize handle */}
@@ -1390,10 +1426,8 @@ export default function FormBuilderPage() {
           >
             <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
               <div className={cn(
-                'mx-auto rounded-xl border border-border bg-card shadow-sm transition-[max-width] duration-300',
-                builder.layout.orientation === 'horizontal'
-                  ? 'w-full'
-                  : builder.selectedFieldId ? 'max-w-[1080px]' : 'max-w-[900px]'
+                'mx-auto rounded-xl border border-border bg-card shadow-sm',
+                builder.layout.orientation === 'horizontal' ? 'w-full' : 'max-w-[900px]'
               )}>
                 {/* Form title + description */}
                 <div className="border-b border-border/70 px-5 py-6 sm:px-8">

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Copy, Trash2, X, ChevronDown, ChevronRight, Plus, Check, Hash, Eye, Globe,
   Link, Calculator, AlertCircle, FileText, FileSpreadsheet, ClipboardCheck,
-  BarChart2, Info,
+  BarChart2, Info, Search,
 } from 'lucide-react';
 import type { FieldRule, FormField, FormVariable } from '../../types';
 import { Input } from '../ui/input';
@@ -15,9 +15,10 @@ import type { FieldModalKind } from './QuestionCard';
 import {
   FIELD_DESCRIPTIONS, FIELD_EDITOR_TAB_LABELS, FILE_ACCEPT_TYPES,
   HAS_OPTIONS, POLLABLE, NO_VALUE_RULE_TYPES, SURVEY_TYPES, TYPE_FRIENDLY,
-  TYPE_ICONS, TYPE_LABEL, TYPE_PICKER_ORDER, countShowWhenLeaves, defaultOptions,
-  fieldEditorTabs, isInvalidRegex, ruleDefaultMessage, ruleOptionsFor, ruleSentence,
-  ruleValuePlaceholder, slugifyOptionValue, validationTabMode, type FieldEditorTab,
+  TYPE_GROUPS, TYPE_ICONS, TYPE_LABEL, TYPE_SURVEY_GROUP, countShowWhenLeaves,
+  defaultOptions, fieldEditorTabs, isInvalidRegex, ruleDefaultMessage,
+  ruleOptionsFor, ruleSentence, ruleValuePlaceholder, slugifyOptionValue,
+  validationTabMode, type FieldEditorTab,
 } from './formSetup';
 
 /* ---------------------------------------------------------------------------
@@ -520,8 +521,16 @@ function ValidationTab({ field, otherFields, onUpdate }: {
           </span>
           <p className="mt-3 text-[13.5px] font-semibold text-foreground">No rules on this answer</p>
           <p className="mt-1 max-w-[320px] text-[12px] leading-snug text-muted-foreground">
-            Anything people enter is accepted as-is. Add a rule above to limit what this answer can be.
+            Anything people enter is accepted as-is. Add a rule to limit what this answer can be.
           </p>
+          <button
+            type="button"
+            onClick={() => addRuleOfType(available[0]?.value ?? 'minLength')}
+            className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[12.5px] font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Add a rule
+          </button>
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -969,6 +978,7 @@ export default function FieldEditor({
 }: FieldEditorProps) {
   const [tab, setTab] = useState<FieldEditorTab>(initialTab ?? 'content');
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const [typeQuery, setTypeQuery] = useState('');
   const [labelFocused, setLabelFocused] = useState(false);
   const otherFields = allFields.filter((f) => f.id !== field.id);
 
@@ -1002,7 +1012,10 @@ export default function FieldEditor({
   useEffect(() => {
     if (!typeMenuOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setTypeMenuOpen(false);
+      if (e.key === 'Escape') {
+        setTypeMenuOpen(false);
+        setTypeQuery('');
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1026,11 +1039,42 @@ export default function FieldEditor({
     || (formType === 'voting' && !!field.isPollQuestion)
     || (formType === 'assessment' && field.correctAnswer != null);
 
-  const isSurveyForm = formType === 'survey' || SURVEY_TYPES.includes(field.type as (typeof SURVEY_TYPES)[number]);
-  const typeMenuTypes: FormField['type'][] = isSurveyForm
-    ? [...SURVEY_TYPES, ...TYPE_PICKER_ORDER]
-    : [...TYPE_PICKER_ORDER];
+  const isSurveyForm = formType === 'survey' || (TYPE_SURVEY_GROUP.types as string[]).includes(field.type);
   const CurrentTypeIcon = TYPE_ICONS[field.type];
+
+  // Sections shown in the type menu; searching flattens them into results.
+  const typeMenuGroups = isSurveyForm
+    ? [TYPE_SURVEY_GROUP, ...TYPE_GROUPS]
+    : TYPE_GROUPS;
+  const typeQueryLower = typeQuery.trim().toLowerCase();
+  const typeMatches = (t: string) =>
+    !typeQueryLower
+    || (TYPE_FRIENDLY[t] ?? '').toLowerCase().includes(typeQueryLower)
+    || (TYPE_LABEL[t] ?? '').toLowerCase().includes(typeQueryLower)
+    || t.toLowerCase().includes(typeQueryLower);
+  const typeResults = typeQueryLower
+    ? typeMenuGroups.flatMap((g) => g.types).filter(typeMatches)
+    : null;
+
+  const typeMenuItem = (t: FormField['type']) => {
+    const ItemIcon = TYPE_ICONS[t];
+    const active = t === field.type;
+    return (
+      <button
+        key={t}
+        type="button"
+        onClick={() => setType(t)}
+        className={cn(
+          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-foreground',
+          active && 'font-semibold text-primary'
+        )}
+      >
+        {ItemIcon && <ItemIcon className={cn('h-3.5 w-3.5 flex-none', active ? 'text-primary' : 'text-ink-400')} strokeWidth={1.8} />}
+        <span className="min-w-0 flex-1 truncate">{TYPE_FRIENDLY[t] || t}</span>
+        {active && <Check className="h-3.5 w-3.5 flex-none" />}
+      </button>
+    );
+  };
 
   const tabDot = (t: FieldEditorTab) =>
     t === 'validation' && validationSet ? true
@@ -1074,11 +1118,11 @@ export default function FieldEditor({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Close the editor"
-            aria-label="Close the field editor"
+            className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-2.5 text-[11.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            title="Finish editing this question"
           >
-            <X className="h-4 w-4" />
+            <Check className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Done</span>
           </button>
         </div>
       </div>
@@ -1144,38 +1188,72 @@ export default function FieldEditor({
         )}
         <div className="flex flex-wrap items-center gap-2 rounded-b-lg border-t border-border bg-ink-50 px-5 py-2.5 sm:px-6">
           {/* Type picker */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setTypeMenuOpen((v) => !v)}
-              className="inline-flex h-[30px] items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary"
-              title="Change the question type"
-            >
+            <div className="relative flex items-center gap-1.5">
+              <span className="hidden text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-400 sm:inline">
+                Type
+              </span>
+              <button
+                type="button"
+                onClick={() => { setTypeMenuOpen((v) => !v); setTypeQuery(''); }}
+                aria-expanded={typeMenuOpen}
+                className="inline-flex h-[30px] items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary"
+                title="Switch this question to another type"
+              >
               {CurrentTypeIcon && <CurrentTypeIcon className="h-3.5 w-3.5 flex-none text-ink-400" strokeWidth={1.8} />}
               {TYPE_FRIENDLY[field.type] || TYPE_LABEL[field.type] || field.type}
               <ChevronDown className="h-3 w-3" />
             </button>
-            {typeMenuOpen && (
-              <div className="absolute bottom-[calc(100%+6px)] left-0 z-40 max-h-[280px] w-64 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-xl shadow-foreground/10 scrollbar-subtle">
-                {typeMenuTypes.map((t) => {
-                  const ItemIcon = TYPE_ICONS[t];
-                  const active = t === field.type;
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setType(t)}
-                      className={cn(
-                        'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-foreground',
-                        active && 'font-semibold text-primary'
-                      )}
-                    >
-                      {ItemIcon && <ItemIcon className={cn('h-3.5 w-3.5 flex-none', active ? 'text-primary' : 'text-ink-400')} strokeWidth={1.8} />}
-                      <span className="min-w-0 flex-1 truncate">{TYPE_FRIENDLY[t] || t}</span>
-                      {active && <Check className="h-3.5 w-3.5 flex-none" />}
-                    </button>
-                  );
-                })}
+              {typeMenuOpen && (
+              <div className="absolute bottom-[calc(100%+6px)] left-0 z-40 w-72 overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-foreground/10">
+                <div className="border-b border-border/70 p-2">
+                  <div className="flex items-center gap-2 rounded-lg border border-input bg-background px-2.5 transition-colors focus-within:border-primary">
+                    <Search className="h-3.5 w-3.5 flex-none text-muted-foreground" />
+                    <input
+                      autoFocus
+                      value={typeQuery}
+                      onChange={(e) => setTypeQuery(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') { setTypeMenuOpen(false); setTypeQuery(''); } }}
+                      placeholder="Search question types…"
+                      aria-label="Search question types"
+                      className="h-8 min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                    />
+                    {typeQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setTypeQuery('')}
+                        className="grid h-5 w-5 flex-none place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="max-h-[300px] overflow-y-auto p-1 scrollbar-subtle">
+                  {typeResults ? (
+                    typeResults.length ? (
+                      <div className="space-y-0.5">
+                        <p className="px-2.5 pb-1 pt-1.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-400">
+                          {typeResults.length} result{typeResults.length === 1 ? '' : 's'}
+                        </p>
+                        {typeResults.map((t) => typeMenuItem(t))}
+                      </div>
+                    ) : (
+                      <p className="px-2.5 py-4 text-center text-[12px] text-muted-foreground">
+                        No question type matches &ldquo;{typeQuery}&rdquo;.
+                      </p>
+                    )
+                  ) : (
+                    typeMenuGroups.map((group) => (
+                      <div key={group.label} className="space-y-0.5">
+                        <p className="px-2.5 pb-1 pt-1.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-400">
+                          {group.label}
+                        </p>
+                        {group.types.filter(typeMatches).map((t) => typeMenuItem(t))}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>

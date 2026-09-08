@@ -112,6 +112,21 @@ export const TYPE_PICKER_ORDER = [
   'html', 'display', 'table',
 ] as const;
 
+/** The type picker's sections — minimal grouping so the list scans quickly. */
+export const TYPE_GROUPS: { label: string; types: FormField['type'][] }[] = [
+  { label: 'Basic', types: ['text', 'textarea', 'email', 'phone', 'number'] },
+  { label: 'Choice', types: ['select', 'radio', 'checkbox', 'multiselect'] },
+  { label: 'Date & time', types: ['date', 'time'] },
+  { label: 'Upload & sign', types: ['file', 'signature'] },
+  { label: 'More', types: ['rating', 'table', 'html', 'display'] },
+];
+
+/** Survey question types, offered first when the form is a survey. */
+export const TYPE_SURVEY_GROUP: { label: string; types: FormField['type'][] } = {
+  label: 'Survey',
+  types: ['nps', 'csat', 'ces', 'likert', 'ranking'],
+};
+
 /** Value for an option, derived from its label (v2 §3.2). */
 export function slugifyOptionValue(label: string, fallback: string): string {
   const slug = label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');

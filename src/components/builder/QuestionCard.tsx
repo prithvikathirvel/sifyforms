@@ -46,8 +46,11 @@ interface RuleChip {
   icon: React.ElementType;
   text: React.ReactNode;
   clear: Partial<FormField>;
-  /** The editor tab that configures this rule — where a click lands. */
-  tab: FieldEditorTab;
+  /**
+   * Where a click lands: straight into the modal that configures the rule,
+   * or the editor tab that owns it.
+   */
+  open: { modal?: FieldModalKind; tab?: FieldEditorTab };
 }
 
 function rulesFor(field: FormField, allFields: FormField[], formType?: string): RuleChip[] {
@@ -63,7 +66,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: Eye,
       text: <>Only shown when <b>{source?.label || 'another question'}</b> {opLabel}{leaf?.value !== undefined && leaf.value !== '' ? <> <b>{String(leaf.value)}</b></> : null}{total > 1 ? <> <b>+{total - 1}</b></> : null}</>,
       clear: { showWhen: undefined },
-      tab: 'advanced',
+      open: { modal: 'visibility' },
     });
   }
 
@@ -88,14 +91,14 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: Hash,
       text: <>Answer must be <b>{bits.slice(0, 3).join(', ')}</b>{bits.length > 3 ? <> and {bits.length - 3} more</> : null}</>,
       clear: { validation: undefined, rules: undefined, unique: false },
-      tab: 'validation',
+      open: { tab: 'validation' },
     });
   }
 
   if (field.externalValidation?.enabled && field.externalValidation.url) {
     let host = field.externalValidation.url;
     try { host = new URL(field.externalValidation.url.startsWith('http') ? field.externalValidation.url : `https://${field.externalValidation.url}`).host; } catch { /* keep raw */ }
-    chips.push({ key: 'ext', icon: Globe, text: <>Checked against <b>{host}</b></>, clear: { externalValidation: undefined }, tab: 'advanced' });
+    chips.push({ key: 'ext', icon: Globe, text: <>Checked against <b>{host}</b></>, clear: { externalValidation: undefined }, open: { modal: 'external' } });
   }
 
   if (field.fieldLinking?.enabled) {
@@ -105,7 +108,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: Link,
       text: <>Filled from <b>{source?.label || 'another question'}</b></>,
       clear: { fieldLinking: undefined },
-      tab: 'advanced',
+      open: { modal: 'linking' },
     });
   }
 
@@ -116,7 +119,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: AlertCircle,
       text: <>Shows a message: <b>{first.length > 42 ? `${first.slice(0, 42)}…` : first}</b>{field.alerts.length > 1 ? <> +{field.alerts.length - 1}</> : null}</>,
       clear: { alerts: undefined },
-      tab: 'advanced',
+      open: { modal: 'alerts' },
     });
   }
 
@@ -127,7 +130,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: FileText,
       text: <><b>{first}</b> attached{field.supportDocuments.length > 1 ? <> +{field.supportDocuments.length - 1}</> : null}</>,
       clear: { supportDocuments: undefined },
-      tab: 'advanced',
+      open: { modal: 'documents' },
     });
   }
 
@@ -137,7 +140,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: FileUp,
       text: <>Accepts <b>{field.fileConfig.accept?.length ? field.fileConfig.accept.join(', ') : 'any allowed type'}</b>, up to <b>{Math.round((field.fileConfig.maxSize ?? 5242880) / 1048576)} MB</b></>,
       clear: { fileConfig: undefined },
-      tab: 'validation',
+      open: { tab: 'validation' },
     });
   }
 
@@ -147,12 +150,12 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: FileSpreadsheet,
       text: <><b>{field.tableConfig.columns.length} column{field.tableConfig.columns.length === 1 ? '' : 's'}</b> configured</>,
       clear: { tableConfig: undefined },
-      tab: 'advanced',
+      open: { modal: 'table' },
     });
   }
 
   if (formType === 'voting' && field.isPollQuestion) {
-    chips.push({ key: 'poll', icon: BarChart2, text: <><b>Counted in the poll</b></>, clear: { isPollQuestion: false }, tab: 'advanced' });
+    chips.push({ key: 'poll', icon: BarChart2, text: <><b>Counted in the poll</b></>, clear: { isPollQuestion: false }, open: { tab: 'advanced' } });
   }
 
   if (formType === 'assessment' && field.correctAnswer != null) {
@@ -165,7 +168,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: ClipboardCheck,
       text: <>Correct answer <b>{answer}</b> · <b>{points} pt{points !== 1 ? 's' : ''}</b></>,
       clear: { correctAnswer: undefined },
-      tab: 'advanced',
+      open: { modal: 'scoring' },
     });
   }
 
@@ -191,6 +194,20 @@ export default function QuestionCard({
     if (!open) dispatch(selectField(field.id));
     setEditorTab(tab);
     document.getElementById(`q-${field.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  /**
+   * A chip jumps straight to where its rule is configured: the modal itself
+   * (Attach a document, Check with another system, …) or the editor tab that
+   * holds it (answer rules, file policy, poll counting).
+   */
+  const openChip = (target: { modal?: FieldModalKind; tab?: FieldEditorTab }) => {
+    if (target.modal) {
+      dispatch(selectField(field.id));
+      onOpenModal(target.modal);
+    } else if (target.tab) {
+      openOnTab(target.tab);
+    }
   };
 
   const onUpdateField = (id: string, updates: Partial<FormField>) =>
@@ -306,20 +323,20 @@ export default function QuestionCard({
 
           {rules.length > 0 && (
             <div className="flex flex-wrap gap-1.5 px-5 pb-3 pt-1">
-              {rules.map(({ key, icon: Icon, text, clear, tab }) => (
+              {rules.map(({ key, icon: Icon, text, clear, open: target }) => (
                 <div
                   key={key}
                   role="button"
                   tabIndex={0}
-                  onClick={(e) => { e.stopPropagation(); openOnTab(tab); }}
+                  onClick={(e) => { e.stopPropagation(); openChip(target); }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       e.stopPropagation();
-                      openOnTab(tab);
+                      openChip(target);
                     }
                   }}
-                  title={`Edit — ${tab === 'validation' ? 'Validation' : 'Advanced'}`}
+                  title={`Edit — ${target.modal ? 'opens its settings' : target.tab === 'validation' ? 'Validation tab' : 'Advanced tab'}`}
                   className="group/chip inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-md border border-border bg-ink-50/70 px-2 py-1 text-[11px] leading-snug text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/50 hover:text-foreground"
                 >
                   <Icon className="h-3 w-3 flex-none text-ink-400 transition-colors group-hover/chip:text-primary" />
