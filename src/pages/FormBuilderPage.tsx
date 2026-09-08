@@ -1390,8 +1390,10 @@ export default function FormBuilderPage() {
           >
             <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
               <div className={cn(
-                'mx-auto rounded-xl border border-border bg-card shadow-sm',
-                builder.layout.orientation === 'horizontal' ? 'w-full' : 'max-w-[900px]'
+                'mx-auto rounded-xl border border-border bg-card shadow-sm transition-[max-width] duration-300',
+                builder.layout.orientation === 'horizontal'
+                  ? 'w-full'
+                  : builder.selectedFieldId ? 'max-w-[1080px]' : 'max-w-[900px]'
               )}>
                 {/* Form title + description */}
                 <div className="border-b border-border/70 px-5 py-6 sm:px-8">

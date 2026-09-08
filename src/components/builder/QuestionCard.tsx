@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -10,7 +11,7 @@ import { updateField, selectField } from '../../store/builderSlice';
 import { cn } from '../../lib/utils';
 import LiveControl from './LiveControl';
 import FieldEditor from './FieldEditor';
-import { countShowWhenLeaves, firstShowWhenLeaf, TYPE_LABEL } from './formSetup';
+import { countShowWhenLeaves, firstShowWhenLeaf, TYPE_LABEL, type FieldEditorTab } from './formSetup';
 
 /** The modals reachable from the Advanced tab (opened at page level). */
 export type FieldModalKind =
@@ -40,7 +41,14 @@ const SHOW_OPERATOR_LABELS: Partial<Record<ShowConditionOperator, string>> = {
 /* ---------------------------------------------------------------------------
  * The rules a question carries, stated on the collapsed card (v2 §3.3)
  * ------------------------------------------------------------------------- */
-interface RuleChip { key: string; icon: React.ElementType; text: React.ReactNode; clear: Partial<FormField>; }
+interface RuleChip {
+  key: string;
+  icon: React.ElementType;
+  text: React.ReactNode;
+  clear: Partial<FormField>;
+  /** The editor tab that configures this rule — where a click lands. */
+  tab: FieldEditorTab;
+}
 
 function rulesFor(field: FormField, allFields: FormField[], formType?: string): RuleChip[] {
   const chips: RuleChip[] = [];
@@ -55,6 +63,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: Eye,
       text: <>Only shown when <b>{source?.label || 'another question'}</b> {opLabel}{leaf?.value !== undefined && leaf.value !== '' ? <> <b>{String(leaf.value)}</b></> : null}{total > 1 ? <> <b>+{total - 1}</b></> : null}</>,
       clear: { showWhen: undefined },
+      tab: 'advanced',
     });
   }
 
@@ -79,13 +88,14 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: Hash,
       text: <>Answer must be <b>{bits.slice(0, 3).join(', ')}</b>{bits.length > 3 ? <> and {bits.length - 3} more</> : null}</>,
       clear: { validation: undefined, rules: undefined, unique: false },
+      tab: 'validation',
     });
   }
 
   if (field.externalValidation?.enabled && field.externalValidation.url) {
     let host = field.externalValidation.url;
     try { host = new URL(field.externalValidation.url.startsWith('http') ? field.externalValidation.url : `https://${field.externalValidation.url}`).host; } catch { /* keep raw */ }
-    chips.push({ key: 'ext', icon: Globe, text: <>Checked against <b>{host}</b></>, clear: { externalValidation: undefined } });
+    chips.push({ key: 'ext', icon: Globe, text: <>Checked against <b>{host}</b></>, clear: { externalValidation: undefined }, tab: 'advanced' });
   }
 
   if (field.fieldLinking?.enabled) {
@@ -95,6 +105,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: Link,
       text: <>Filled from <b>{source?.label || 'another question'}</b></>,
       clear: { fieldLinking: undefined },
+      tab: 'advanced',
     });
   }
 
@@ -105,6 +116,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: AlertCircle,
       text: <>Shows a message: <b>{first.length > 42 ? `${first.slice(0, 42)}…` : first}</b>{field.alerts.length > 1 ? <> +{field.alerts.length - 1}</> : null}</>,
       clear: { alerts: undefined },
+      tab: 'advanced',
     });
   }
 
@@ -115,6 +127,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: FileText,
       text: <><b>{first}</b> attached{field.supportDocuments.length > 1 ? <> +{field.supportDocuments.length - 1}</> : null}</>,
       clear: { supportDocuments: undefined },
+      tab: 'advanced',
     });
   }
 
@@ -124,6 +137,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: FileUp,
       text: <>Accepts <b>{field.fileConfig.accept?.length ? field.fileConfig.accept.join(', ') : 'any allowed type'}</b>, up to <b>{Math.round((field.fileConfig.maxSize ?? 5242880) / 1048576)} MB</b></>,
       clear: { fileConfig: undefined },
+      tab: 'validation',
     });
   }
 
@@ -133,11 +147,12 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: FileSpreadsheet,
       text: <><b>{field.tableConfig.columns.length} column{field.tableConfig.columns.length === 1 ? '' : 's'}</b> configured</>,
       clear: { tableConfig: undefined },
+      tab: 'advanced',
     });
   }
 
   if (formType === 'voting' && field.isPollQuestion) {
-    chips.push({ key: 'poll', icon: BarChart2, text: <><b>Counted in the poll</b></>, clear: { isPollQuestion: false } });
+    chips.push({ key: 'poll', icon: BarChart2, text: <><b>Counted in the poll</b></>, clear: { isPollQuestion: false }, tab: 'advanced' });
   }
 
   if (formType === 'assessment' && field.correctAnswer != null) {
@@ -150,6 +165,7 @@ function rulesFor(field: FormField, allFields: FormField[], formType?: string): 
       icon: ClipboardCheck,
       text: <>Correct answer <b>{answer}</b> · <b>{points} pt{points !== 1 ? 's' : ''}</b></>,
       clear: { correctAnswer: undefined },
+      tab: 'advanced',
     });
   }
 
@@ -167,7 +183,15 @@ export default function QuestionCard({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
   const open = isSelected;
+  const [editorTab, setEditorTab] = useState<FieldEditorTab | null>(null);
   const rules = rulesFor(field, allFields, formType);
+
+  /** A rule chip opens this question's editor on the tab that owns the rule. */
+  const openOnTab = (tab: FieldEditorTab) => {
+    if (!open) dispatch(selectField(field.id));
+    setEditorTab(tab);
+    document.getElementById(`q-${field.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
 
   const onUpdateField = (id: string, updates: Partial<FormField>) =>
     dispatch(updateField({ id, updates }));
@@ -217,6 +241,7 @@ export default function QuestionCard({
           </div>
           <FieldEditor
             field={field}
+            initialTab={editorTab ?? undefined}
             allFields={allFields}
             variables={variables}
             formType={formType}
@@ -281,23 +306,34 @@ export default function QuestionCard({
 
           {rules.length > 0 && (
             <div className="flex flex-wrap gap-1.5 px-5 pb-3 pt-1">
-              {rules.map(({ key, icon: Icon, text, clear }) => (
-                <span
+              {rules.map(({ key, icon: Icon, text, clear, tab }) => (
+                <div
                   key={key}
-                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-primary/15 bg-accent px-2 py-1 text-[11px] leading-snug text-accent-foreground"
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => { e.stopPropagation(); openOnTab(tab); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openOnTab(tab);
+                    }
+                  }}
+                  title={`Edit — ${tab === 'validation' ? 'Validation' : 'Advanced'}`}
+                  className="group/chip inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-md border border-border bg-ink-50/70 px-2 py-1 text-[11px] leading-snug text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/50 hover:text-foreground"
                 >
-                  <Icon className="h-3 w-3 flex-none" />
-                  <span className="min-w-0 truncate [&_b]:font-semibold">{text}</span>
+                  <Icon className="h-3 w-3 flex-none text-ink-400 transition-colors group-hover/chip:text-primary" />
+                  <span className="min-w-0 truncate [&_b]:font-medium [&_b]:text-foreground/80">{text}</span>
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onUpdateField(field.id, clear); }}
-                    className="text-primary/50 hover:text-destructive"
+                    className="text-ink-300 opacity-0 transition-opacity hover:text-destructive focus:opacity-100 group-hover/chip:opacity-100"
                     title="Remove this rule"
                     aria-label="Remove rule"
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </span>
+                </div>
               ))}
             </div>
           )}

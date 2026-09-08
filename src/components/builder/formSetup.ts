@@ -200,6 +200,76 @@ export function isInvalidRegex(value: string | number | undefined): boolean {
   }
 }
 
+/**
+ * The rule types that make sense for each field type (the Validation tab's
+ * select and quick-add chips). 'required' is excluded everywhere — the
+ * Required toggle in the footer owns that. A type missing from this map gets
+ * no generic rules at all.
+ */
+export const RULES_BY_TYPE: Record<string, string[]> = {
+  text: ['minLength', 'maxLength', 'pattern', 'contains', 'notContains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'url', 'custom'],
+  textarea: ['minLength', 'maxLength', 'pattern', 'contains', 'notContains', 'custom'],
+  email: ['minLength', 'maxLength', 'contains', 'notContains', 'equals', 'notEquals', 'custom'],
+  phone: ['minLength', 'maxLength', 'pattern', 'contains', 'notContains', 'equals', 'notEquals', 'custom'],
+  number: ['min', 'max', 'greaterThan', 'lessThan', 'gte', 'lte', 'equals', 'notEquals', 'custom'],
+  select: ['equals', 'notEquals', 'custom'],
+  radio: ['equals', 'notEquals', 'custom'],
+  checkbox: ['equals', 'notEquals', 'custom'],
+  multiselect: ['equals', 'notEquals', 'custom'],
+  date: ['equals', 'notEquals', 'custom'],
+  time: ['equals', 'notEquals', 'custom'],
+  rating: ['min', 'max', 'equals', 'notEquals'],
+  nps: ['min', 'max'],
+  csat: ['min', 'max'],
+  ces: ['min', 'max'],
+};
+
+/** What the Validation tab offers for a field type. */
+export type ValidationTabMode = 'rules' | 'file' | 'none';
+
+export function validationTabMode(type: string): ValidationTabMode {
+  if (type === 'file') return 'file';
+  return (RULES_BY_TYPE[type]?.length ?? 0) > 0 ? 'rules' : 'none';
+}
+
+/** The rules a field type offers, with a legacy rule's type kept selectable. */
+export function ruleOptionsFor(type: string, current?: string): { value: string; label: string }[] {
+  const list = RULES_BY_TYPE[type] ?? [];
+  const options = RULE_TYPES.filter((r) => list.includes(r.value));
+  if (current && !list.includes(current)) {
+    const legacy = RULE_TYPES.find((r) => r.value === current);
+    if (legacy) options.push(legacy);
+  }
+  return options;
+}
+
+/** A rule restated as the sentence a person would say out loud. */
+export function ruleSentence(type: string, value: string | number | undefined, matchFieldLabel?: string): string {
+  const v = value === undefined || value === '' ? '…' : String(value);
+  switch (type) {
+    case 'required': return 'Must be filled in';
+    case 'minLength': return `At least ${v} characters`;
+    case 'maxLength': return `At most ${v} characters`;
+    case 'min': return `At least ${v}`;
+    case 'max': return `At most ${v}`;
+    case 'greaterThan': return `More than ${v}`;
+    case 'lessThan': return `Less than ${v}`;
+    case 'gte': return `${v} or more`;
+    case 'lte': return `${v} or less`;
+    case 'equals': return `Exactly ${v}`;
+    case 'notEquals': return `Anything except ${v}`;
+    case 'pattern': case 'regex': return 'Matches a pattern';
+    case 'email': return 'A valid email address';
+    case 'url': return 'A valid web address';
+    case 'contains': return `Contains \u201C${v}\u201D`;
+    case 'notContains': return `Does not contain \u201C${v}\u201D`;
+    case 'startsWith': return `Starts with \u201C${v}\u201D`;
+    case 'endsWith': return `Ends with \u201C${v}\u201D`;
+    case 'custom': return `Same answer as \u201C${matchFieldLabel ?? 'another field'}\u201D`;
+    default: return type;
+  }
+}
+
 /** Count leaf conditions in a (possibly nested) show-when rule. */
 export function countShowWhenLeaves(nodes: ShowWhenNode[] | undefined): number {
   if (!nodes) return 0;

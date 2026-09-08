@@ -14,10 +14,10 @@ import LiveControl from './LiveControl';
 import type { FieldModalKind } from './QuestionCard';
 import {
   FIELD_DESCRIPTIONS, FIELD_EDITOR_TAB_LABELS, FILE_ACCEPT_TYPES,
-  HAS_OPTIONS, POLLABLE, RULE_TYPES, NO_VALUE_RULE_TYPES, SURVEY_TYPES, TYPE_FRIENDLY,
+  HAS_OPTIONS, POLLABLE, NO_VALUE_RULE_TYPES, SURVEY_TYPES, TYPE_FRIENDLY,
   TYPE_ICONS, TYPE_LABEL, TYPE_PICKER_ORDER, countShowWhenLeaves, defaultOptions,
-  fieldEditorTabs, isInvalidRegex, ruleDefaultMessage, ruleValuePlaceholder,
-  slugifyOptionValue, type FieldEditorTab,
+  fieldEditorTabs, isInvalidRegex, ruleDefaultMessage, ruleOptionsFor, ruleSentence,
+  ruleValuePlaceholder, slugifyOptionValue, validationTabMode, type FieldEditorTab,
 } from './formSetup';
 
 /* ---------------------------------------------------------------------------
@@ -35,6 +35,8 @@ interface FieldEditorProps {
   onDuplicate: () => void;
   onDelete: () => void;
   onClose: () => void;
+  /** Tab to land on when the editor opens (e.g. from a rule chip). */
+  initialTab?: FieldEditorTab;
 }
 
 const PLACEHOLDER_HINTS: Record<string, string> = {
@@ -77,6 +79,12 @@ function guessFor(field: FormField): { to: FormField['type']; message: string } 
   if (/(how many|how much|number of|count)/.test(l)) return { to: 'number', message: 'This looks like it wants a number. Use a number field?' };
   if (/(when|date|day of)/.test(l)) return { to: 'date', message: 'This looks like it wants a date. Use a date field?' };
   return null;
+}
+
+/** Ids for new rules — kept at module scope so components stay pure. */
+let ruleIdSeq = 0;
+function nextRuleId(): string {
+  return `rule_${Date.now()}_${ruleIdSeq++}`;
 }
 
 /** A labelled setting row. */
@@ -128,7 +136,7 @@ function OptionsEditor({ field, onUpdate, onBulkImport }: {
           <div
             key={i}
             className={cn(
-              'group/opt flex items-center gap-2.5 border-b border-border/60 px-3 py-1.5 last:border-b-0 hover:bg-muted/40',
+              'group/opt flex items-center gap-2.5 border-b border-border/60 px-3 py-2 last:border-b-0 hover:bg-muted/40',
               i % 2 === 1 && 'bg-ink-50/40'
             )}
           >
@@ -140,7 +148,7 @@ function OptionsEditor({ field, onUpdate, onBulkImport }: {
               onChange={(e) => setOptionLabel(i, e.target.value)}
               placeholder={`Option ${i + 1}`}
               aria-label={`Option ${i + 1}`}
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
             />
             <button
               type="button"
@@ -153,7 +161,7 @@ function OptionsEditor({ field, onUpdate, onBulkImport }: {
           </div>
         ))}
         {options.length === 0 && (
-          <p className="px-3 py-3 text-[12px] italic text-muted-foreground">No options yet — add the first one below.</p>
+          <p className="px-3 py-3.5 text-[12.5px] italic text-muted-foreground">No options yet — add the first one below.</p>
         )}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -210,10 +218,10 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
     return null;
   })();
 
-  const inputCls = 'h-9 text-[13px]';
+  const inputCls = 'h-10 text-[13.5px]';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {guess && (
         <div className="flex items-center gap-2 rounded-lg border border-dashed border-primary/30 bg-accent px-3 py-2 text-[11.5px]">
           <Info className="h-3.5 w-3.5 flex-none text-primary" />
@@ -321,7 +329,7 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
         <FieldRow label="Statements" hint="One row per statement in the matrix.">
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             {(field.surveyConfig?.rows ?? []).map((row, i, rows) => (
-              <div key={row.id} className="group/row flex items-center gap-2.5 border-b border-border/60 px-3 py-1.5 last:border-b-0 hover:bg-muted/40">
+              <div key={row.id} className="group/row flex items-center gap-2.5 border-b border-border/60 px-3 py-2 last:border-b-0 hover:bg-muted/40">
                 <span className="w-4 flex-none text-center text-[11px] font-semibold text-ink-400">{i + 1}</span>
                 <input
                   value={row.label}
@@ -333,7 +341,7 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
                   })}
                   placeholder={`Statement ${i + 1}`}
                   aria-label={`Statement ${i + 1}`}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
                 />
                 <button
                   type="button"
@@ -363,67 +371,90 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
           </div>
         </FieldRow>
       )}
-
-      {field.type === 'file' && (
-        <>
-          <FieldRow label="Accepted file types" hint="Leave all unchecked to accept every type the form allows.">
-            <div className="flex flex-wrap gap-1.5">
-              {FILE_ACCEPT_TYPES.map((type) => {
-                const accept = field.fileConfig?.accept ?? [];
-                const on = accept.includes(type);
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => onUpdate({
-                      fileConfig: {
-                        ...field.fileConfig,
-                        accept: on ? accept.filter((t) => t !== type) : [...accept, type],
-                      },
-                    })}
-                    className={cn(
-                      'inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-medium transition-colors',
-                      on ? 'border-primary bg-primary/[0.08] text-primary' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                    )}
-                  >
-                    {on && <Check className="h-3 w-3" />}
-                    {type}
-                  </button>
-                );
-              })}
-            </div>
-          </FieldRow>
-          <div className="grid grid-cols-2 gap-3">
-            <FieldRow label="Maximum file size (MB)">
-              <Input
-                type="number"
-                min={1}
-                value={Math.round((field.fileConfig?.maxSize ?? 5242880) / 1048576)}
-                onChange={(e) => onUpdate({
-                  fileConfig: { ...field.fileConfig, maxSize: Math.max(1, Number(e.target.value) || 5) * 1024 * 1024 },
-                })}
-                className={inputCls}
-              />
-            </FieldRow>
-            <div className="flex items-end pb-1">
-              <label className="flex cursor-pointer items-center gap-2.5 text-[13px]">
-                <UICheckbox
-                  checked={!!field.fileConfig?.multiple}
-                  onCheckedChange={(checked: boolean) => onUpdate({ fileConfig: { ...field.fileConfig, multiple: !!checked } })}
-                />
-                <span className="font-medium text-foreground">Allow multiple files</span>
-              </label>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
 
 /* ---------------------------------------------------------------------------
- * Validation tab — "Limit the answer" (v2 §3.3), inline and compact
+ * Validation tab — "Limit the answer" (v2 §3.3), shaped by the field type:
+ * file uploads get their upload policy, rule-based types get only the rules
+ * that make sense for them, and a few types have nothing to limit at all.
  * ------------------------------------------------------------------------- */
+
+function FilePolicyGroup({ field, onUpdate }: {
+  field: FormField;
+  onUpdate: (updates: Partial<FormField>) => void;
+}) {
+  const accept = field.fileConfig?.accept ?? [];
+  return (
+    <div className="space-y-5">
+      <FieldRow label="Accepted file types" hint="Leave all unchecked to accept every type the form allows.">
+        <div className="flex flex-wrap gap-1.5">
+          {FILE_ACCEPT_TYPES.map((type) => {
+            const on = accept.includes(type);
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => onUpdate({
+                  fileConfig: {
+                    ...field.fileConfig,
+                    accept: on ? accept.filter((t) => t !== type) : [...accept, type],
+                  },
+                })}
+                className={cn(
+                  'inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] font-medium transition-colors',
+                  on ? 'border-primary bg-primary/[0.08] text-primary' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                )}
+              >
+                {on && <Check className="h-3 w-3" />}
+                {type}
+              </button>
+            );
+          })}
+        </div>
+      </FieldRow>
+      <div className="grid grid-cols-2 gap-4">
+        <FieldRow label="Minimum size (MB)">
+          <Input
+            type="number"
+            min={0}
+            value={Math.round((field.fileConfig?.minSize ?? 0) / 1048576)}
+            onChange={(e) => onUpdate({
+              fileConfig: { ...field.fileConfig, minSize: Math.max(0, Number(e.target.value) || 0) * 1024 * 1024 },
+            })}
+            className="h-10 text-[13.5px]"
+          />
+        </FieldRow>
+        <FieldRow label="Maximum size (MB)">
+          <Input
+            type="number"
+            min={1}
+            value={Math.round((field.fileConfig?.maxSize ?? 5242880) / 1048576)}
+            onChange={(e) => onUpdate({
+              fileConfig: { ...field.fileConfig, maxSize: Math.max(1, Number(e.target.value) || 5) * 1024 * 1024 },
+            })}
+            className="h-10 text-[13.5px]"
+          />
+        </FieldRow>
+      </div>
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3">
+        <UICheckbox
+          checked={!!field.fileConfig?.multiple}
+          onCheckedChange={(checked: boolean) => onUpdate({ fileConfig: { ...field.fileConfig, multiple: !!checked } })}
+          className="mt-0.5"
+        />
+        <span className="text-[13.5px]">
+          <span className="font-medium text-foreground">Allow multiple files</span>
+          <span className="mt-0.5 block text-[11.5px] leading-4 text-muted-foreground">People can attach more than one file to this question.</span>
+        </span>
+      </label>
+      <div className="rounded-lg border border-plum-200 bg-plum-50 p-3 text-[11px] leading-relaxed text-plum-800">
+        The form-level policy in <b>Access &amp; Security</b> is the ceiling; this can only narrow it.
+      </div>
+    </div>
+  );
+}
 
 function ValidationTab({ field, otherFields, onUpdate }: {
   field: FormField;
@@ -431,9 +462,10 @@ function ValidationTab({ field, otherFields, onUpdate }: {
   onUpdate: (updates: Partial<FormField>) => void;
 }) {
   const rules = field.rules ?? [];
+  const mode = validationTabMode(field.type);
 
-  const addRule = () => {
-    onUpdate({ rules: [...rules, { id: `rule_${Date.now()}`, type: 'required', enabled: true, message: '' }] });
+  const addRuleOfType = (type: string) => {
+    onUpdate({ rules: [...rules, { id: nextRuleId(), type: type as FieldRule['type'], enabled: true, message: '' }] });
   };
   const removeRule = (ruleId: string) => {
     onUpdate({ rules: rules.filter((r) => r.id !== ruleId) });
@@ -442,87 +474,127 @@ function ValidationTab({ field, otherFields, onUpdate }: {
     onUpdate({ rules: rules.map((r) => (r.id === ruleId ? { ...r, ...updates } : r)) });
   };
 
+  if (mode === 'file') {
+    return <FilePolicyGroup field={field} onUpdate={onUpdate} />;
+  }
+
+  if (mode === 'none') {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-ink-400">
+          <Hash className="h-5 w-5" strokeWidth={1.7} />
+        </span>
+        <p className="mt-3 text-[13.5px] font-semibold text-foreground">Nothing to limit on this answer</p>
+        <p className="mt-1 max-w-[320px] text-[12px] leading-snug text-muted-foreground">
+          This question type has no answer rules. If it must be filled in, use the <b>Required</b> toggle below.
+        </p>
+      </div>
+    );
+  }
+
+  const available = ruleOptionsFor(field.type);
+  const quickAdd = available.slice(0, 5);
+
   return (
     <div className="space-y-4">
+      {/* Quick add — the rules people actually reach for on this type */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Quick add</span>
+        {quickAdd.map((r) => (
+          <button
+            key={r.value}
+            type="button"
+            onClick={() => addRuleOfType(r.value)}
+            className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-card px-2.5 text-[11.5px] font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/[0.05] hover:text-primary"
+          >
+            <Plus className="h-3 w-3" />
+            {r.label}
+          </button>
+        ))}
+      </div>
+
       {rules.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-8 text-center">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-ink-400">
             <Hash className="h-5 w-5" strokeWidth={1.7} />
           </span>
-          <p className="mt-3 text-[13px] font-semibold text-foreground">No rules on this answer</p>
-          <p className="mt-1 max-w-[300px] text-[11.5px] leading-snug text-muted-foreground">
-            Anything people type is accepted as-is. Add a rule to limit what this answer can be.
+          <p className="mt-3 text-[13.5px] font-semibold text-foreground">No rules on this answer</p>
+          <p className="mt-1 max-w-[320px] text-[12px] leading-snug text-muted-foreground">
+            Anything people enter is accepted as-is. Add a rule above to limit what this answer can be.
           </p>
-          <button
-            type="button"
-            onClick={addRule}
-            className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-[12px] font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add a rule
-          </button>
         </div>
       ) : (
-        <div className="space-y-2">
-          {rules.map((rule, i) => (
-            <div key={rule.id} className="rounded-xl border border-border bg-card">
-              <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Rule {i + 1}</span>
-                <button
-                  type="button"
-                  onClick={() => removeRule(rule.id)}
-                  className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  aria-label={`Remove rule ${i + 1}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="grid gap-2 p-2.5 sm:grid-cols-2">
-                <Select
-                  value={rule.type}
-                  onChange={(e) => updateRule(rule.id, { type: e.target.value as FieldRule['type'], value: '' })}
-                  options={RULE_TYPES}
-                  className="h-9 text-[12.5px] font-medium"
-                />
-                {!NO_VALUE_RULE_TYPES.has(rule.type) && (
-                  rule.type === 'custom' ? (
+        <div className="space-y-2.5">
+          {rules.map((rule, i) => {
+            const matchLabel = otherFields.find((f) => f.id === rule.value)?.label;
+            return (
+              <div key={rule.id} className="rounded-xl border border-border bg-card">
+                <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3.5 py-2">
+                  <span className="min-w-0 truncate text-[12.5px] font-semibold text-foreground">
+                    {ruleSentence(rule.type, rule.value, matchLabel)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeRule(rule.id)}
+                    className="grid h-6 w-6 flex-none place-items-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    aria-label={`Remove rule ${i + 1}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="grid gap-2.5 p-3 sm:grid-cols-2">
+                  <FieldRow label="Rule">
                     <Select
-                      value={rule.value || ''}
-                      onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-                      options={otherFields.map((f) => ({ value: f.id, label: f.label || f.id }))}
-                      placeholder="Select a field to match…"
-                      className="h-9 text-[12.5px] font-medium"
+                      value={rule.type}
+                      onChange={(e) => updateRule(rule.id, { type: e.target.value as FieldRule['type'], value: '' })}
+                      options={ruleOptionsFor(field.type, rule.type)}
+                      className="h-10 text-[13px] font-medium"
                     />
-                  ) : (
-                    <Input
-                      type={rule.type === 'min' || rule.type === 'max' ? 'number' : 'text'}
-                      value={rule.value || ''}
-                      onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-                      placeholder={ruleValuePlaceholder(rule.type)}
-                      className="h-9 text-[12.5px]"
-                    />
-                  )
-                )}
-                <div className="sm:col-span-2">
-                  <Input
-                    value={rule.message || ''}
-                    onChange={(e) => updateRule(rule.id, { message: e.target.value })}
-                    placeholder={`Error message — “${ruleDefaultMessage(rule.type)}”`}
-                    className="h-9 text-[12.5px]"
-                  />
-                  {(rule.type === 'pattern' || rule.type === 'regex') && isInvalidRegex(rule.value) && (
-                    <p className="mt-1 text-[11px] font-medium text-destructive">
-                      This pattern is invalid — the rule won&apos;t run until it&apos;s fixed.
-                    </p>
+                  </FieldRow>
+                  {!NO_VALUE_RULE_TYPES.has(rule.type) && (
+                    <FieldRow label={rule.type === 'custom' ? 'Field to match' : 'Value'}>
+                      {rule.type === 'custom' ? (
+                        <Select
+                          value={rule.value || ''}
+                          onChange={(e) => updateRule(rule.id, { value: e.target.value })}
+                          options={otherFields.map((f) => ({ value: f.id, label: f.label || f.id }))}
+                          placeholder="Select a field to match…"
+                          className="h-10 text-[13px] font-medium"
+                        />
+                      ) : (
+                        <Input
+                          type={rule.type === 'min' || rule.type === 'max' ? 'number' : 'text'}
+                          value={rule.value || ''}
+                          onChange={(e) => updateRule(rule.id, { value: e.target.value })}
+                          placeholder={ruleValuePlaceholder(rule.type)}
+                          className="h-10 text-[13px]"
+                        />
+                      )}
+                    </FieldRow>
                   )}
+                  <div className="sm:col-span-2">
+                    <FieldRow label="Error message">
+                      <Input
+                        value={rule.message || ''}
+                        onChange={(e) => updateRule(rule.id, { message: e.target.value })}
+                        placeholder={`Default: “${ruleDefaultMessage(rule.type)}”`}
+                        className="h-10 text-[13px]"
+                      />
+                      {(rule.type === 'pattern' || rule.type === 'regex') && isInvalidRegex(rule.value) && (
+                        <p className="text-[11px] font-medium text-destructive">
+                          This pattern is invalid — the rule won&apos;t run until it&apos;s fixed.
+                        </p>
+                      )}
+                    </FieldRow>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <button
             type="button"
-            onClick={addRule}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2 text-[12px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.03] hover:text-primary"
+            onClick={() => addRuleOfType(available[0]?.value ?? 'minLength')}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2.5 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.03] hover:text-primary"
           >
             <Plus className="h-3.5 w-3.5" />
             Add another rule
@@ -531,14 +603,14 @@ function ValidationTab({ field, otherFields, onUpdate }: {
       )}
 
       {['date', 'time'].includes(field.type) && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FieldRow label={`Minimum ${field.type === 'date' ? 'date' : 'time'}`}>
             <Input
               type={field.type}
               value={field.minValue ?? ''}
               onChange={(e) => onUpdate({ minValue: e.target.value || undefined })}
               placeholder="No minimum"
-              className="h-9 text-[13px]"
+              className="h-10 text-[13px]"
             />
           </FieldRow>
           <FieldRow label={`Maximum ${field.type === 'date' ? 'date' : 'time'}`}>
@@ -547,22 +619,22 @@ function ValidationTab({ field, otherFields, onUpdate }: {
               value={field.maxValue ?? ''}
               onChange={(e) => onUpdate({ maxValue: e.target.value || undefined })}
               placeholder="No maximum"
-              className="h-9 text-[13px]"
+              className="h-10 text-[13px]"
             />
           </FieldRow>
         </div>
       )}
 
       {field.type !== 'table' && (
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5">
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3">
           <UICheckbox
             checked={!!field.unique}
             onCheckedChange={(checked: boolean) => onUpdate({ unique: !!checked })}
             className="mt-0.5"
           />
-          <span className="text-[13px]">
+          <span className="text-[13.5px]">
             <span className="font-medium text-foreground">Unique submission value</span>
-            <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+            <span className="mt-0.5 block text-[11.5px] leading-4 text-muted-foreground">
               Rejects a value that was already submitted{!field.required ? '. Only checked when the respondent enters one.' : '.'}
             </span>
           </span>
@@ -571,10 +643,6 @@ function ValidationTab({ field, otherFields, onUpdate }: {
     </div>
   );
 }
-
-/* ---------------------------------------------------------------------------
- * Appearance tab — the survey scales and labels
- * ------------------------------------------------------------------------- */
 
 function AppearanceTab({ field, onUpdate }: {
   field: FormField;
@@ -587,7 +655,7 @@ function AppearanceTab({ field, onUpdate }: {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3">
         <FieldRow label="Scale minimum">
           <Input
@@ -596,7 +664,7 @@ function AppearanceTab({ field, onUpdate }: {
             max={10}
             value={scale?.min ?? (field.type === 'nps' ? 0 : 1)}
             onChange={(e) => setScale({ min: Number(e.target.value) })}
-            className="h-9 text-[13px]"
+            className="h-10 text-[13.5px]"
           />
         </FieldRow>
         <FieldRow label="Scale maximum">
@@ -606,7 +674,7 @@ function AppearanceTab({ field, onUpdate }: {
             max={10}
             value={scale?.max ?? (field.type === 'nps' ? 10 : 5)}
             onChange={(e) => setScale({ max: Number(e.target.value) })}
-            className="h-9 text-[13px]"
+            className="h-10 text-[13.5px]"
           />
         </FieldRow>
       </div>
@@ -616,7 +684,7 @@ function AppearanceTab({ field, onUpdate }: {
             value={scale?.minLabel ?? ''}
             onChange={(e) => setScale({ minLabel: e.target.value || undefined })}
             placeholder="e.g. Not at all likely"
-            className="h-9 text-[13px]"
+            className="h-10 text-[13.5px]"
           />
         </FieldRow>
         <FieldRow label="Maximum label">
@@ -624,7 +692,7 @@ function AppearanceTab({ field, onUpdate }: {
             value={scale?.maxLabel ?? ''}
             onChange={(e) => setScale({ maxLabel: e.target.value || undefined })}
             placeholder="e.g. Extremely likely"
-            className="h-9 text-[13px]"
+            className="h-10 text-[13.5px]"
           />
         </FieldRow>
       </div>
@@ -663,7 +731,7 @@ function AppearanceTab({ field, onUpdate }: {
                 surveyConfig: { ...cfg!, ranking: { ...cfg?.ranking, maxRanked: e.target.value ? Number(e.target.value) : undefined } },
               })}
               placeholder="All items"
-              className="h-9 text-[13px]"
+              className="h-10 text-[13.5px]"
             />
           </FieldRow>
           <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5">
@@ -834,14 +902,14 @@ function AdvancedTab({ field, allFields, variables, formType, onOpenModal, onUpd
   }
 
   return (
-    <div className="grid gap-2.5 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2">
       {cards.map(({ key, icon: Icon, title, sub, on, onClick }) => (
         <button
           key={key}
           type="button"
           onClick={onClick}
           className={cn(
-            'group flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-colors',
+            'group flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-colors',
             on ? 'border-primary/35 bg-accent/60 hover:border-primary/60' : 'border-border bg-card hover:border-primary/40 hover:bg-accent/40'
           )}
         >
@@ -897,9 +965,9 @@ function PreviewTab({ field, variables }: { field: FormField; variables: FormVar
 
 export default function FieldEditor({
   field, allFields, variables, formType,
-  onOpenModal, onUpdateField, onDuplicate, onDelete, onClose,
+  onOpenModal, onUpdateField, onDuplicate, onDelete, onClose, initialTab,
 }: FieldEditorProps) {
-  const [tab, setTab] = useState<FieldEditorTab>('content');
+  const [tab, setTab] = useState<FieldEditorTab>(initialTab ?? 'content');
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [labelFocused, setLabelFocused] = useState(false);
   const otherFields = allFields.filter((f) => f.id !== field.id);
@@ -972,15 +1040,15 @@ export default function FieldEditor({
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       {/* Header — icon, type name, contextual description, actions */}
-      <div className="flex items-start gap-3 px-4 py-3 sm:px-5">
-        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-lg border border-primary/20 bg-primary/[0.07] text-primary">
+      <div className="flex items-start gap-3.5 px-5 py-4 sm:px-6">
+        <span className="flex h-11 w-11 flex-none items-center justify-center rounded-lg border border-primary/20 bg-primary/[0.07] text-primary">
           {TypeIcon && <TypeIcon className="h-5 w-5" strokeWidth={1.8} />}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-display text-[15px] font-bold tracking-tight text-foreground">
+          <h3 className="truncate font-display text-base font-bold tracking-tight text-foreground">
             {TYPE_FRIENDLY[field.type] || TYPE_LABEL[field.type] || field.type}
           </h3>
-          <p className="mt-px truncate text-[11.5px] leading-snug text-muted-foreground">
+          <p className="mt-px truncate text-xs leading-snug text-muted-foreground">
             {FIELD_DESCRIPTIONS[field.type] || 'Configure this question.'}
           </p>
         </div>
@@ -1016,7 +1084,7 @@ export default function FieldEditor({
       </div>
 
       {/* Tabs — dynamic per field type */}
-      <div className="flex items-end gap-0.5 overflow-x-auto border-b border-border/70 px-2 sm:px-3" role="tablist" aria-label="Field editor sections">
+      <div className="flex items-end gap-0.5 overflow-x-auto border-b border-border/70 px-3 sm:px-4" role="tablist" aria-label="Field editor sections">
         {tabs.map((t) => {
           const active = t === activeTab;
           return (
@@ -1027,20 +1095,21 @@ export default function FieldEditor({
               aria-selected={active}
               onClick={() => setTab(t)}
               className={cn(
-                'relative flex h-9 flex-none items-center gap-1.5 px-2.5 text-[12.5px] font-semibold transition-colors',
+                'relative flex h-10 flex-none items-center gap-1.5 px-3 text-[13px] font-semibold transition-colors',
                 active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
               {FIELD_EDITOR_TAB_LABELS[t]}
               {tabDot(t) && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-              {active && <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-t bg-primary" />}
+              {active && <span className="absolute inset-x-2.5 bottom-0 h-[2px] rounded-t bg-primary" />}
             </button>
           );
         })}
       </div>
 
-      {/* Tab body */}
-      <div className="px-4 py-4 sm:px-5">
+      {/* Tab body — scrolls internally like a dialog, so a long option list
+       * never stretches the page under the editor. */}
+      <div className="max-h-[min(62vh,560px)] overflow-y-auto px-5 py-5 scrollbar-subtle sm:px-6">
         {activeTab === 'content' && (
           <ContentTab
             field={field}
@@ -1073,7 +1142,7 @@ export default function FieldEditor({
         {typeMenuOpen && (
           <div className="fixed inset-0 z-30" onClick={() => setTypeMenuOpen(false)} />
         )}
-        <div className="flex flex-wrap items-center gap-2 rounded-b-lg border-t border-border bg-ink-50 px-4 py-2 sm:px-5">
+        <div className="flex flex-wrap items-center gap-2 rounded-b-lg border-t border-border bg-ink-50 px-5 py-2.5 sm:px-6">
           {/* Type picker */}
           <div className="relative">
             <button
