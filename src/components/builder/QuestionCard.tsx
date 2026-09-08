@@ -41,7 +41,18 @@ const SHOW_OPERATOR_LABELS: Partial<Record<ShowConditionOperator, string>> = {
   notIn: 'is not one of',
 };
 
-const PLACEHOLDER_TYPES = ['text', 'email', 'phone', 'number', 'select', 'multiselect', 'date', 'time', 'textarea', 'html'];
+const PLACEHOLDER_HINTS: Record<string, string> = {
+  text: 'Type here…',
+  email: 'name@example.com',
+  phone: '+91 98765 43210',
+  number: '0',
+  textarea: 'Type here…',
+  select: 'Choose…',
+  multiselect: 'Choose…',
+};
+
+/** Types whose on-canvas control doubles as the placeholder editor. */
+const PLACEHOLDER_EDITABLE = ['text', 'email', 'phone', 'number', 'textarea', 'select', 'multiselect'];
 
 /** Survey defaults applied when a question becomes a survey type. */
 function surveyDefaults(type: FormField['type'], field: FormField): Partial<FormField> {
@@ -98,23 +109,108 @@ function LiveControl({ field, open, variables, onAddOption, onBulkImport }: {
     dispatch(updateField({ id: field.id, updates: { options: options.filter((_, idx) => idx !== i) } }));
   };
 
+  /**
+   * On an open card the control is the form itself (WYSIWYG): the text shown
+   * inside a text-like control IS the placeholder, edited exactly where the
+   * respondent will read it. No separate "placeholder" setting is needed.
+   */
+  const setPlaceholder = (value: string) =>
+    dispatch(updateField({ id: field.id, updates: { placeholder: value || undefined } }));
+  const placeholderControlClass =
+    'w-full rounded-lg border border-input bg-background px-3 text-[13.5px] text-foreground transition-colors placeholder:text-muted-foreground/60 hover:border-ink-300 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none';
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
+  // A dropdown-looking control; open, the text inside edits the placeholder.
+  const selectControl = (editable: boolean) => (
+    <div className="flex h-10 w-full items-center gap-2 rounded-lg border border-input bg-background pl-3 pr-2.5 transition-colors hover:border-ink-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+      {editable ? (
+        <input
+          value={field.placeholder ?? ''}
+          onChange={(e) => setPlaceholder(e.target.value)}
+          onClick={stop}
+          placeholder="Choose…"
+          aria-label="Placeholder text"
+          className="h-full min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+        />
+      ) : (
+        <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink-400">{field.placeholder || 'Choose…'}</span>
+      )}
+      <ChevronDown className="h-4 w-4 flex-none text-muted-foreground" />
+    </div>
+  );
+
   const scale = field.surveyConfig?.scale;
   const scaleMax = scale?.max ?? (field.type === 'nps' ? 10 : 5);
   const scaleMin = scale?.min ?? (field.type === 'nps' ? 0 : 1);
   const scaleRow = (from: number, to: number) =>
     Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
+  let selectPre: React.ReactNode = null;
+
   switch (field.type) {
+    case 'text':
+    case 'email':
+    case 'phone':
+      // Open: the control's text is the placeholder, edited in place.
+      if (open) {
+        return (
+          <input
+            value={field.placeholder ?? ''}
+            onChange={(e) => setPlaceholder(e.target.value)}
+            onClick={stop}
+            placeholder={PLACEHOLDER_HINTS[field.type]}
+            aria-label="Placeholder text"
+            className={cn('h-10', placeholderControlClass)}
+          />
+        );
+      }
+      return box(<span>{field.placeholder || PLACEHOLDER_HINTS[field.type]}</span>);
     case 'textarea':
+      if (open) {
+        return (
+          <textarea
+            rows={3}
+            value={field.placeholder ?? ''}
+            onChange={(e) => setPlaceholder(e.target.value)}
+            onClick={stop}
+            placeholder={PLACEHOLDER_HINTS.textarea}
+            aria-label="Placeholder text"
+            className={cn('resize-none py-2.5', placeholderControlClass)}
+          />
+        );
+      }
       return <div className="min-h-[64px] w-full rounded-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">{field.placeholder || '\u00a0'}</div>;
     case 'number':
-      return <div className="w-[180px] rounded-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">{field.placeholder || '\u00a0'}</div>;
+      if (open) {
+        return (
+          <input
+            value={field.placeholder ?? ''}
+            onChange={(e) => setPlaceholder(e.target.value)}
+            onClick={stop}
+            placeholder={PLACEHOLDER_HINTS.number}
+            aria-label="Placeholder text"
+            className={cn('h-10', placeholderControlClass)}
+          />
+        );
+      }
+      return box(<span>{field.placeholder || '0'}</span>, 'max-w-[200px]');
     case 'date':
       return box(<span>dd / mm / yyyy</span>, '', true);
     case 'time':
       return box(<span>--:--</span>, 'max-w-[140px]');
-    case 'file':
-      return box(<><Upload className="mr-2 h-3.5 w-3.5" /><span>Choose a file</span></>);
+    case 'file': {
+      const maxMb = Math.round((field.fileConfig?.maxSize ?? 5242880) / 1048576);
+      const accept = field.fileConfig?.accept?.length ? field.fileConfig.accept.join(', ') : null;
+      return (
+        <div className="flex flex-col items-center justify-center gap-1 rounded-lg border-[1.5px] border-dashed border-input bg-background px-4 py-6 text-center">
+          <Upload className="h-5 w-5 text-muted-foreground/70" />
+          <p className="text-[12.5px] font-medium text-foreground">Drag and drop or click to upload</p>
+          <p className="text-[10.5px] text-muted-foreground">
+            Up to {maxMb} MB{accept ? ` · ${accept}` : ''}
+          </p>
+        </div>
+      );
+    }
     case 'signature':
       return <div className="grid h-20 place-items-center rounded-lg border border-dashed border-input bg-background text-[12.5px] italic text-ink-400">Sign here</div>;
     case 'rating':
@@ -227,9 +323,10 @@ function LiveControl({ field, open, variables, onAddOption, onBulkImport }: {
       return <div className="w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-xs text-ink-400">&lt;p&gt;Custom markup&lt;/p&gt;</div>;
     case 'select':
     case 'multiselect':
-      if (!open) {
-        return box(<><span className="flex-1">{field.placeholder || 'Choose…'}</span><ChevronDown className="h-4 w-4" /></>);
-      }
+      if (!open) return selectControl(false);
+      // Open: the dropdown box above (its text edits the placeholder),
+      // with the options editable right below it.
+      selectPre = selectControl(true);
       break;
     case 'radio':
     case 'checkbox':
@@ -263,6 +360,7 @@ function LiveControl({ field, open, variables, onAddOption, onBulkImport }: {
 
   return (
     <div>
+      {selectPre && <div className="mb-3">{selectPre}</div>}
       <div className="space-y-0.5">
         {(field.options ?? []).map((option, i) => (
           <div key={i} className="group/opt flex items-center gap-2.5 py-1">
@@ -607,15 +705,18 @@ export default function QuestionCard({
         <div className="min-w-0 flex-1 pr-1">
           {open ? (
             <>
-              <input
-                ref={labelRef}
-                value={field.label}
-                onChange={(e) => update({ label: e.target.value })}
-                onClick={(e) => e.stopPropagation()}
-                placeholder="Type your question"
-                aria-label="Question text"
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-[14px] font-semibold tracking-tight text-foreground shadow-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/70 hover:border-ink-300 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:text-[15px]"
-              />
+              <div className="flex items-start gap-1.5">
+                <input
+                  ref={labelRef}
+                  value={field.label}
+                  onChange={(e) => update({ label: e.target.value })}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder="Type your question"
+                  aria-label="Question text"
+                  className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-3 py-2 text-[15px] font-semibold tracking-tight text-foreground transition-colors placeholder:font-normal placeholder:text-muted-foreground/70 hover:border-border hover:bg-muted/40 focus:border-primary focus:bg-card focus:ring-1 focus:ring-primary/25 focus:outline-none"
+                />
+                {field.required && <span className="mt-2.5 flex-none text-[15px] font-semibold leading-none text-destructive">*</span>}
+              </div>
               {field.helpText || descOpen ? (
                 <input
                   value={field.helpText ?? ''}
@@ -623,13 +724,13 @@ export default function QuestionCard({
                   onClick={(e) => e.stopPropagation()}
                   placeholder="Add a description (optional)"
                   aria-label="Question description"
-                  className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors placeholder:text-muted-foreground/60 hover:border-ink-300 focus:border-primary/60 focus:ring-1 focus:ring-primary/15 focus:outline-none sm:text-[12px]"
+                  className="mt-0.5 w-full rounded-lg border border-transparent bg-transparent px-3 py-1.5 text-[12px] text-muted-foreground transition-colors placeholder:text-muted-foreground/60 hover:border-border hover:bg-muted/40 focus:border-primary/60 focus:ring-1 focus:ring-primary/20 focus:outline-none sm:text-[12.5px]"
                 />
               ) : (
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setDescOpen(true); }}
-                  className="mt-1.5 inline-flex items-center gap-1 px-2.5 text-[11.5px] font-semibold text-primary hover:underline"
+                  className="mt-1 ml-3 inline-flex items-center gap-1 text-[11.5px] font-semibold text-primary hover:underline"
                 >
                   <Plus className="h-3 w-3" />
                   Add a description
@@ -680,70 +781,23 @@ export default function QuestionCard({
             </>
           )}
 
-          {/* The live answer control — on a closed card it is the at-a-glance
-           * preview; on an open card it lives inside the framed preview below,
-           * rendered exactly the way respondents will see it. */}
-          {!open && (
-            <div className="mt-3.5">
-              <LiveControl
-                field={field}
-                open={false}
-                variables={variables}
-                onAddOption={addOption}
-                onBulkImport={() => onOpenModal('csv')}
-              />
-            </div>
-          )}
-
-          {/* Preview of this question as it appears in the final form. The
-           * label/description inputs above edit it; this frame shows the
-           * result — including the placeholder — without leaving the page. */}
-          {open && (
-            <div className="mt-3 overflow-hidden rounded-xl border border-border/80 bg-background">
-              <div className="flex items-center gap-1.5 border-b border-border/70 bg-ink-50/60 px-3 py-1.5">
-                <Eye className="h-3 w-3 flex-none text-muted-foreground" />
-                <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Preview</span>
-                <span className="ml-auto hidden text-[10px] text-muted-foreground/70 sm:block">
-                  How people filling the form see this question
-                </span>
-              </div>
-              <div className="space-y-2.5 px-3 py-3">
-                <div>
-                  <p className="text-[13.5px] font-semibold leading-snug text-foreground">
-                    {field.label || <span className="font-normal italic text-muted-foreground/70">Your question will appear here</span>}
-                    {field.required && <span className="ml-0.5 text-destructive">*</span>}
-                  </p>
-                  {field.helpText && (
-                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground sm:text-[11.5px]">{field.helpText}</p>
-                  )}
-                </div>
-                <LiveControl
-                  field={field}
-                  open
-                  variables={variables}
-                  onAddOption={addOption}
-                  onBulkImport={() => onOpenModal('csv')}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Placeholder — a labelled setting next to the preview that shows it */}
-          {open && PLACEHOLDER_TYPES.includes(field.type) && (
-            <div className="mt-2.5 grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[92px_minmax(0,1fr)]">
-              <span className="text-right text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[10.5px]">
-                Placeholder
-              </span>
-              <input
-                value={field.placeholder ?? ''}
-                onChange={(e) => update({ placeholder: e.target.value || undefined })}
-                onClick={(e) => e.stopPropagation()}
-                placeholder="Text shown inside the field"
-                aria-label="Placeholder"
-                className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-[12px] text-foreground transition-colors placeholder:text-muted-foreground/60 hover:border-ink-300 focus:border-primary focus:ring-1 focus:ring-primary/20 focus:outline-none"
-              />
-            </div>
-          )}
+          {/* The control, rendered the way respondents see it (WYSIWYG — no
+           * separate preview frame). Choice fields edit their options right
+           * here; text-like controls edit their placeholder in place. */}
+          <div className="mt-3">
+            <LiveControl
+              field={field}
+              open={open}
+              variables={variables}
+              onAddOption={addOption}
+              onBulkImport={() => onOpenModal('csv')}
+            />
+            {open && PLACEHOLDER_EDITABLE.includes(field.type) && (
+              <p className="mt-1.5 px-0.5 text-[10.5px] leading-snug text-muted-foreground">
+                You&apos;re editing the <span className="font-semibold text-foreground/75">placeholder</span> — the hint text people see inside the field before they type.
+              </p>
+            )}
+          </div>
 
           {/* Quiet notes with a real override */}
           {note && (
