@@ -20,7 +20,7 @@ import {
   setAISessionId,
 } from '../store/builderSlice';
 import { DndContext, closestCenter, useDroppable } from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -28,7 +28,6 @@ import { Textarea } from '../components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import api from '../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import FieldPalette from '../components/builder/FieldPalette';
 import QuestionCard, { type FieldModalKind } from '../components/builder/QuestionCard';
 import FormSetupPanel from '../components/builder/FormSetupPanel';
 import FieldModals, { VariablesModal } from '../components/builder/FieldModals';
@@ -72,8 +71,7 @@ type PersistResult = 'saved' | 'invalid' | 'error';
 
 const PANEL_MIN = 200;
 const PANEL_MAX = 480;
-const PALETTE_DEFAULT = 240;
-const INSPECTOR_DEFAULT = 320;
+const SETUP_PANEL_DEFAULT = 320;
 /** How long after the last change the draft autosaves (v2 §3.6). */
 const AUTOSAVE_DELAY_MS = 1200;
 
@@ -122,40 +120,12 @@ function FieldsByWidth({ fields, allFields, onOpenModal }: {
   const variables = builder.schema.variables ?? [];
   const formType = builder.settings.formType;
   const isMultiStep = builder.layout.mode === 'multiStep';
-  const isHorizontal = builder.layout.orientation === 'horizontal';
 
-  const groupByWidth = (fieldList: FormField[]) => {
-    const groups: Array<{ width: 'full' | 'half' | 'third'; fields: FormField[] }> = [];
-    let currentGroup: typeof groups[0] | null = null;
-    fieldList.forEach(field => {
-      const width = (field.width || 'full') as 'full' | 'half' | 'third';
-      if (!currentGroup || currentGroup.width !== width) {
-        currentGroup = { width, fields: [] };
-        groups.push(currentGroup);
-      }
-      currentGroup.fields.push(field);
-    });
-    return groups;
-  };
-
-  const getGridClass = (width: 'full' | 'half' | 'third') => {
-    switch (width) {
-      case 'half': return 'grid grid-cols-2 gap-4';
-      case 'third': return 'grid grid-cols-3 gap-4';
-      default: return 'space-y-3';
-    }
-  };
-
-  // Horizontal layout: fields flow left-to-right on a 6-column grid and wrap by
-  // their width (full = 6 cols, half = 3 cols, third = 2 cols). On mobile they
-  // collapse to a single full-width column.
-  const getSpanClass = (field: FormField) => {
-    switch (field.width || 'full') {
-      case 'half': return 'col-span-1 sm:col-span-3';
-      case 'third': return 'col-span-1 sm:col-span-2';
-      default: return 'col-span-1 sm:col-span-6';
-    }
-  };
+  // The edit canvas keeps every question full width. A 50%/33% question is a
+  // layout decision for the respondent's page — shrinking the card while it
+  // is being edited only makes it harder to work on. The width stays visible
+  // as a chip on the card (and in the footer's width picker) and is applied
+  // for real in the Preview and the published form.
 
   const renderFieldItem = (field: FormField) => (
     <QuestionCard
@@ -169,24 +139,12 @@ function FieldsByWidth({ fields, allFields, onOpenModal }: {
       onOpenModal={onOpenModal}
       onDelete={() => dispatch(removeField(field.id))}
       onDuplicate={() => dispatch(duplicateField(field.id))}
-      className={isHorizontal ? getSpanClass(field) : undefined}
     />
   );
 
-  const renderGroups = (fieldList: FormField[]) => {
-    if (isHorizontal) {
-      return (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
-          {fieldList.map(renderFieldItem)}
-        </div>
-      );
-    }
-    return groupByWidth(fieldList).map((group, i) => (
-      <div key={i} className={getGridClass(group.width)}>
-        {group.fields.map(renderFieldItem)}
-      </div>
-    ));
-  };
+  const renderGroups = (fieldList: FormField[]) => (
+    <div className="space-y-3">{fieldList.map(renderFieldItem)}</div>
+  );
 
   if (isMultiStep && builder.layout.steps && builder.layout.steps.length > 0) {
     const steps = [...builder.layout.steps].sort((a, b) => a.order - b.order);
@@ -271,8 +229,7 @@ export default function FormBuilderPage() {
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [mode, setMode] = useState<EditorMode>('canvas');
   const [isEditingName, setIsEditingName] = useState(false);
-  const [paletteWidth, setPaletteWidth] = useState(PALETTE_DEFAULT);
-  const [inspectorWidth, setInspectorWidth] = useState(INSPECTOR_DEFAULT);
+  const [setupPanelWidth, setSetupPanelWidth] = useState(SETUP_PANEL_DEFAULT);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   // v2 — per-question modals (launched from the ⋮ menu) and data calculations
@@ -323,20 +280,15 @@ export default function FormBuilderPage() {
     }
   }, [currentForm, dispatch]);
 
-  // Drag-to-resize handlers for the side panels.
-  const beginResize = (side: 'palette' | 'inspector') => (e: React.PointerEvent) => {
+  // Drag-to-resize the Form setup panel on the left: dragging right widens it.
+  const beginResize = (e: React.PointerEvent) => {
     e.preventDefault();
     const startX = e.clientX;
-    const startW = side === 'palette' ? paletteWidth : inspectorWidth;
+    const startW = setupPanelWidth;
 
     const handleMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - startX;
-      const next = side === 'palette' ? startW + dx : startW - dx;
-      if (side === 'palette') {
-        setPaletteWidth(Math.max(PANEL_MIN, Math.min(PANEL_MAX, next)));
-      } else {
-        setInspectorWidth(Math.max(PANEL_MIN, Math.min(PANEL_MAX, next)));
-      }
+      const next = startW + (ev.clientX - startX);
+      setSetupPanelWidth(Math.max(PANEL_MIN, Math.min(PANEL_MAX, next)));
     };
     const handleUp = () => {
       window.removeEventListener('pointermove', handleMove);
@@ -873,22 +825,8 @@ export default function FormBuilderPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleDragStart = (event: DragStartEvent) => {
-    // Check if this is a new field from palette
-    if (event.active.id.toString().startsWith('new-')) {
-      // Could add visual feedback here if needed
-    }
-  };
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
-    // Handle dropping new field from palette
-    if (active.id.toString().startsWith('new-')) {
-      const fieldType = active.id.toString().replace('new-', '') as FormField['type'];
-      handleAddField(fieldType);
-      return;
-    }
 
     // Handle reordering existing fields
     if (over && active.id !== over.id) {
@@ -1022,11 +960,11 @@ export default function FormBuilderPage() {
 
   return (
     <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
-      {/* Header (v2: the mode switch sits after the name, autosave replaces Save) */}
+      {/* Header (v2: mode switch centred, autosave replaces Save) */}
       <header className="relative shrink-0 border-b border-border/70 bg-card">
-        <div className="flex h-14 items-center gap-2 px-2.5 sm:px-3">
-          {/* Left — back, name, status, mode switch */}
-          <div className="flex min-w-0 flex-1 items-center gap-1">
+        <div className="grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2.5 sm:px-3">
+          {/* Left — back, name, status */}
+          <div className="flex min-w-0 items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
@@ -1106,14 +1044,13 @@ export default function FormBuilderPage() {
                 </span>
               )}
             </div>
+          </div>
 
-            <div className="w-2 flex-none" />
-
-            {/* Mode switch — after the name, out of the absolute-centre collision (v2 §1.3) */}
-            <div className="flex flex-none items-center rounded-lg bg-ink-100 p-0.5">
+          {/* Mode switch — centred on the page (Canvas / Preview / Form setup) */}
+          <div className="flex items-center justify-self-center rounded-lg bg-ink-100 p-0.5">
               {([
-                { value: 'canvas' as const, icon: LayoutTemplate, label: 'canvas' },
-                { value: 'preview' as const, icon: Eye, label: 'preview' },
+                { value: 'canvas' as const, icon: LayoutTemplate, label: 'Canvas' },
+                { value: 'preview' as const, icon: Eye, label: 'Preview' },
                 { value: 'settings' as const, icon: Settings, label: 'Form setup' },
               ]).map(({ value, icon: Icon, label }) => (
                 <button
@@ -1138,10 +1075,9 @@ export default function FormBuilderPage() {
                 </button>
               ))}
             </div>
-          </div>
 
           {/* Right — actions */}
-          <div className="flex flex-1 items-center justify-end gap-1.5">
+          <div className="flex items-center justify-end gap-1.5">
             <div className="relative">
               <Button
                 variant="ghost"
@@ -1420,19 +1356,25 @@ export default function FormBuilderPage() {
         <SettingsPanel formId={formId} />
       ) : (
         <div className="min-h-0 flex-1 flex">
-          {/* Field Palette — eight intentions (v2 §3.2) */}
+          {/* Form setup panel — on the left. The old field palette is gone:
+              question types live in each question's own type picker, so the
+              form-wide panel takes the left edge (v2 §3.4). */}
           <aside
             className="relative shrink-0 overflow-hidden border-r border-border/70 bg-card"
-            style={{ width: paletteWidth }}
+            style={{ width: setupPanelWidth }}
           >
-            <div className="flex h-full flex-col">
-              <FieldPalette onAddField={handleAddField} />
-            </div>
+            <FormSetupPanel
+              onOpenVariables={() => setVariablesOpen(true)}
+              onGoToSettings={(target) => {
+                if (target === 'canvas') setMode('canvas');
+                else goToSettingsSection(target);
+              }}
+            />
           </aside>
 
-          {/* Palette resize handle */}
+          {/* Panel resize handle */}
           <div
-            onPointerDown={beginResize('palette')}
+            onPointerDown={beginResize}
             className="z-10 w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40"
             role="separator"
             aria-orientation="vertical"
@@ -1460,7 +1402,7 @@ export default function FormBuilderPage() {
                     value={builder.formDescription}
                     onChange={(e) => dispatch(setFormDescription(e.target.value))}
                     placeholder="Add a description for your form (optional)"
-                    className="mt-2 min-h-[40px] resize-none border-transparent bg-transparent p-0 text-[13px] text-muted-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="mt-2 min-h-[40px] resize-none border-transparent bg-transparent p-0 text-[12px] text-muted-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-[13px]"
                   />
                 </div>
 
@@ -1468,7 +1410,6 @@ export default function FormBuilderPage() {
                 <div className="px-5 py-6 sm:px-8 sm:py-8">
                   <DndContext
                     collisionDetection={closestCenter}
-                    onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                   >
                     <DroppableCanvas onBackgroundClick={() => dispatch(selectField(null))}>
@@ -1483,10 +1424,10 @@ export default function FormBuilderPage() {
                                 <Plus className="h-6 w-6" strokeWidth={1.8} />
                               </div>
                               <p className="mt-4 text-[14px] font-semibold text-foreground">
-                                Drag and drop a question here
+                                Start with your first question
                               </p>
                               <p className="mt-1 text-[12px] text-muted-foreground">
-                                Or click a question type from the panel on the left to add it
+                                Click “Add a question” below, then choose its type from the toolbar under it
                               </p>
                             </div>
                           ) : (
@@ -1512,28 +1453,6 @@ export default function FormBuilderPage() {
               </div>
             </div>
           </main>
-
-          {/* Inspector resize handle */}
-          <div
-            onPointerDown={beginResize('inspector')}
-            className="z-10 w-1 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-primary/40"
-            role="separator"
-            aria-orientation="vertical"
-          />
-
-          {/* Right panel — Form setup, for the form rather than the field (v2 §3.3) */}
-          <aside
-            className="relative shrink-0 overflow-hidden border-l border-border/70 bg-card"
-            style={{ width: inspectorWidth }}
-          >
-            <FormSetupPanel
-              onOpenVariables={() => setVariablesOpen(true)}
-              onGoToSettings={(target) => {
-                if (target === 'canvas') setMode('canvas');
-                else goToSettingsSection(target);
-              }}
-            />
-          </aside>
         </div>
       )}
     </div>

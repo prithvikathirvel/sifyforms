@@ -4,14 +4,14 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   GripVertical, Trash2, Copy, MoreVertical, ChevronDown, Plus, X, Star, Upload,
   Hash, Eye, Globe, Link, Calculator, AlertCircle, FileText, FileSpreadsheet,
-  ClipboardCheck, BarChart2, Info, FileUp,
+  ClipboardCheck, BarChart2, Info, FileUp, Check,
 } from 'lucide-react';
 import type { FormField, FormVariable, ShowConditionOperator } from '../../types';
 import { useAppDispatch } from '../../hooks/useAppDispatch';
 import { updateField, selectField } from '../../store/builderSlice';
 import { cn } from '../../lib/utils';
 import {
-  HAS_OPTIONS, SINGLE_CHOICE, SURVEY_TYPES, POLLABLE, TYPE_LABEL, TYPE_FRIENDLY,
+  HAS_OPTIONS, SINGLE_CHOICE, SURVEY_TYPES, POLLABLE, TYPE_LABEL, TYPE_FRIENDLY, TYPE_ICONS,
   TYPE_PICKER_ORDER, slugifyOptionValue, countShowWhenLeaves, firstShowWhenLeaf,
   defaultOptions,
 } from './formSetup';
@@ -106,9 +106,9 @@ function LiveControl({ field, open, variables, onAddOption, onBulkImport }: {
 
   switch (field.type) {
     case 'textarea':
-      return <div className="min-h-[64px] w-full rounded-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">{field.placeholder || 'Their answer…'}</div>;
+      return <div className="min-h-[64px] w-full rounded-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">{field.placeholder || '\u00a0'}</div>;
     case 'number':
-      return <div className="w-[180px] rounded-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">{field.placeholder || '0'}</div>;
+      return <div className="w-[180px] rounded-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">{field.placeholder || '\u00a0'}</div>;
     case 'date':
       return box(<span>dd / mm / yyyy</span>, '', true);
     case 'time':
@@ -251,7 +251,7 @@ function LiveControl({ field, open, variables, onAddOption, onBulkImport }: {
       }
       break;
     default:
-      return <div className="w-full rounded-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">{field.placeholder || 'Their answer…'}</div>;
+      return <div className="w-full rounded-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">{field.placeholder || '\u00a0'}</div>;
   }
 
   /* Option-based question, expanded: the options are edited in place (v2 §3.3) */
@@ -535,9 +535,12 @@ export default function QuestionCard({
 
   const hasChoice = HAS_OPTIONS(field.type);
   const isSurveyForm = formType === 'survey' || SURVEY_TYPES.includes(field.type as (typeof SURVEY_TYPES)[number]);
+  // Survey types lead the list when relevant — the order the previous
+  // editor's field list used.
   const typeMenuTypes: FormField['type'][] = isSurveyForm
-    ? [...TYPE_PICKER_ORDER, ...SURVEY_TYPES]
+    ? [...SURVEY_TYPES, ...TYPE_PICKER_ORDER]
     : [...TYPE_PICKER_ORDER];
+  const CurrentTypeIcon = TYPE_ICONS[field.type];
 
   const menuItem = (Icon: React.ElementType, label: string, onClick: () => void, set?: boolean) => (
     <button
@@ -568,7 +571,7 @@ export default function QuestionCard({
       className={cn(
         'group relative rounded-lg border bg-card transition-[border-color,box-shadow] duration-150',
         open
-          ? 'z-10 border-primary shadow-[0_0_0_1px_hsl(var(--primary)),0_8px_26px_rgba(15,23,42,0.08)]'
+          ? 'z-10 border-primary/70 shadow-[0_6px_18px_rgba(15,23,42,0.07)]'
           : 'border-border hover:border-primary/40',
         isDragging && 'opacity-50',
         className
@@ -611,16 +614,16 @@ export default function QuestionCard({
                 onClick={(e) => e.stopPropagation()}
                 placeholder="Type your question"
                 aria-label="Question text"
-                className="w-full rounded-t-md border-0 border-b-2 border-primary/25 bg-muted px-2.5 py-2 text-[15px] font-semibold tracking-tight text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:bg-accent focus:outline-none"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-[14px] font-semibold tracking-tight text-foreground shadow-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/70 hover:border-ink-300 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:text-[15px]"
               />
               {field.helpText || descOpen ? (
                 <input
                   value={field.helpText ?? ''}
                   onChange={(e) => update({ helpText: e.target.value })}
                   onClick={(e) => e.stopPropagation()}
-                  placeholder="Add a description"
+                  placeholder="Add a description (optional)"
                   aria-label="Question description"
-                  className="mt-1.5 w-full border-0 border-b border-border bg-transparent px-2.5 py-1 text-[12.5px] text-muted-foreground placeholder:text-muted-foreground/60 focus:border-primary/50 focus:bg-muted focus:outline-none"
+                  className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors placeholder:text-muted-foreground/60 hover:border-ink-300 focus:border-primary/60 focus:ring-1 focus:ring-primary/15 focus:outline-none sm:text-[12px]"
                 />
               ) : (
                 <button
@@ -677,27 +680,69 @@ export default function QuestionCard({
             </>
           )}
 
-          {/* The live answer control */}
-          <div className="mt-3.5">
-            <LiveControl
-              field={field}
-              open={open}
-              variables={variables}
-              onAddOption={addOption}
-              onBulkImport={() => onOpenModal('csv')}
-            />
-          </div>
+          {/* The live answer control — on a closed card it is the at-a-glance
+           * preview; on an open card it lives inside the framed preview below,
+           * rendered exactly the way respondents will see it. */}
+          {!open && (
+            <div className="mt-3.5">
+              <LiveControl
+                field={field}
+                open={false}
+                variables={variables}
+                onAddOption={addOption}
+                onBulkImport={() => onOpenModal('csv')}
+              />
+            </div>
+          )}
 
-          {/* Placeholder, edited where it appears (expanded only) */}
+          {/* Preview of this question as it appears in the final form. The
+           * label/description inputs above edit it; this frame shows the
+           * result — including the placeholder — without leaving the page. */}
+          {open && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-border/80 bg-background">
+              <div className="flex items-center gap-1.5 border-b border-border/70 bg-ink-50/60 px-3 py-1.5">
+                <Eye className="h-3 w-3 flex-none text-muted-foreground" />
+                <span className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Preview</span>
+                <span className="ml-auto hidden text-[10px] text-muted-foreground/70 sm:block">
+                  How people filling the form see this question
+                </span>
+              </div>
+              <div className="space-y-2.5 px-3 py-3">
+                <div>
+                  <p className="text-[13.5px] font-semibold leading-snug text-foreground">
+                    {field.label || <span className="font-normal italic text-muted-foreground/70">Your question will appear here</span>}
+                    {field.required && <span className="ml-0.5 text-destructive">*</span>}
+                  </p>
+                  {field.helpText && (
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground sm:text-[11.5px]">{field.helpText}</p>
+                  )}
+                </div>
+                <LiveControl
+                  field={field}
+                  open
+                  variables={variables}
+                  onAddOption={addOption}
+                  onBulkImport={() => onOpenModal('csv')}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Placeholder — a labelled setting next to the preview that shows it */}
           {open && PLACEHOLDER_TYPES.includes(field.type) && (
-            <input
-              value={field.placeholder ?? ''}
-              onChange={(e) => update({ placeholder: e.target.value || undefined })}
-              onClick={(e) => e.stopPropagation()}
-              placeholder="Placeholder text (optional)"
-              aria-label="Placeholder"
-              className="mt-2 w-full rounded-md border border-dashed border-input bg-transparent px-2 py-1 text-[11.5px] text-muted-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none"
-            />
+            <div className="mt-2.5 grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[92px_minmax(0,1fr)]">
+              <span className="text-right text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[10.5px]">
+                Placeholder
+              </span>
+              <input
+                value={field.placeholder ?? ''}
+                onChange={(e) => update({ placeholder: e.target.value || undefined })}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="Text shown inside the field"
+                aria-label="Placeholder"
+                className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-[12px] text-foreground transition-colors placeholder:text-muted-foreground/60 hover:border-ink-300 focus:border-primary focus:ring-1 focus:ring-primary/20 focus:outline-none"
+              />
+            </div>
           )}
 
           {/* Quiet notes with a real override */}
@@ -780,25 +825,31 @@ export default function QuestionCard({
                 className="inline-flex h-[30px] items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary"
                 title="Change the question type"
               >
+                {CurrentTypeIcon && <CurrentTypeIcon className="h-3.5 w-3.5 flex-none text-ink-400" strokeWidth={1.8} />}
                 {TYPE_FRIENDLY[field.type] || TYPE_LABEL[field.type] || field.type}
                 <ChevronDown className="h-3 w-3" />
               </button>
               {typeMenuOpen && (
-                <div className="absolute bottom-[calc(100%+6px)] left-0 z-40 max-h-[280px] w-60 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-xl shadow-foreground/10 scrollbar-subtle">
-                  {typeMenuTypes.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setType(t)}
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-foreground',
-                        t === field.type && 'font-semibold text-primary'
-                      )}
-                    >
-                      {TYPE_FRIENDLY[t] || t}
-                      {t === field.type && <span className="ml-auto text-[10px] font-bold">✓</span>}
-                    </button>
-                  ))}
+                <div className="absolute bottom-[calc(100%+6px)] left-0 z-40 max-h-[280px] w-64 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-xl shadow-foreground/10 scrollbar-subtle">
+                  {typeMenuTypes.map((t) => {
+                    const ItemIcon = TYPE_ICONS[t];
+                    const active = t === field.type;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setType(t)}
+                        className={cn(
+                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-foreground',
+                          active && 'font-semibold text-primary'
+                        )}
+                      >
+                        {ItemIcon && <ItemIcon className={cn('h-3.5 w-3.5 flex-none', active ? 'text-primary' : 'text-ink-400')} strokeWidth={1.8} />}
+                        <span className="min-w-0 flex-1 truncate">{TYPE_FRIENDLY[t] || t}</span>
+                        {active && <Check className="h-3.5 w-3.5 flex-none" />}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

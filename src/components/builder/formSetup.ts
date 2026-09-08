@@ -1,6 +1,10 @@
 import type { FormField, FormLayout, FormSettings, FormVariable, ShowCondition, ShowConditionOperator, ShowWhenNode } from '../../types';
 import { isShowWhenGroup } from '../../types';
 import { isBotProtectionEnabled } from '../../lib/formPolicy';
+import {
+  Type, Mail, Phone, Hash, ChevronDown, Circle, CheckSquare, ListPlus,
+  Calendar, Clock, AlignLeft, Upload, Star, PenTool, Code, Calculator, Table,
+} from 'lucide-react';
 
 /** Field types whose answer is a list of options. */
 export const HAS_OPTIONS = (t: string) => ['select', 'multiselect', 'radio', 'checkbox', 'ranking'].includes(t);
@@ -23,20 +27,33 @@ export const TYPE_LABEL: Record<string, string> = {
   nps: 'NPS', csat: 'CSAT', ces: 'Effort Score', likert: 'Likert', ranking: 'Ranking',
 };
 
-/** v2 §3.2 — what the type is called in the question's own type picker. */
+/** v2 §3.2 — what the type is called in the question's own type picker.
+ * These are the names the previous editor used (Text Input, Long Text,
+ * Dropdown, Radio Buttons…), carried over verbatim so long-time users
+ * find the same vocabulary in the new UI. */
 export const TYPE_FRIENDLY: Record<string, string> = {
-  text: 'Short answer', textarea: 'Long answer', email: 'Email address', phone: 'Phone number',
-  number: 'Number', select: 'One choice (dropdown)', radio: 'One choice (list)',
-  checkbox: 'Several choices (list)', multiselect: 'Several choices (dropdown)', date: 'Date',
-  time: 'Time', file: 'File upload', rating: 'Rating', signature: 'Signature',
-  html: 'Custom HTML', display: 'Display value', table: 'Table grid', nps: 'NPS 0–10',
-  csat: 'CSAT', ces: 'Effort score', likert: 'Likert matrix', ranking: 'Ranking',
+  text: 'Text Input', textarea: 'Long Text', email: 'Email', phone: 'Phone',
+  number: 'Number', select: 'Dropdown', radio: 'Radio Buttons', checkbox: 'Checkboxes',
+  multiselect: 'Multi-Select', date: 'Date Picker', time: 'Time Picker',
+  file: 'File Upload', rating: 'Rating', signature: 'Signature', html: 'Custom HTML',
+  display: 'Display Value', table: 'Table Grid', nps: 'NPS (0–10)', csat: 'CSAT',
+  ces: 'Effort Score', likert: 'Likert Matrix', ranking: 'Ranking',
 };
 
-/** Order used by the type picker: everyday types first, exotic ones last. */
+/** The icon each type carried in the previous editor's field list. */
+export const TYPE_ICONS: Record<string, React.ElementType> = {
+  text: Type, textarea: AlignLeft, email: Mail, phone: Phone, number: Hash,
+  select: ChevronDown, radio: Circle, checkbox: CheckSquare, multiselect: ListPlus,
+  date: Calendar, time: Clock, file: Upload, rating: Star, signature: PenTool,
+  html: Code, display: Calculator, table: Table, nps: Hash, csat: Star,
+  ces: Calculator, likert: Table, ranking: ListPlus,
+};
+
+/** Order used by the type picker — the previous editor's field-list order. */
 export const TYPE_PICKER_ORDER = [
-  'text', 'textarea', 'email', 'phone', 'number', 'radio', 'select', 'checkbox',
-  'multiselect', 'date', 'time', 'file', 'rating', 'signature', 'table', 'html', 'display',
+  'text', 'email', 'phone', 'number', 'select', 'radio', 'checkbox',
+  'multiselect', 'date', 'time', 'textarea', 'file', 'rating', 'signature',
+  'html', 'display', 'table',
 ] as const;
 
 /** Value for an option, derived from its label (v2 §3.2). */
