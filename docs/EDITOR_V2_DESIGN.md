@@ -1,6 +1,6 @@
 # Editor v2 — Making a New Form as Easy as Google Forms
 
-**Status:** design proposal
+**Status:** historical design proposal — superseded for the core editor prototype by [`EDITOR_V2_UX_BENCHMARK.md`](EDITOR_V2_UX_BENCHMARK.md) and [`editor-v2-mockup.html`](editor-v2-mockup.html), reviewed 2026-09-08. The original analysis below is retained for context, not as the final layout specification.
 **Scope:** the form editor only — creating and editing a form. Response pages, teams and the public form are covered in `UX_REVIEW_AND_REMEDIATION_PLAN.md`, and this document assumes and extends that one rather than repeating it.
 **Audience:** the person who has to build this, and the person who has to approve it.
 
