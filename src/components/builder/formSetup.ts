@@ -49,6 +49,62 @@ export const TYPE_ICONS: Record<string, React.ElementType> = {
   ces: Calculator, likert: Table, ranking: ListPlus,
 };
 
+/** One-line contextual description shown in the field editor header. */
+export const FIELD_DESCRIPTIONS: Record<string, string> = {
+  text: 'A single-line text answer',
+  textarea: 'A multi-line long answer',
+  email: 'An email address, checked for format',
+  phone: 'A phone number',
+  number: 'A numeric answer',
+  select: 'One answer picked from a dropdown list',
+  radio: 'One answer picked from a visible list',
+  checkbox: 'One or more answers from a list',
+  multiselect: 'Several answers from a dropdown list',
+  date: 'A date picked from a calendar',
+  time: 'A time of day',
+  file: 'Let people upload files',
+  rating: 'A star rating out of five',
+  signature: 'A drawn or typed signature',
+  html: 'A block of custom markup',
+  display: 'Show a calculated value on the form',
+  table: 'A grid of rows and columns',
+  nps: 'How likely people are to recommend you, 0–10',
+  csat: 'A satisfaction score',
+  ces: 'How easy something was, on a scale',
+  likert: 'Agreement with each statement, in a matrix',
+  ranking: 'Put items in order of preference',
+};
+
+/** Upload types offered for a file question's accepted list. */
+export const FILE_ACCEPT_TYPES = ['image/*', '.pdf', '.doc,.docx', '.xls,.xlsx', '.txt'] as const;
+
+/* ---------------------------------------------------------------------------
+ * Field editor tabs — derived from the field type, not hard-coded per field
+ * ------------------------------------------------------------------------- */
+export type FieldEditorTab = 'content' | 'validation' | 'appearance' | 'advanced' | 'preview';
+
+export const FIELD_EDITOR_TAB_LABELS: Record<FieldEditorTab, string> = {
+  content: 'Content',
+  validation: 'Validation',
+  appearance: 'Appearance',
+  advanced: 'Advanced',
+  preview: 'Preview',
+};
+
+/**
+ * Which tabs the field editor shows. Every field gets Content, Advanced and
+ * Preview; Validation exists wherever answers can be limited (everything but
+ * tables), and Appearance only where the type has real appearance settings
+ * (the survey scales and labels).
+ */
+export function fieldEditorTabs(type: FormField['type']): FieldEditorTab[] {
+  const tabs: FieldEditorTab[] = ['content'];
+  if (type !== 'table') tabs.push('validation');
+  if (SURVEY_TYPES.includes(type as (typeof SURVEY_TYPES)[number])) tabs.push('appearance');
+  tabs.push('advanced', 'preview');
+  return tabs;
+}
+
 /** Order used by the type picker — the previous editor's field-list order. */
 export const TYPE_PICKER_ORDER = [
   'text', 'email', 'phone', 'number', 'select', 'radio', 'checkbox',
@@ -77,6 +133,72 @@ export const SHOW_OPERATORS: { value: ShowConditionOperator; label: string; need
   { value: 'in', label: 'is one of', needsValue: true },
   { value: 'notIn', label: 'is not one of', needsValue: true },
 ];
+
+/* ---------------------------------------------------------------------------
+ * "Limit the answer" rules — shared metadata for the field editor's
+ * Validation tab (mirrors the ValidationModal definitions)
+ * ------------------------------------------------------------------------- */
+export const RULE_TYPES: { value: string; label: string }[] = [
+  { value: 'required', label: 'Required' },
+  { value: 'minLength', label: 'Min length' },
+  { value: 'maxLength', label: 'Max length' },
+  { value: 'min', label: 'Min value' },
+  { value: 'max', label: 'Max value' },
+  { value: 'pattern', label: 'Regex pattern' },
+  { value: 'email', label: 'Email format' },
+  { value: 'url', label: 'URL format' },
+  { value: 'contains', label: 'Contains text' },
+  { value: 'notContains', label: 'Does not contain' },
+  { value: 'startsWith', label: 'Starts with' },
+  { value: 'endsWith', label: 'Ends with' },
+  { value: 'greaterThan', label: 'Greater than (>)' },
+  { value: 'lessThan', label: 'Less than (<)' },
+  { value: 'gte', label: 'Greater than or equal (≥)' },
+  { value: 'lte', label: 'Less than or equal (≤)' },
+  { value: 'equals', label: 'Exactly equals' },
+  { value: 'notEquals', label: 'Does not equal' },
+  { value: 'custom', label: 'Matches another field' },
+];
+
+/** Rule types that never need a value input. */
+export const NO_VALUE_RULE_TYPES = new Set(['required', 'email', 'url']);
+
+export function ruleValuePlaceholder(type: string): string {
+  switch (type) {
+    case 'minLength': return 'e.g. 5';
+    case 'maxLength': return 'e.g. 100';
+    case 'min': return 'e.g. 0';
+    case 'max': return 'e.g. 100';
+    case 'pattern': return 'e.g. ^[A-Za-z]+$';
+    case 'custom': return 'Select field…';
+    default: return 'Enter value…';
+  }
+}
+
+export function ruleDefaultMessage(type: string): string {
+  switch (type) {
+    case 'required': return 'This field is required';
+    case 'email': return 'Please enter a valid email address';
+    case 'url': return 'Please enter a valid URL';
+    case 'minLength': return 'Must be at least {value} characters';
+    case 'maxLength': return 'Must be no more than {value} characters';
+    case 'min': return 'Must be at least {value}';
+    case 'max': return 'Must be no more than {value}';
+    case 'pattern': return 'Please match the required format';
+    case 'custom': return 'Fields must match';
+    default: return 'Invalid input';
+  }
+}
+
+export function isInvalidRegex(value: string | number | undefined): boolean {
+  if (value === undefined || value === '') return false;
+  try {
+    new RegExp(String(value));
+    return false;
+  } catch {
+    return true;
+  }
+}
 
 /** Count leaf conditions in a (possibly nested) show-when rule. */
 export function countShowWhenLeaves(nodes: ShowWhenNode[] | undefined): number {
