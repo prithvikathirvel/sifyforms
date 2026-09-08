@@ -90,6 +90,92 @@ export const FieldRuleSchema = z.object({
   enabled: z.boolean().optional(),
 });
 
+/** Smart Connection (field linking) config — shared by fields and table columns. */
+const FieldLinkingConfigSchema = z.object({
+  enabled: z.boolean(),
+  mode: z.enum(['basic', 'advanced', 'restriction']).optional().default('basic'),
+  sourceFieldId: z.string().optional(), // Legacy/Primary source field
+  rules: z.array(z.object({
+    id: z.string().optional(),
+    logic: z.enum(['and', 'or']).optional().default('and'),
+    conditions: z.array(LinkingConditionNodeSchema).optional(),
+    // Legacy fields for backward compatibility during migration
+    sourceValue: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    operator: ShowConditionOperatorSchema.optional(),
+    targetValue: z.any(),
+    // New: instead of a literal value, specify a source field whose current value should be copied
+    copyFromFieldId: z.string().optional(),
+    dateRange: z.object({
+      min: z.object({
+        type: z.enum(['static', 'variable', 'field']),
+        value: z.string()
+      }).optional(),
+      max: z.object({
+        type: z.enum(['static', 'variable', 'field']),
+        value: z.string()
+      }).optional(),
+    }).optional(),
+    dynamicOptions: z.array(z.object({
+      label: z.string(),
+      value: z.string()
+    })).optional(),
+  }).refine(r => {
+    const hasVal = r.targetValue !== undefined && r.targetValue !== '';
+    const hasCopy = r.copyFromFieldId !== undefined && r.copyFromFieldId !== '';
+    // if neither value nor copy is set (e.g. newly-added rule), skip validation
+    if (!hasVal && !hasCopy) return true;
+    // otherwise ensure exactly one is provided
+    return hasVal !== hasCopy;
+  }, {
+    message: 'Each rule must have either a targetValue or copyFromFieldId (not both)'
+  })),
+  restrictionRules: z.array(z.object({
+    id: z.string().optional(),
+    logic: z.enum(['and', 'or']).optional().default('and'),
+    conditions: z.array(LinkingConditionNodeSchema),
+    action: z.enum(['required', 'disabled']),
+    apply: z.boolean().optional().default(true),
+  })).optional(),
+  dynamicConfig: z.object({
+    options: z.record(z.string(), z.array(z.object({
+      label: z.string(),
+      value: z.string()
+    }))).optional(),
+    dateRange: z.object({
+      enabled: z.boolean().optional(),
+      default: z.object({
+        min: z.object({
+          type: z.enum(['static', 'variable', 'field']),
+          value: z.string()
+        }).optional(),
+        max: z.object({
+          type: z.enum(['static', 'variable', 'field']),
+          value: z.string()
+        }).optional(),
+      }).optional(),
+      mappings: z.record(z.string(), z.object({
+        min: z.object({
+          type: z.enum(['static', 'variable', 'field']),
+          value: z.string()
+        }).optional(),
+        max: z.object({
+          type: z.enum(['static', 'variable', 'field']),
+          value: z.string()
+        }).optional(),
+      })).optional(),
+    }).optional(),
+  }).optional(),
+});
+
+/** Condition-driven alerts — shared by fields and table columns. */
+const FieldAlertsSchema = z.array(z.object({
+    id: z.string(),
+    message: z.string(),
+    type: z.enum(['info', 'warning', 'error', 'success']),
+    logic: z.enum(['and', 'or']),
+    conditions: z.array(ShowConditionSchema),
+  }));
+
 export const FormFieldSchema = z.object({
   id: z.string(),
   type: z.enum([
@@ -139,6 +225,51 @@ export const FormFieldSchema = z.object({
   }).optional(),
   rules: z.array(FieldRuleSchema).optional(),
   defaultValue: z.any().optional(),
+  // Date/time bounds written by the editor's "Limit the answer" card; the
+  // public renderer reads these ahead of `validation.min`/`validation.max`.
+  minValue: z.union([z.string(), z.number()]).optional(),
+  maxValue: z.union([z.string(), z.number()]).optional(),
+  // "Check with another system" — the endpoint, credentials and response check
+  // the server replays at submission time. Secrets stay server-side: the public
+  // schema is sanitized in form.service.ts before it reaches a browser.
+  externalValidation: z.object({
+    enabled: z.boolean(),
+    /** 'auto' (default) checks on blur; 'manual' waits for the Verify button. */
+    trigger: z.enum(['auto', 'manual']).optional(),
+    /** Custom label for the Verify button (manual trigger only). */
+    buttonLabel: z.string().max(80).optional(),
+    /** Server-populated on the public schema: other fields the payload needs. */
+    referencedFieldIds: z.array(z.string()).optional(),
+    url: z.string().max(2048),
+    method: z.enum(['GET', 'POST']).optional(),
+    headers: z.array(z.object({
+      key: z.string().max(200),
+      value: z.string().max(4000),
+    })).optional(),
+    auth: z.object({
+      type: z.enum(['none', 'bearer', 'basic', 'custom']),
+      token: z.string().optional(),
+      username: z.string().optional(),
+      password: z.string().optional(),
+      customHeaderName: z.string().optional(),
+    }).optional(),
+    params: z.array(z.object({
+      key: z.string().max(200),
+      value: z.string().max(4000),
+      type: z.enum(['static', 'field']),
+    })).optional(),
+    /** Key name for this field's value in the request payload (default "value"). */
+    fieldValueKey: z.string().max(80).optional(),
+    responseCheck: z.object({
+      path: z.string().max(200).optional(),
+      type: z.enum(['boolean', 'equals', 'notEquals', 'contains', 'notContains', 'regex', 'greaterThan', 'lessThan', 'exists']),
+      targetValue: z.union([z.string(), z.number()]).optional(),
+    }).optional(),
+    // Legacy simple setups
+    successPath: z.string().max(200).optional(),
+    errorMsg: z.string().max(1000).optional(),
+    successMsg: z.string().max(1000).optional(),
+  }).optional(),
   options: z.array(z.object({
     label: z.string(),
     value: z.string(),
@@ -159,81 +290,7 @@ export const FormFieldSchema = z.object({
       value: z.string()
     }))),
   }).optional(),
-  fieldLinking: z.object({
-    enabled: z.boolean(),
-    mode: z.enum(['basic', 'advanced', 'restriction']).optional().default('basic'),
-    sourceFieldId: z.string().optional(), // Legacy/Primary source field
-    rules: z.array(z.object({
-      id: z.string().optional(),
-      logic: z.enum(['and', 'or']).optional().default('and'),
-      conditions: z.array(LinkingConditionNodeSchema).optional(),
-      // Legacy fields for backward compatibility during migration
-      sourceValue: z.union([z.string(), z.number(), z.boolean()]).optional(),
-      operator: ShowConditionOperatorSchema.optional(),
-      targetValue: z.any(),
-      // New: instead of a literal value, specify a source field whose current value should be copied
-      copyFromFieldId: z.string().optional(),
-      dateRange: z.object({
-        min: z.object({
-          type: z.enum(['static', 'variable', 'field']),
-          value: z.string()
-        }).optional(),
-        max: z.object({
-          type: z.enum(['static', 'variable', 'field']),
-          value: z.string()
-        }).optional(),
-      }).optional(),
-      dynamicOptions: z.array(z.object({
-        label: z.string(),
-        value: z.string()
-      })).optional(),
-    }).refine(r => {
-      const hasVal = r.targetValue !== undefined && r.targetValue !== '';
-      const hasCopy = r.copyFromFieldId !== undefined && r.copyFromFieldId !== '';
-      // if neither value nor copy is set (e.g. newly-added rule), skip validation
-      if (!hasVal && !hasCopy) return true;
-      // otherwise ensure exactly one is provided
-      return hasVal !== hasCopy;
-    }, {
-      message: 'Each rule must have either a targetValue or copyFromFieldId (not both)'
-    })),
-    restrictionRules: z.array(z.object({
-      id: z.string().optional(),
-      logic: z.enum(['and', 'or']).optional().default('and'),
-      conditions: z.array(LinkingConditionNodeSchema),
-      action: z.enum(['required', 'disabled']),
-      apply: z.boolean().optional().default(true),
-    })).optional(),
-    dynamicConfig: z.object({
-      options: z.record(z.string(), z.array(z.object({
-        label: z.string(),
-        value: z.string()
-      }))).optional(),
-      dateRange: z.object({
-        enabled: z.boolean().optional(),
-        default: z.object({
-          min: z.object({
-            type: z.enum(['static', 'variable', 'field']),
-            value: z.string()
-          }).optional(),
-          max: z.object({
-            type: z.enum(['static', 'variable', 'field']),
-            value: z.string()
-          }).optional(),
-        }).optional(),
-        mappings: z.record(z.string(), z.object({
-          min: z.object({
-            type: z.enum(['static', 'variable', 'field']),
-            value: z.string()
-          }).optional(),
-          max: z.object({
-            type: z.enum(['static', 'variable', 'field']),
-            value: z.string()
-          }).optional(),
-        })).optional(),
-      }).optional(),
-    }).optional(),
-  }).optional(),
+  fieldLinking: FieldLinkingConfigSchema.optional(),
   displayConfig: z.object({
     variableId: z.string().optional(),
     label: z.string().optional(),
@@ -244,13 +301,7 @@ export const FormFieldSchema = z.object({
     showVariableName: z.boolean().optional(),
     format: z.string().optional(),
   }).optional(),
-  alerts: z.array(z.object({
-    id: z.string(),
-    message: z.string(),
-    type: z.enum(['info', 'warning', 'error', 'success']),
-    logic: z.enum(['and', 'or']),
-    conditions: z.array(ShowConditionSchema),
-  })).optional(),
+  alerts: FieldAlertsSchema.optional(),
   supportDocuments: z.array(z.object({
     id: z.string(),
     label: z.string(),
@@ -267,15 +318,45 @@ export const FormFieldSchema = z.object({
       label: z.string(),
       type: z.enum(['text', 'number', 'select', 'calculated', 'date']),
       width: z.string().optional(),
+      placeholder: z.string().max(200).optional(),
+      helpText: z.string().max(1000).optional(),
+      required: z.boolean().optional(),
       options: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
       formula: z.string().optional(),
       decimals: z.number().int().min(0).max(10).optional(),
       prefix: z.string().optional(),
       suffix: z.string().optional(),
+      // Per-column default value (pre-filled on every new row)
+      defaultValue: z.union([z.string(), z.number()]).optional(),
+      // Per-column numeric bounds
+      validation: z.object({
+        min: z.number().optional(),
+        max: z.number().optional(),
+        minLength: z.number().optional(),
+        maxLength: z.number().optional(),
+      }).optional(),
+      // Date-column min/max
+      minValue: z.string().optional(),
+      maxValue: z.string().optional(),
+      // Same rule system as top-level fields
+      rules: z.array(FieldRuleSchema).optional(),
+      // Show this column only when these conditions match
+      showWhen: ShowWhenRuleSchema.optional(),
+      // Smart Connection per column
+      fieldLinking: FieldLinkingConfigSchema.optional(),
+      // Condition-driven alerts per column
+      alerts: FieldAlertsSchema.optional(),
     })),
     defaultRows: z.number().optional(),
     allowAddRows: z.boolean().optional(),
     grandTotalColumn: z.string().optional(),
+    grandTotalLabel: z.string().max(120).optional(),
+    // Fixed named rows (e.g. SSC, HSC, Degree), each with its own active columns
+    namedRows: z.array(z.object({
+      id: z.string(),
+      label: z.string(),
+      columnIds: z.array(z.string()),
+    })).optional(),
   }).optional(),
   // Assessment fields
   correctAnswer: z.union([z.string(), z.array(z.string())]).optional(),

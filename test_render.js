@@ -10,7 +10,7 @@ import { chromium } from 'playwright';
         }
     });
 
-    await page.goto('http://localhost:12002');
+    await page.goto('http://localhost:12000');
 
     await page.waitForTimeout(5000);
 

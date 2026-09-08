@@ -357,6 +357,16 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
   const botProtectionOn = isBotProtectionEnabled(builder.settings);
   const uploadRules = resolveUploadRules(builder.settings.dms);
 
+  // v2 §3.4 — assessment/voting/survey sections exist only for the matching
+  // form type. If the type changed since this tab was chosen, fall back to
+  // General instead of showing a section that no longer applies.
+  const typeSection = activeTab === 'assessment' || activeTab === 'voting' || activeTab === 'survey'
+    ? activeTab
+    : null;
+  if (typeSection && builder.settings.formType !== typeSection) {
+    setActiveTab('general');
+  }
+
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-full w-full flex-col bg-card md:flex-row">
       <aside className="w-full shrink-0 border-b border-border bg-muted/40 md:sticky md:top-0 md:h-[calc(100vh-6.25rem)] md:w-60 md:self-start md:border-b-0 md:border-r">
@@ -392,18 +402,27 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                   <CreditCard className="h-4 w-4 mr-2" />
                   Payment
                 </TabsTrigger>
-                <TabsTrigger value="assessment" className={SETTINGS_TAB_CLASS}>
-                  <ClipboardCheck className="h-4 w-4 mr-2" />
-                  Assessment
-                </TabsTrigger>
-                <TabsTrigger value="voting" className={SETTINGS_TAB_CLASS}>
-                  <BarChart2 className="h-4 w-4 mr-2" />
-                  Voting
-                </TabsTrigger>
-                <TabsTrigger value="survey" className={SETTINGS_TAB_CLASS}>
-                  <BarChart2 className="h-4 w-4 mr-2" />
-                  Survey
-                </TabsTrigger>
+                {/* v2 §3.4 — the form's kind is asked once in the Form setup
+                    panel; only the matching type-specific section is shown
+                    here, instead of three peer enable-checkboxes. */}
+                {builder.settings.formType === 'assessment' && (
+                  <TabsTrigger value="assessment" className={SETTINGS_TAB_CLASS}>
+                    <ClipboardCheck className="h-4 w-4 mr-2" />
+                    Assessment
+                  </TabsTrigger>
+                )}
+                {builder.settings.formType === 'voting' && (
+                  <TabsTrigger value="voting" className={SETTINGS_TAB_CLASS}>
+                    <BarChart2 className="h-4 w-4 mr-2" />
+                    Voting
+                  </TabsTrigger>
+                )}
+                {builder.settings.formType === 'survey' && (
+                  <TabsTrigger value="survey" className={SETTINGS_TAB_CLASS}>
+                    <BarChart2 className="h-4 w-4 mr-2" />
+                    Survey
+                  </TabsTrigger>
+                )}
               </TabsList>
             </aside>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
 import { fetchForm, updateForm, publishForm, duplicateForm, saveFormAsTemplate } from '../store/formsSlice';
@@ -8,6 +8,7 @@ import {
   addField,
   removeField,
   updateField,
+  duplicateField,
   reorderFields,
   selectField,
   setFormName,
@@ -15,6 +16,8 @@ import {
   markSaved,
   updateVariables,
   moveFieldToStep,
+  replaceSchema,
+  setAISessionId,
 } from '../store/builderSlice';
 import { DndContext, closestCenter, useDroppable } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
@@ -24,27 +27,35 @@ import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import api from '../lib/api';
-import { replaceSchema, setAISessionId } from '../store/builderSlice';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import FieldPalette from '../components/builder/FieldPalette';
-import SortableField from '../components/builder/SortableField';
-import FieldInspector from '../components/builder/FieldInspector';
+import QuestionCard, { type FieldModalKind } from '../components/builder/QuestionCard';
+import FormSetupPanel from '../components/builder/FormSetupPanel';
+import FieldModals, { VariablesModal } from '../components/builder/FieldModals';
+import PreflightDialog from '../components/builder/PreflightDialog';
 import SettingsPanel from '../components/builder/SettingsPanel';
-import { ArrowLeft, Save, Loader2, Download, MoreVertical, Copy, Layout, Eye, Globe, Check, Edit2, Wand2, Plus, Settings } from 'lucide-react';
+import {
+  ArrowLeft, Loader2, Download, MoreVertical, Copy, LayoutTemplate, Eye, Globe, Check,
+  Edit2, Wand2, Plus, Settings,
+} from 'lucide-react';
 import type { FormField } from '../types';
 import { toast } from '../components/ui/toast';
 import { cn } from '../lib/utils';
 import FormPreview from '../components/builder/FormPreview';
+import { getSetupRows, HAS_OPTIONS, POLLABLE, defaultOptions, type SettingsSectionId } from '../components/builder/formSetup';
 
-// Droppable canvas component
-function DroppableCanvas({ children }: { children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: 'canvas',
-  });
+// Droppable canvas component. Clicks on the empty canvas collapse the
+// expanded question (v2 §3.3: editing happens on the question).
+function DroppableCanvas({ children, onBackgroundClick }: { children: React.ReactNode; onBackgroundClick: () => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'canvas' });
 
   return (
     <div
       ref={setNodeRef}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('[data-question-card]')) return;
+        onBackgroundClick();
+      }}
       className={cn(
         'min-h-[360px] rounded-lg transition-colors',
         isOver && 'bg-primary/[0.04]'
@@ -56,16 +67,60 @@ function DroppableCanvas({ children }: { children: React.ReactNode }) {
 }
 
 type EditorMode = 'canvas' | 'preview' | 'settings';
+type SaveStatus = 'saved' | 'saving' | 'error' | 'idle';
+type PersistResult = 'saved' | 'invalid' | 'error';
 
 const PANEL_MIN = 200;
 const PANEL_MAX = 480;
 const PALETTE_DEFAULT = 240;
 const INSPECTOR_DEFAULT = 320;
+/** How long after the last change the draft autosaves (v2 §3.6). */
+const AUTOSAVE_DELAY_MS = 1200;
+
+/** Default survey configuration when a question becomes a survey type. */
+function surveyDefaultsFor(type: FormField['type']): Partial<FormField>['surveyConfig'] {
+  switch (type) {
+    case 'nps': return { kind: 'nps', scale: { min: 0, max: 10, minLabel: 'Not at all likely', maxLabel: 'Extremely likely' } };
+    case 'csat': return { kind: 'csat', scale: { min: 1, max: 5, minLabel: 'Very dissatisfied', maxLabel: 'Very satisfied' } };
+    case 'ces': return { kind: 'ces', scale: { min: 1, max: 7, minLabel: 'Strongly disagree', maxLabel: 'Strongly agree' } };
+    case 'likert': return {
+      kind: 'likert',
+      scale: { min: 1, max: 5, minLabel: 'Strongly disagree', maxLabel: 'Strongly agree' },
+      rows: [{ id: `row_${Date.now()}_1`, label: 'Statement 1' }, { id: `row_${Date.now()}_2`, label: 'Statement 2' }],
+    };
+    case 'ranking': return { kind: 'ranking', ranking: { requireAll: true } };
+    default: return undefined;
+  }
+}
+
+/** Step separator on the canvas when the form is multi-step (v2 §3.3). */
+function StepSeparator({ label, muted }: { label: string; muted?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5 py-1.5">
+      <span className="h-px flex-1 bg-border" />
+      <span className={cn(
+        'whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.07em]',
+        muted
+          ? 'border-border bg-muted text-muted-foreground'
+          : 'border-primary/15 bg-accent text-primary'
+      )}>
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
 
 // Helper component to render fields by width with step information
-function FieldsByWidth({ fields }: { fields: FormField[] }) {
+function FieldsByWidth({ fields, allFields, onOpenModal }: {
+  fields: FormField[];
+  allFields: FormField[];
+  onOpenModal: (kind: FieldModalKind) => void;
+}) {
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
+  const variables = builder.schema.variables ?? [];
+  const formType = builder.settings.formType;
   const isMultiStep = builder.layout.mode === 'multiStep';
   const isHorizontal = builder.layout.orientation === 'horizontal';
 
@@ -103,20 +158,25 @@ function FieldsByWidth({ fields }: { fields: FormField[] }) {
   };
 
   const renderFieldItem = (field: FormField) => (
-    <SortableField
+    <QuestionCard
       key={field.id}
       field={field}
+      index={allFields.findIndex((f) => f.id === field.id)}
       isSelected={field.id === builder.selectedFieldId}
-      className={isHorizontal ? getSpanClass(field) : undefined}
-      onSelect={() => dispatch(selectField(field.id))}
+      allFields={allFields}
+      variables={variables}
+      formType={formType}
+      onOpenModal={onOpenModal}
       onDelete={() => dispatch(removeField(field.id))}
+      onDuplicate={() => dispatch(duplicateField(field.id))}
+      className={isHorizontal ? getSpanClass(field) : undefined}
     />
   );
 
   const renderGroups = (fieldList: FormField[]) => {
     if (isHorizontal) {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
           {fieldList.map(renderFieldItem)}
         </div>
       );
@@ -139,27 +199,17 @@ function FieldsByWidth({ fields }: { fields: FormField[] }) {
           const stepFields = fields.filter(f => step.fieldIds.includes(f.id));
           return (
             <div key={step.id} className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
-                  Step {step.order + 1}: {step.title}
-                </span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
+              <StepSeparator label={`Step ${step.order + 1}: ${step.title || 'Untitled step'}`} />
               {stepFields.length > 0
                 ? <div className="space-y-3">{renderGroups(stepFields)}</div>
-                : <p className="text-xs text-muted-foreground italic px-1">No fields assigned to this step</p>
+                : <p className="px-1 text-xs italic text-muted-foreground">No questions assigned to this step</p>
               }
             </div>
           );
         })}
         {unassigned.length > 0 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
-                Unassigned
-              </span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
+            <StepSeparator label="Unassigned" muted />
             <div className="space-y-3">{renderGroups(unassigned)}</div>
           </div>
         )}
@@ -185,6 +235,11 @@ export default function FormBuilderPage() {
   const builder = useAppSelector((state) => state.builder);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+
+  /** Latest builder state for the autosave race check. */
+  const builderRef = useRef(builder);
+  builderRef.current = builder;
 
   // function to submit AI prompt for entire form
   const handleFormAISubmit = async () => {
@@ -218,6 +273,55 @@ export default function FormBuilderPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [paletteWidth, setPaletteWidth] = useState(PALETTE_DEFAULT);
   const [inspectorWidth, setInspectorWidth] = useState(INSPECTOR_DEFAULT);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+
+  // v2 — per-question modals (launched from the ⋮ menu) and data calculations
+  const [fieldModal, setFieldModal] = useState<FieldModalKind | null>(null);
+  const [variablesOpen, setVariablesOpen] = useState(false);
+  const [preflightOpen, setPreflightOpen] = useState(false);
+
+  const openFieldModal = (kind: FieldModalKind) => {
+    if (kind === 'variables') setVariablesOpen(true);
+    else setFieldModal(kind);
+  };
+
+  // AI modal state for global form editing
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isAISubmitting, setIsAISubmitting] = useState(false);
+
+  useEffect(() => {
+    if (formId && currentOrg?.id) {
+      dispatch(fetchForm(formId));
+      dispatch(fetchFormAccess(formId));
+    }
+  }, [formId, currentOrg?.id, dispatch]);
+
+  /**
+   * Load the fetched form into the builder — once per form.
+   *
+   * `updateForm.fulfilled` replaces `currentForm` with the server's copy, so
+   * keying this on `currentForm` alone would tear the builder down after every
+   * save. With autosave (v2 §3.6) that would collapse the question being
+   * edited every second, so the form id is what decides when to (re)load.
+   */
+  const initializedFormRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentForm || initializedFormRef.current === currentForm.id) return;
+    initializedFormRef.current = currentForm.id;
+    dispatch(initializeBuilder({
+      schema: currentForm.schema,
+      settings: currentForm.settings,
+      name: currentForm.name,
+      description: currentForm.description || '',
+    }));
+    // v2 §3.1 — a brand-new form opens with its one empty question already
+    // expanded, cursor in the label, so the first interaction is typing.
+    const fields = currentForm.schema?.fields ?? [];
+    if (fields.length === 1 && fields[0].type === 'text' && !fields[0].label && !currentForm.isPublished) {
+      dispatch(selectField(fields[0].id));
+    }
+  }, [currentForm, dispatch]);
 
   // Drag-to-resize handlers for the side panels.
   const beginResize = (side: 'palette' | 'inspector') => (e: React.PointerEvent) => {
@@ -246,30 +350,6 @@ export default function FormBuilderPage() {
     window.addEventListener('pointermove', handleMove);
     window.addEventListener('pointerup', handleUp);
   };
-
-  // AI modal state for global form editing
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [isAISubmitting, setIsAISubmitting] = useState(false);
-
-  useEffect(() => {
-    if (formId && currentOrg?.id) {
-      dispatch(fetchForm(formId));
-      dispatch(fetchFormAccess(formId));
-    }
-  }, [formId, currentOrg?.id, dispatch]);
-
-  useEffect(() => {
-    if (currentForm) {
-      dispatch(initializeBuilder({
-        schema: currentForm.schema,
-        settings: currentForm.settings,
-        name: currentForm.name,
-        description: currentForm.description || '',
-      }));
-    }
-  }, [currentForm, dispatch]);
-
 
   const getSchemaWithLayout = () => {
     const schema = {
@@ -301,7 +381,7 @@ export default function FormBuilderPage() {
         validatedField.type = 'text';
       }
       if (!validatedField.label) {
-        validatedField.label = `Field ${index + 1}`;
+        validatedField.label = 'Untitled question';
       }
       validatedField.required = !!validatedField.required;
 
@@ -322,6 +402,11 @@ export default function FormBuilderPage() {
           cleanedField[prop] = value;
         }
       });
+
+      // Preserve survey configuration
+      if (validatedField.surveyConfig && Object.keys(validatedField.surveyConfig).length > 0) {
+        cleanedField.surveyConfig = validatedField.surveyConfig;
+      }
 
       // Add options array for select, radio, checkbox, multiselect fields
       if (validatedField.options && Array.isArray(validatedField.options) && validatedField.options.length > 0) {
@@ -444,28 +529,31 @@ export default function FormBuilderPage() {
     }
   };
 
-  const handleSave = async () => {
-    if (!formId) return;
+  /**
+   * Persist the form. `silent` is used by the autosave (v2 §3.6): validation
+   * hiccups are not toasted, only real failures surface in the status line.
+   */
+  const persistForm = async (silent: boolean): Promise<PersistResult> => {
+    if (!formId) return 'invalid';
 
-    // Check backend connectivity first
-    const isBackendAccessible = await checkBackendConnectivity();
-    if (!isBackendAccessible) {
-      toast.error('Backend server is not accessible. Please check if the server is running and try again.');
-      return;
-    }
-
-    // Validate before saving
     if (!builder.formName || builder.formName.trim() === '') {
-      toast.error('Form name is required. Please add a form name before saving.');
-      return;
+      if (!silent) toast.error('Form name is required. Please add a form name before saving.');
+      return 'invalid';
     }
 
     if (!builder.schema || !builder.schema.fields || builder.schema.fields.length === 0) {
-      toast.error('Form must have at least one field before saving.');
-      return;
+      if (!silent) toast.error('Form must have at least one field before saving.');
+      return 'invalid';
+    }
+
+    const isBackendAccessible = await checkBackendConnectivity();
+    if (!isBackendAccessible) {
+      if (!silent) toast.error('Backend server is not accessible. Please check if the server is running and try again.');
+      return 'error';
     }
 
     setIsSaving(true);
+    const stateAtSave = builder;
     try {
       const schema = getSchemaWithLayout();
 
@@ -498,8 +586,8 @@ export default function FormBuilderPage() {
       });
 
       if (invalidFields.length > 0) {
-        toast.error('Form schema validation failed. Please check field configurations.');
-        return;
+        if (!silent) toast.error('Form schema validation failed. Please check field configurations.');
+        return 'invalid';
       }
 
       const formData = {
@@ -512,51 +600,101 @@ export default function FormBuilderPage() {
         },
       };
 
-      // Saving form
       await dispatch(updateForm({ id: formId, data: formData.data })).unwrap();
-      // Form saved successfully
-      dispatch(markSaved());
-      toast.success({ title: 'Form saved', description: 'Your changes are saved.' });
+      // Only clear the dirty flag when nothing changed while the request was
+      // in flight — otherwise a keystroke made during the save would be
+      // silently marked as saved.
+      if (builderRef.current === stateAtSave) {
+        dispatch(markSaved());
+      }
+      if (!silent) toast.success({ title: 'Form saved', description: 'Your changes are saved.' });
+      return 'saved';
     } catch (error: any) {
-      // Handle structured errors from Redux Toolkit
-      let errorMessage = 'Failed to save form';
-      let validationErrors = null;
+      if (!silent) {
+        // Handle structured errors from Redux Toolkit
+        let errorMessage = 'Failed to save form';
+        let validationErrors = null;
 
-      if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error && typeof error === 'object') {
-        // Check if it's a structured error from Redux Toolkit
-        if (error.error) {
-          errorMessage = error.error;
-          validationErrors = error.details;
-        } else {
-          // Check for network/CORS issues
-          if (!error.response) {
-            if (error.message && (error.message.includes('Network Error') || error.message.includes('ERR_NETWORK'))) {
-              toast.error('Network Error: Unable to connect to the server. Please check if the backend server is running.');
-              return;
-            } else if (error.message && error.message.includes('CORS')) {
-              toast.error('CORS Error: Server configuration issue. Please check backend CORS settings.');
-              return;
-            } else if (error.code === 'ECONNREFUSED' || error.code === 'ERR_CONNECTION_REFUSED') {
-              toast.error('Connection Refused: Backend server is not running or not accessible.');
-              return;
+        if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (error && typeof error === 'object') {
+          if (error.error) {
+            errorMessage = error.error;
+            validationErrors = error.details;
+          } else {
+            if (!error.response) {
+              if (error.message && (error.message.includes('Network Error') || error.message.includes('ERR_NETWORK'))) {
+                toast.error('Network Error: Unable to connect to the server. Please check if the backend server is running.');
+                return 'error';
+              } else if (error.message && error.message.includes('CORS')) {
+                toast.error('CORS Error: Server configuration issue. Please check backend CORS settings.');
+                return 'error';
+              } else if (error.code === 'ECONNREFUSED' || error.code === 'ERR_CONNECTION_REFUSED') {
+                toast.error('Connection Refused: Backend server is not running or not accessible.');
+                return 'error';
+              }
             }
-          }
 
-          errorMessage = error.response?.data?.error || error.message || 'Failed to save form';
-          validationErrors = error.response?.data?.details;
+            errorMessage = error.response?.data?.error || error.message || 'Failed to save form';
+            validationErrors = error.response?.data?.details;
+          }
+        }
+
+        if (validationErrors) {
+          toast.error({ title: 'Validation failed', description: JSON.stringify(validationErrors, null, 2) });
+        } else {
+          toast.error(`Save failed: ${errorMessage}`);
         }
       }
-
-      if (validationErrors) {
-        toast.error({ title: 'Validation failed', description: JSON.stringify(validationErrors, null, 2) });
-      } else {
-        toast.error(`Save failed: ${errorMessage}`);
-      }
+      return 'error';
     } finally {
       setIsSaving(false);
     }
+  };
+
+  /* v2 §3.6 — the draft autosaves; the Save button is gone. */
+  const persistRef = useRef(persistForm);
+  persistRef.current = persistForm;
+  const autoSaveTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!builder.unsavedChanges) return;
+    setSaveStatus('saving');
+    if (autoSaveTimer.current) window.clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = window.setTimeout(async () => {
+      autoSaveTimer.current = null;
+      const result = await persistRef.current(true);
+      setSaveStatus(result === 'saved' ? 'saved' : result === 'invalid' ? 'idle' : 'error');
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (autoSaveTimer.current) {
+        window.clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = null;
+      }
+    };
+  }, [builder.unsavedChanges, builder.schema, builder.settings, builder.formName, builder.formDescription]);
+
+  // Leaving the editor with a save still pending flushes it, so switching to
+  // the dashboard right after typing cannot drop the last edit.
+  useEffect(() => {
+    const flush = () => {
+      if (autoSaveTimer.current) {
+        window.clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = null;
+        void persistRef.current(true);
+      }
+    };
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      flush();
+    };
+  }, []);
+
+  const retrySave = async () => {
+    setSaveStatus('saving');
+    const result = await persistForm(false);
+    setSaveStatus(result === 'saved' ? 'saved' : result === 'invalid' ? 'idle' : 'error');
   };
 
   const handlePublish = async () => {
@@ -583,9 +721,6 @@ export default function FormBuilderPage() {
     setIsPublishing(true);
     try {
       const schema = getSchemaWithLayout();
-
-      // Additional validation for schema structure
-      // Validating schema structure for publish
 
       // Check each field for required properties and linking rules
       const invalidFields = schema.fields.filter((field: any) => {
@@ -635,6 +770,8 @@ export default function FormBuilderPage() {
       // Then publish
       const result = await dispatch(publishForm(formId)).unwrap();
       dispatch(markSaved());
+      setSaveStatus('saved');
+      setPreflightOpen(false);
       toast.success({ title: 'Form published', description: 'It is now live and accepting responses.' });
 
       // Fix undefined org slug issue
@@ -650,12 +787,10 @@ export default function FormBuilderPage() {
       if (typeof error === 'string') {
         errorMessage = error;
       } else if (error && typeof error === 'object') {
-        // Check if it's a structured error from Redux Toolkit
         if (error.error) {
           errorMessage = error.error;
           validationErrors = error.details;
         } else {
-          // Check for network/CORS issues
           if (!error.response) {
             if (error.message && (error.message.includes('Network Error') || error.message.includes('ERR_NETWORK'))) {
               toast.error('Network Error: Unable to connect to the server. Please check if the backend server is running.');
@@ -775,65 +910,59 @@ export default function FormBuilderPage() {
     }
   };
 
+  /** v2 — new questions start empty and focused, not pre-labelled. */
   const handleAddField = (type: FormField['type']) => {
     const newField: FormField = {
-      id: `field_${Date.now()}`,
+      id: `field_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       type,
-      label: getDefaultLabel(type),
+      label: '',
       placeholder: '',
       required: false,
-      options: ['select', 'radio', 'checkbox', 'multiselect'].includes(type)
-        ? [{ label: 'Option 1', value: 'option1' }]
-        : type === 'ranking'
-          ? [{ label: 'First item', value: 'item_1' }, { label: 'Second item', value: 'item_2' }, { label: 'Third item', value: 'item_3' }]
-          : undefined,
-      surveyConfig: type === 'nps'
-        ? { kind: 'nps', scale: { min: 0, max: 10, minLabel: 'Not at all likely', maxLabel: 'Extremely likely' } }
-        : type === 'csat'
-          ? { kind: 'csat', scale: { min: 1, max: 5, minLabel: 'Very dissatisfied', maxLabel: 'Very satisfied' } }
-          : type === 'ces'
-            ? { kind: 'ces', scale: { min: 1, max: 7, minLabel: 'Strongly disagree', maxLabel: 'Strongly agree' } }
-            : type === 'likert'
-              ? { kind: 'likert', scale: { min: 1, max: 5, minLabel: 'Strongly disagree', maxLabel: 'Strongly agree' }, rows: [{ id: 'row_1', label: 'Statement 1' }, { id: 'row_2', label: 'Statement 2' }] }
-              : type === 'ranking'
-                ? { kind: 'ranking', ranking: { requireAll: true } }
-                : undefined,
+      options: HAS_OPTIONS(type) ? defaultOptions() : undefined,
+      surveyConfig: surveyDefaultsFor(type),
     };
     dispatch(addField(newField));
     dispatch(selectField(newField.id));
-  };
-
-  const getDefaultLabel = (type: FormField['type']): string => {
-    const labels: Record<string, string> = {
-      text: 'Text Field',
-      email: 'Email Address',
-      phone: 'Phone Number',
-      number: 'Number',
-      select: 'Dropdown',
-      radio: 'Radio Buttons',
-      checkbox: 'Checkboxes',
-      date: 'Date',
-      time: 'Time',
-      textarea: 'Long Text',
-      file: 'File Upload',
-      rating: 'Rating',
-      signature: 'Signature',
-      html: 'Custom HTML',
-      display: 'Display Value',
-      table: 'Table Grid',
-      nps: 'How likely are you to recommend us?',
-      csat: 'How satisfied are you with your experience?',
-      ces: 'How easy was it to complete your goal?',
-      likert: 'How much do you agree with each statement?',
-      ranking: 'Rank these items in order of preference',
-    };
-    return labels[type] || 'New Field';
+    // Bring the new question into view, cursor ready in its label.
+    window.setTimeout(() => {
+      document.getElementById(`q-${newField.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  /** Jump from the Form setup panel into a settings section. */
+  const goToSettingsSection = (target: 'layout' | SettingsSectionId) => {
+    try {
+      const scope = formId ?? 'draft';
+      window.sessionStorage.setItem(`sifyforms.builder.${scope}.settingsTab`, JSON.stringify(target === 'layout' ? 'layout' : 'form'));
+      if (target !== 'layout') {
+        window.sessionStorage.setItem(`sifyforms.builder.${scope}.formSettingsTab`, JSON.stringify(target));
+      }
+    } catch {
+      // Storage unavailable: the settings workspace simply opens on its last tab.
+    }
+    setMode('settings');
+  };
+
+  /** Pre-flight “Fix this” actions (v2 §3.6). */
+  const handlePreflightFix = (action: 'poll' | 'payment' | 'scoring') => {
+    if (action === 'payment') {
+      goToSettingsSection('payment');
+    } else if (action === 'poll') {
+      setMode('canvas');
+    } else if (action === 'scoring') {
+      const firstChoice = builder.schema.fields.find((f) => POLLABLE(f.type));
+      setMode('canvas');
+      if (firstChoice) {
+        dispatch(selectField(firstChoice.id));
+        setFieldModal('scoring');
+      }
+    }
   };
 
   if (formLoading || (currentForm && !formAccess && !formAccessError)) {
@@ -869,19 +998,39 @@ export default function FormBuilderPage() {
     );
   }
 
-  const selectedField = builder.schema.fields.find((f) => f.id === builder.selectedFieldId);
+  const selectedField = builder.schema.fields.find((f) => f.id === builder.selectedFieldId) ?? null;
+  const variables = builder.schema.variables ?? [];
+  const setupBadge = getSetupRows(builder.schema.fields, builder.settings, builder.layout, variables)
+    .filter((row) => !row.warn).length;
+
+  const publicFormUrl = currentOrg
+    ? `${import.meta.env.VITE_PUBLIC_URL || window.location.origin}/${currentOrg.slug || 'default-org'}/${currentForm.slug}`
+    : null;
+
+  const autosaveSentence = (() => {
+    if (saveStatus === 'saving' || isSaving) {
+      return { className: 'text-muted-foreground', dot: 'bg-warning animate-pulse', text: 'Saving…' };
+    }
+    if (saveStatus === 'error') {
+      return { className: 'text-destructive', dot: 'bg-destructive', text: "Couldn't save — retrying", clickable: true };
+    }
+    if (saveStatus === 'idle') {
+      return { className: 'text-muted-foreground', dot: 'bg-muted-foreground/40', text: 'Nothing to save yet' };
+    }
+    return { className: 'text-muted-foreground', dot: 'bg-success', text: currentForm.isPublished ? 'All changes published' : 'All changes saved' };
+  })();
 
   return (
     <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
-      {/* Header */}
+      {/* Header (v2: the mode switch sits after the name, autosave replaces Save) */}
       <header className="relative shrink-0 border-b border-border/70 bg-card">
-        <div className="flex h-14 items-center gap-1 px-2.5 sm:px-3">
-          {/* Left — back + form name + status */}
+        <div className="flex h-14 items-center gap-2 px-2.5 sm:px-3">
+          {/* Left — back, name, status, mode switch */}
           <div className="flex min-w-0 flex-1 items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+              className="h-7 w-7 flex-none p-0 text-muted-foreground hover:text-foreground"
               onClick={() => navigate('/dashboard')}
               title="Back to dashboard"
               aria-label="Back to dashboard"
@@ -908,7 +1057,7 @@ export default function FormBuilderPage() {
               <button
                 type="button"
                 onClick={() => setIsEditingName(true)}
-                className="group/name flex min-w-0 max-w-[240px] items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
+                className="group/name flex min-w-0 max-w-[240px] flex-none items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-muted/60"
                 title="Rename form"
               >
                 <span className="truncate text-[12px] font-semibold text-foreground">
@@ -918,86 +1067,120 @@ export default function FormBuilderPage() {
               </button>
             )}
 
-            {/* Status pills */}
-            <div className="flex shrink-0 items-center gap-1.5 pl-1">
+            {/* Status pill + autosave sentence (v2 §3.6) */}
+            <div className="hidden items-center gap-1.5 pl-1 sm:flex">
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                  currentForm.isPublished
+                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap',
+                  currentForm.isPublished && !builder.unsavedChanges
                     ? 'bg-green-500/10 text-green-600'
-                    : 'bg-muted text-muted-foreground'
+                    : currentForm.isPublished && builder.unsavedChanges
+                      ? 'bg-amber-500/10 text-amber-600'
+                      : 'bg-muted text-muted-foreground'
                 )}
               >
-                <span className={cn('h-1.5 w-1.5 rounded-full', currentForm.isPublished ? 'bg-green-500' : 'bg-muted-foreground/50')} />
-                {currentForm.isPublished ? 'Published' : 'Draft'}
+                <span className={cn(
+                  'h-1.5 w-1.5 rounded-full',
+                  currentForm.isPublished && !builder.unsavedChanges ? 'bg-green-500'
+                    : currentForm.isPublished && builder.unsavedChanges ? 'bg-amber-500'
+                      : 'bg-muted-foreground/50'
+                )} />
+                {currentForm.isPublished
+                  ? builder.unsavedChanges ? 'Published · unpublished changes' : 'Published'
+                  : 'Draft'}
               </span>
-              {builder.unsavedChanges && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                  Unsaved
+              {autosaveSentence.clickable ? (
+                <button
+                  type="button"
+                  onClick={retrySave}
+                  className="inline-flex items-center gap-1.5 text-[10.5px] whitespace-nowrap text-destructive hover:underline"
+                  title="Try saving again"
+                >
+                  <span className={cn('h-1.5 w-1.5 rounded-full', autosaveSentence.dot)} />
+                  {autosaveSentence.text}
+                </button>
+              ) : (
+                <span className={cn('inline-flex items-center gap-1.5 text-[10.5px] whitespace-nowrap', autosaveSentence.className)}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', autosaveSentence.dot)} />
+                  {autosaveSentence.text}
                 </span>
               )}
             </div>
-          </div>
 
-          {/* Center — canvas/preview/settings toggle */}
-          <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center rounded-lg bg-ink-100 p-0.5">
-            {(['canvas', 'preview', 'settings'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setMode(value)}
-                aria-pressed={mode === value}
-                className={cn(
-                  'flex h-7 items-center gap-1.5 rounded-md px-3 text-[11px] font-medium capitalize transition-colors',
-                  mode === value
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {value === 'preview' && <Eye className="h-3 w-3" strokeWidth={1.8} />}
-                {value === 'canvas' && <Layout className="h-3 w-3" strokeWidth={1.8} />}
-                {value === 'settings' && <Settings className="h-3 w-3" strokeWidth={1.8} />}
-                {value}
-              </button>
-            ))}
+            <div className="w-2 flex-none" />
+
+            {/* Mode switch — after the name, out of the absolute-centre collision (v2 §1.3) */}
+            <div className="flex flex-none items-center rounded-lg bg-ink-100 p-0.5">
+              {([
+                { value: 'canvas' as const, icon: LayoutTemplate, label: 'canvas' },
+                { value: 'preview' as const, icon: Eye, label: 'preview' },
+                { value: 'settings' as const, icon: Settings, label: 'Form setup' },
+              ]).map(({ value, icon: Icon, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setMode(value)}
+                  aria-pressed={mode === value}
+                  className={cn(
+                    'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-colors sm:px-3',
+                    mode === value
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className="h-3 w-3" strokeWidth={1.8} />
+                  <span className="hidden lg:inline">{label}</span>
+                  {value === 'settings' && (
+                    <span className="inline-grid h-[15px] min-w-[15px] place-items-center rounded-full bg-primary px-1 text-[9px] font-bold leading-none text-primary-foreground">
+                      {setupBadge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Right — actions */}
           <div className="flex flex-1 items-center justify-end gap-1.5">
-            <div className="relative group">
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="More actions">
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                aria-label="More actions"
+                aria-expanded={moreMenuOpen}
+                onClick={() => setMoreMenuOpen((v) => !v)}
+              >
                 <MoreVertical className="h-3.5 w-3.5" strokeWidth={1.8} />
               </Button>
-              <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-lg border border-border bg-popover p-1 opacity-0 shadow-lg shadow-foreground/5 invisible transition-all group-hover:opacity-100 group-hover:visible">
-                <button
-                  onClick={() => {
-                    setNewName(`${builder.formName} (Copy)`);
-                    setShowNamingDialog('duplicate');
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
-                >
-                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                  Duplicate Form
-                </button>
-                <button
-                  onClick={() => {
-                    setNewName(builder.formName);
-                    setShowNamingDialog('template');
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
-                >
-                  <Layout className="h-3.5 w-3.5 text-muted-foreground" />
-                  Save as Template
-                </button>
-                <button
-                  onClick={handleExportJSON}
-                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
-                >
-                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                  Export JSON
-                </button>
-              </div>
+              {moreMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-lg border border-border bg-popover p-1 shadow-lg shadow-foreground/5">
+                    <button
+                      onClick={() => { setMoreMenuOpen(false); setNewName(`${builder.formName} (Copy)`); setShowNamingDialog('duplicate'); }}
+                      className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
+                    >
+                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                      Duplicate Form
+                    </button>
+                    <button
+                      onClick={() => { setMoreMenuOpen(false); setNewName(builder.formName); setShowNamingDialog('template'); }}
+                      className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
+                    >
+                      <LayoutTemplate className="h-3.5 w-3.5 text-muted-foreground" />
+                      Save as Template
+                    </button>
+                    <button
+                      onClick={() => { setMoreMenuOpen(false); handleExportJSON(); }}
+                      className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
+                    >
+                      <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                      Export JSON
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="mx-1 h-4 w-px bg-border/70" />
@@ -1013,34 +1196,26 @@ export default function FormBuilderPage() {
               <Wand2 className="h-3.5 w-3.5 text-primary" strokeWidth={1.8} />
             </Button>
 
-            <Button variant="outline" size="sm" className="h-7 gap-1.5 rounded-lg px-2.5 text-[12px]" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <>
-                  <Save className="h-3.5 w-3.5" strokeWidth={1.8} />
-                  <span className="hidden sm:inline">Save</span>
-                </>
-              )}
-            </Button>
-
-            {currentForm.isPublished && currentOrg && (
+            {currentForm.isPublished && publicFormUrl && (
               <Button
                 variant="outline"
                 size="sm"
                 className="h-7 gap-1.5 rounded-lg px-2.5 text-[12px]"
-                onClick={() => {
-                  const orgSlug = currentOrg?.slug || 'default-org';
-                  const BASE_URL = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-                  window.open(`${BASE_URL}/${orgSlug}/${currentForm.slug}`, '_blank');
-                }}
+                onClick={() => window.open(publicFormUrl, '_blank')}
+                title="Opens the live public form in a new tab"
               >
                 <Eye className="h-3.5 w-3.5" strokeWidth={1.8} />
-                <span className="hidden sm:inline">Preview</span>
+                <span className="hidden sm:inline">Open form</span>
               </Button>
             )}
 
-            <Button size="sm" className="h-7 gap-1.5 rounded-lg px-3 text-[12px]" onClick={handlePublish} disabled={isPublishing}>
+            {/* v2 §3.6 — Publish is the only button; it runs the pre-flight first */}
+            <Button
+              size="sm"
+              className="h-7 gap-1.5 rounded-lg px-3 text-[12px]"
+              onClick={() => setPreflightOpen(true)}
+              disabled={isPublishing}
+            >
               {isPublishing ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -1191,6 +1366,43 @@ export default function FormBuilderPage() {
         </div>
       )}
 
+      {/* Pre-flight check before publishing (v2 §3.6) */}
+      <PreflightDialog
+        open={preflightOpen}
+        onOpenChange={setPreflightOpen}
+        fields={builder.schema.fields}
+        settings={builder.settings}
+        layout={builder.layout}
+        variables={variables}
+        isPublishing={isPublishing}
+        onPublish={handlePublish}
+        onFix={handlePreflightFix}
+      />
+
+      {/* Per-question modals, launched from the ⋮ menu (v2 §3.3) */}
+      {selectedField && (
+        <FieldModals
+          key={selectedField.id}
+          field={selectedField}
+          allFields={builder.schema.fields}
+          variables={variables}
+          formId={formId}
+          activeModal={fieldModal}
+          onClose={() => setFieldModal(null)}
+          onUpdate={(updates) => dispatch(updateField({ id: selectedField.id, updates }))}
+        />
+      )}
+
+      {/* Data calculations — reachable from the ⋮ menu and the Form setup panel */}
+      {variablesOpen && (
+        <VariablesModal
+          variables={variables}
+          fields={builder.schema.fields}
+          onClose={() => setVariablesOpen(false)}
+          onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
+        />
+      )}
+
       {/* Main Content */}
       {mode === 'preview' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -1208,7 +1420,7 @@ export default function FormBuilderPage() {
         <SettingsPanel formId={formId} />
       ) : (
         <div className="min-h-0 flex-1 flex">
-          {/* Field Palette */}
+          {/* Field Palette — eight intentions (v2 §3.2) */}
           <aside
             className="relative shrink-0 overflow-hidden border-r border-border/70 bg-card"
             style={{ width: paletteWidth }}
@@ -1227,7 +1439,13 @@ export default function FormBuilderPage() {
           />
 
           {/* Canvas */}
-          <main className="min-w-0 flex-1 overflow-y-auto bg-workspace">
+          <main
+            className="min-w-0 flex-1 overflow-y-auto bg-workspace scrollbar-subtle"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest('[data-question-card]')) return;
+              dispatch(selectField(null));
+            }}
+          >
             <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
               <div className={cn(
                 'mx-auto rounded-xl border border-border bg-card shadow-sm',
@@ -1246,14 +1464,14 @@ export default function FormBuilderPage() {
                   />
                 </div>
 
-                {/* Fields */}
+                {/* Questions */}
                 <div className="px-5 py-6 sm:px-8 sm:py-8">
                   <DndContext
                     collisionDetection={closestCenter}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                   >
-                    <DroppableCanvas>
+                    <DroppableCanvas onBackgroundClick={() => dispatch(selectField(null))}>
                       <SortableContext
                         items={builder.schema.fields.map((f) => f.id)}
                         strategy={verticalListSortingStrategy}
@@ -1265,15 +1483,27 @@ export default function FormBuilderPage() {
                                 <Plus className="h-6 w-6" strokeWidth={1.8} />
                               </div>
                               <p className="mt-4 text-[14px] font-semibold text-foreground">
-                                Drag and drop a field here
+                                Drag and drop a question here
                               </p>
                               <p className="mt-1 text-[12px] text-muted-foreground">
-                                Or click a field type from the library on the left to add it
+                                Or click a question type from the panel on the left to add it
                               </p>
                             </div>
                           ) : (
-                            <FieldsByWidth fields={builder.schema.fields} />
+                            <FieldsByWidth
+                              fields={builder.schema.fields}
+                              allFields={builder.schema.fields}
+                              onOpenModal={openFieldModal}
+                            />
                           )}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleAddField('text'); }}
+                            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-border px-4 py-3.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/45 hover:bg-accent/60 hover:text-primary"
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                            Add a question
+                          </button>
                         </div>
                       </SortableContext>
                     </DroppableCanvas>
@@ -1291,20 +1521,17 @@ export default function FormBuilderPage() {
             aria-orientation="vertical"
           />
 
-          {/* Inspector Panel */}
+          {/* Right panel — Form setup, for the form rather than the field (v2 §3.3) */}
           <aside
             className="relative shrink-0 overflow-hidden border-l border-border/70 bg-card"
             style={{ width: inspectorWidth }}
           >
-            <FieldInspector
-              key={selectedField?.id || 'form-actions'}
-              field={selectedField}
-              allFields={builder.schema.fields}
-              variables={builder.schema.variables}
-              formId={formId}
-              onUpdate={(updates) => selectedField && dispatch(updateField({ id: selectedField.id, updates }))}
-              onUpdateVariables={(newVariables) => dispatch(updateVariables(newVariables))}
-              onClose={() => dispatch(selectField(null))}
+            <FormSetupPanel
+              onOpenVariables={() => setVariablesOpen(true)}
+              onGoToSettings={(target) => {
+                if (target === 'canvas') setMode('canvas');
+                else goToSettingsSection(target);
+              }}
             />
           </aside>
         </div>

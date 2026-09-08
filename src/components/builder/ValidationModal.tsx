@@ -2,8 +2,9 @@ import type { FieldRule, FormField } from '../../types';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Checkbox as UICheckbox } from '../ui/checkbox';
 import { Select } from '../ui/select';
-import { X, Plus, Trash2, ShieldCheck } from 'lucide-react';
+import { X, Plus, Trash2, ShieldCheck, Settings2 } from 'lucide-react';
 
 interface ValidationModalProps {
     field: FormField;
@@ -116,7 +117,7 @@ export function ValidationModal({
                             <ShieldCheck className="h-4 w-4" strokeWidth={1.9} />
                         </span>
                         <div>
-                            <h2 className="font-display text-base font-bold text-foreground">Validation rules</h2>
+                            <h2 className="font-display text-base font-bold text-foreground">Limit the answer</h2>
                             <p className="mt-0.5 text-xs font-medium leading-5 text-muted-foreground">
                                 Make sure “{field.label}” only accepts the data you expect.
                             </p>
@@ -235,6 +236,69 @@ export function ValidationModal({
                             Add another rule
                         </button>
                     )}
+
+                    {/* v2 §7 — Constraints & Defaults, merged into this dialog.
+                        Covers what rules cannot express: the starting value,
+                        date/time bounds, and answer uniqueness. */}
+                    <div className="rounded-xl border border-border/80 bg-card shadow-sm">
+                        <div className="flex items-center gap-2.5 border-b border-border/60 px-4 py-2.5">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-muted/70 text-ink-500">
+                                <Settings2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+                            </span>
+                            <span className="text-[13px] font-semibold text-foreground">Defaults &amp; limits</span>
+                        </div>
+                        <div className="space-y-3.5 px-4 py-3.5">
+                            {['text', 'email', 'phone', 'number', 'date', 'time', 'textarea'].includes(field.type) && (
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Default value</Label>
+                                    <Input
+                                        type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
+                                        value={field.defaultValue ?? ''}
+                                        onChange={(e) => onUpdate({ defaultValue: e.target.value || undefined })}
+                                        placeholder={`Shown when the form loads${field.type === 'number' ? ' (e.g. 0)' : ''}`}
+                                    />
+                                    <p className="text-[10.5px] text-muted-foreground">Smart Connection settings override this when they are enabled.</p>
+                                </div>
+                            )}
+                            {['date', 'time'].includes(field.type) && (
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Minimum {field.type === 'date' ? 'date' : 'time'}</Label>
+                                        <Input
+                                            type={field.type}
+                                            value={field.minValue ?? ''}
+                                            onChange={(e) => onUpdate({ minValue: e.target.value || undefined })}
+                                            placeholder="No minimum"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Maximum {field.type === 'date' ? 'date' : 'time'}</Label>
+                                        <Input
+                                            type={field.type}
+                                            value={field.maxValue ?? ''}
+                                            onChange={(e) => onUpdate({ maxValue: e.target.value || undefined })}
+                                            placeholder="No maximum"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            {field.type !== 'table' && (
+                                <label className="flex cursor-pointer items-start gap-2.5">
+                                    <UICheckbox
+                                        checked={!!field.unique}
+                                        onCheckedChange={(checked: boolean) => onUpdate({ unique: !!checked })}
+                                        className="mt-0.5"
+                                    />
+                                    <span className="text-[13px]">
+                                        <span className="font-medium text-foreground">Unique submission value</span>
+                                        <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+                                            Rejects a value that was already submitted{!field.required ? '. Only checked when the respondent enters one.' : '.'}
+                                        </span>
+                                    </span>
+                                </label>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Footer */}

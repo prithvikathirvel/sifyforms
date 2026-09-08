@@ -106,10 +106,15 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
         description: formDescription.trim(),
         teamId: effectiveTeamId,
         schema: {
+          // Editor v2 §3.1 — a new form starts with one empty short-answer
+          // question on the canvas, not an empty state. The first interaction
+          // becomes typing, not deciding.
           fields: formMode === 'survey' ? [
             { id: 'survey_nps', type: 'nps', label: 'How likely are you to recommend us?', required: true, surveyConfig: { kind: 'nps', scale: { min: 0, max: 10, minLabel: 'Not at all likely', maxLabel: 'Extremely likely' } } },
             { id: 'survey_feedback', type: 'textarea', label: 'What is the main reason for your score?', required: false, placeholder: 'Share your feedback' },
-          ] as FormField[] : [],
+          ] as FormField[] : [
+            { id: `field_${Date.now()}`, type: 'text', label: '', placeholder: '', required: false } as FormField,
+          ],
           layout: { mode: 'singlePage', steps: [] },
         },
         settings: formMode === 'survey'

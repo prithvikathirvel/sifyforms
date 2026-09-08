@@ -77,6 +77,26 @@ const builderSlice = createSlice({
         state.unsavedChanges = true;
       }
     },
+    /** v2 — duplicate a question in place, right below the original. */
+    duplicateField: (state, action: PayloadAction<string>) => {
+      const index = state.schema.fields.findIndex(f => f.id === action.payload);
+      if (index === -1) return;
+      const source = state.schema.fields[index];
+      const copy: FormField = JSON.parse(JSON.stringify(source));
+      copy.id = `field_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      state.schema.fields.splice(index + 1, 0, copy);
+      // In multi-step forms the copy joins the same step, right after its source.
+      if (state.layout.steps && state.layout.steps.length > 0) {
+        state.layout.steps = state.layout.steps.map((step) => ({
+          ...step,
+          fieldIds: step.fieldIds.includes(action.payload)
+            ? step.fieldIds.flatMap((id) => (id === action.payload ? [id, copy.id] : [id]))
+            : step.fieldIds,
+        }));
+      }
+      state.selectedFieldId = copy.id;
+      state.unsavedChanges = true;
+    },
     updateVariables: (state, action: PayloadAction<FormVariable[]>) => {
       state.schema.variables = action.payload;
       state.unsavedChanges = true;
@@ -234,6 +254,7 @@ export const {
   addField,
   removeField,
   updateField,
+  duplicateField,
   updateVariables,
   reorderFields,
   selectField,
