@@ -9,6 +9,8 @@ import { Checkbox as UICheckbox } from '../components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight, ExternalLink, CreditCard, BarChart2, XCircle, Lock, ShieldCheck } from 'lucide-react';
+import CountrySelect from '../components/ui/CountrySelect';
+import { countryByIso, phoneCountries, splitPhoneValue } from '../lib/countries';
 import { PoweredBySify } from '../components/ui/SifyWordmark';
 import { FormBranding } from '../components/ui/FormBranding';
 import PostSubmitExperience from '../components/forms/PostSubmitExperience';
@@ -2100,13 +2102,68 @@ export default function PublicFormPage() {
     const isDisabled = field.disabled || dynamicProps.disabled || authLockedField || isCurrentStepLocked;
 
     switch (field.type) {
-      case 'text':
-      case 'email':
       case 'phone': {
+        // A phone answer is one string — "+91 98765 43210" — assembled from
+        // the country picker and the number. The country list and the
+        // preselected flag come from the builder's phone settings.
+        const countries = phoneCountries(field.phoneConfig);
+        return (
+          <Controller
+            control={control}
+            name={field.id}
+            rules={opts}
+            render={({ field: { value, onChange, onBlur } }) => {
+              const def = countryByIso(field.phoneConfig?.defaultCountry)
+                ?? countries.find((c) => c.iso2 === 'IN')
+                ?? countries[0];
+              const { dial, national } = splitPhoneValue(
+                value != null && value !== '' ? String(value) : field.defaultValue,
+                def?.dial ?? '91'
+              );
+              const current = countries.find((c) => c.dial === dial) ?? def;
+              const fullValue = (national: string) => (national ? `+${current?.dial} ${national}` : '');
+              return (
+                <div className="flex w-full items-stretch">
+                  <CountrySelect
+                    variant="inline"
+                    countries={countries}
+                    value={current?.iso2}
+                    disabled={isDisabled}
+                    onChange={(iso2) => {
+                      const next = countryByIso(iso2);
+                      if (next) onChange(fullValue(national));
+                    }}
+                    className="[&>button]:rounded-r-none [&>button]:border-r-0"
+                  />
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    value={national}
+                    disabled={isDisabled}
+                    placeholder={field.placeholder}
+                    className="rounded-l-none"
+                    onChange={(e) => onChange(fullValue(e.target.value))}
+                    onBlur={() => {
+                      onBlur();
+                      const v = fullValue(national);
+                      if (field.unique) handleUniquenessCheck(field.id, v);
+                      if (field.externalValidation?.enabled && (field.externalValidation.trigger ?? 'auto') === 'auto') {
+                        void runAutoExternalValidation(field.id, v);
+                      }
+                    }}
+                  />
+                </div>
+              );
+            }}
+          />
+        );
+      }
+      case 'text':
+      case 'email': {
         const { onBlur: regOnBlur, ...regRest } = register(field.id, opts);
         return (
           <Input
-            type={field.type === 'phone' ? 'tel' : field.type}
+            type={field.type}
             placeholder={field.placeholder}
             disabled={isDisabled}
             minLength={dynamicProps.minLength}

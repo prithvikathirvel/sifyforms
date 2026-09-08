@@ -3,9 +3,19 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Checkbox as UICheckbox } from '../ui/checkbox';
-import { X, Check, Settings, Shield, Palette, CreditCard, KeyRound, ClipboardCheck, BarChart2, Loader2, Users, Upload, AlertTriangle } from 'lucide-react';
+import { X, Check, Settings, Shield, Palette, CreditCard, KeyRound, ClipboardCheck, BarChart2, Loader2, Users, Upload, AlertTriangle, LayoutTemplate } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
-import { updateSettings } from '../../store/builderSlice';
+import {
+  updateSettings,
+  setLayoutMode,
+  updateLayout,
+  addStep,
+  removeStep,
+  updateStep,
+  assignFieldsToStep,
+  reorderSteps,
+} from '../../store/builderSlice';
+import LayoutConfigPanel from './LayoutConfigPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import FormAccessPanel from '../forms/FormAccessPanel';
 import { usePersistentState } from '../../hooks/usePersistentState';
@@ -369,11 +379,15 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-full w-full flex-col bg-card md:flex-row">
-      <aside className="w-full shrink-0 border-b border-border bg-muted/40 md:sticky md:top-0 md:h-[calc(100vh-6.25rem)] md:w-60 md:self-start md:border-b-0 md:border-r">
+      <aside className="w-full shrink-0 border-b border-border bg-muted/40 md:sticky md:top-0 md:h-[calc(100vh-3.5625rem)] md:w-60 md:self-start md:border-b-0 md:border-r">
         <p className="hidden px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">
           Sections
         </p>
         <TabsList className="scrollbar-compact flex h-auto w-full flex-row justify-start gap-1 overflow-x-auto bg-transparent p-3 md:flex-col md:overflow-y-auto">
+                <TabsTrigger value="layout" className={SETTINGS_TAB_CLASS}>
+                  <LayoutTemplate className="mr-2 h-4 w-4" />
+                  Layout and steps
+                </TabsTrigger>
                 <TabsTrigger value="general" className={SETTINGS_TAB_CLASS}>
                   <Settings className="mr-2 h-4 w-4" />
                   General
@@ -429,6 +443,25 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
             {/* No max-width: the cap left a wide, empty gutter beside every
                 panel on a normal laptop. Panels now use the full column. */}
             <div className="min-w-0 flex-1 bg-card [&>[role=tabpanel]]:w-full [&>[role=tabpanel]]:px-5 [&>[role=tabpanel]]:py-6 sm:[&>[role=tabpanel]]:px-8 sm:[&>[role=tabpanel]]:py-8 lg:[&>[role=tabpanel]]:px-10">
+              <TabsContent value="layout" className="m-0">
+                <div className="border-b border-border/70 pb-5">
+                  <h2 className="text-base font-semibold text-foreground">Layout and steps</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Structure the form as a single page or as steps, and set how respondents move through it.</p>
+                </div>
+                <div className="pt-6">
+                  <LayoutConfigPanel
+                    layout={builder.layout}
+                    fields={builder.schema.fields}
+                    onSetLayoutMode={(mode) => dispatch(setLayoutMode(mode))}
+                    onUpdateLayout={(updates) => dispatch(updateLayout(updates))}
+                    onAddStep={() => dispatch(addStep())}
+                    onRemoveStep={(id) => dispatch(removeStep(id))}
+                    onUpdateStep={(id, updates) => dispatch(updateStep({ id, updates }))}
+                    onAssignFieldsToStep={(stepId, fieldIds) => dispatch(assignFieldsToStep({ stepId, fieldIds }))}
+                    onReorderStep={(oldIndex, newIndex) => dispatch(reorderSteps({ oldIndex, newIndex }))}
+                  />
+                </div>
+              </TabsContent>
               <TabsContent value="general" className="m-0 space-y-7">
                 <div className="border-b border-border/70 pb-5">
                   <h2 className="text-base font-semibold text-foreground">General settings</h2>

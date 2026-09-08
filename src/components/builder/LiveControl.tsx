@@ -1,6 +1,7 @@
 import { ChevronDown, Star, Upload } from 'lucide-react';
 import type { FormField, FormVariable } from '../../types';
 import { cn } from '../../lib/utils';
+import { countryByIso, flagForIso } from '../../lib/countries';
 
 /**
  * The static, respondent-eye render of a field's answer control.
@@ -35,8 +36,21 @@ export default function LiveControl({ field, variables, variant = 'compact' }: {
   switch (field.type) {
     case 'text':
     case 'email':
-    case 'phone':
       return box(<span>{field.placeholder || '\u00a0'}</span>);
+    case 'phone': {
+      const c = countryByIso(field.phoneConfig?.defaultCountry) ?? countryByIso('IN');
+      return (
+        <div className="flex w-full max-w-[340px] items-stretch">
+          <span className="flex flex-none items-center gap-1.5 rounded-l-lg border border-r-0 border-input bg-muted/40 px-2.5 text-[13.5px] text-foreground">
+            <span className="text-base leading-none">{c ? flagForIso(c.iso2) : '🌐'}</span>
+            <span className="text-ink-500">+{c?.dial ?? '91'}</span>
+          </span>
+          <span className="min-w-0 flex-1 truncate rounded-r-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">
+            {field.placeholder || '\u00a0'}
+          </span>
+        </div>
+      );
+    }
     case 'textarea':
       return <div className="min-h-[64px] w-full rounded-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">{field.placeholder || '\u00a0'}</div>;
     case 'number':

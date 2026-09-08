@@ -1,29 +1,16 @@
-import { BarChart2, Check, ChevronRight, ClipboardCheck, LayoutTemplate, Calculator, Settings, ListChecks, Shield, Users, Palette, KeyRound, CreditCard } from 'lucide-react';
+import { BarChart2, Check, ChevronRight, LayoutTemplate, Calculator } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { updateSettings, updateField } from '../../store/builderSlice';
 import type { FormField, FormSettings } from '../../types';
 import { cn } from '../../lib/utils';
-import { POLLABLE, SETTINGS_SECTIONS, countShowWhenLeaves, type SettingsSectionId } from './formSetup';
+import { POLLABLE, countShowWhenLeaves } from './formSetup';
 
 interface FormSetupPanelProps {
   /** Opens the data-calculations manager (rendered at page level). */
   onOpenVariables: () => void;
-  /** Opens a settings section inside this panel (layout or a form section). */
-  onOpenSection: (target: 'layout' | SettingsSectionId) => void;
+  /** Opens the settings workspace on its Layout and steps section. */
+  onOpenLayout: () => void;
 }
-
-const SECTION_ICONS: Record<SettingsSectionId, React.ElementType> = {
-  general: Settings,
-  'after-submit': ListChecks,
-  access: Shield,
-  team: Users,
-  appearance: Palette,
-  authentication: KeyRound,
-  payment: CreditCard,
-  assessment: ClipboardCheck,
-  voting: BarChart2,
-  survey: BarChart2,
-};
 
 type FormKind = 'collect' | 'voting' | 'assessment' | 'survey';
 
@@ -59,7 +46,7 @@ function SectionRow({ icon: Icon, label, hint, onClick }: {
   );
 }
 
-export default function FormSetupPanel({ onOpenVariables, onOpenSection }: FormSetupPanelProps) {
+export default function FormSetupPanel({ onOpenVariables, onOpenLayout }: FormSetupPanelProps) {
   const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
   const fields = builder.schema.fields;
@@ -104,13 +91,6 @@ export default function FormSetupPanel({ onOpenVariables, onOpenSection }: FormS
   };
 
   const pollChoices = fields.filter((f) => POLLABLE(f.type));
-
-  const sections: SettingsSectionId[] = [
-    'general', 'after-submit', 'access', 'team', 'appearance', 'authentication', 'payment',
-    ...(settings.formType === 'assessment' ? ['assessment' as const] : []),
-    ...(settings.formType === 'voting' ? ['voting' as const] : []),
-    ...(settings.formType === 'survey' ? ['survey' as const] : []),
-  ];
 
   return (
     <div className="flex h-full flex-col">
@@ -191,25 +171,6 @@ export default function FormSetupPanel({ onOpenVariables, onOpenSection }: FormS
           </section>
         )}
 
-        {/* Form settings — every section, opened inside this panel */}
-        <section className="flex flex-col gap-1.5">
-          <span className="text-[12px] font-bold text-foreground">Settings</span>
-          <nav className="flex flex-col gap-0.5">
-            {sections.map((id) => {
-              const Icon = SECTION_ICONS[id];
-              const label = SETTINGS_SECTIONS.find((s) => s.id === id)?.label ?? id;
-              return (
-                <SectionRow
-                  key={id}
-                  icon={Icon}
-                  label={label}
-                  onClick={() => onOpenSection(id)}
-                />
-              );
-            })}
-          </nav>
-        </section>
-
         {/* Structure */}
         <section className="flex flex-col gap-1.5">
           <span className="text-[12px] font-bold text-foreground">Form structure</span>
@@ -218,7 +179,7 @@ export default function FormSetupPanel({ onOpenVariables, onOpenSection }: FormS
               icon={LayoutTemplate}
               label="Layout and steps"
               hint={layout.mode === 'multiStep' && (layout.steps ?? []).length ? `${(layout.steps ?? []).length} steps` : 'Single page'}
-              onClick={() => onOpenSection('layout')}
+              onClick={onOpenLayout}
             />
             <SectionRow
               icon={Calculator}

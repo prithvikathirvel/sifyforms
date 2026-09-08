@@ -5,6 +5,8 @@ import {
   BarChart2, Info, Search,
 } from 'lucide-react';
 import type { FieldRule, FormField, FormVariable } from '../../types';
+import { COUNTRIES, countryByIso, flagForIso } from '../../lib/countries';
+import CountrySelect from '../ui/CountrySelect';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select } from '../ui/select';
@@ -296,6 +298,67 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
             className={inputCls}
           />
         </FieldRow>
+      )}
+
+      {field.type === 'phone' && (
+        <>
+          <FieldRow label="Default country" hint="Preselected in the country picker people fill the form with.">
+            <CountrySelect
+              value={field.phoneConfig?.defaultCountry}
+              onChange={(iso2) => onUpdate({
+                phoneConfig: { ...field.phoneConfig, defaultCountry: iso2 },
+              })}
+            />
+          </FieldRow>
+          <FieldRow label="Allowed countries" hint="Leave empty to offer every country. The default is always offered.">
+            <div className="flex flex-wrap gap-1.5">
+              {(field.phoneConfig?.allowedCountries ?? []).map((iso) => {
+                const c = countryByIso(iso);
+                if (!c) return null;
+                return (
+                  <span
+                    key={iso}
+                    className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-card pl-2.5 pr-1 text-[11.5px] font-medium text-foreground"
+                  >
+                    <span className="text-sm leading-none">{flagForIso(iso)}</span>
+                    +{c.dial}
+                    <button
+                      type="button"
+                      onClick={() => onUpdate({
+                        phoneConfig: {
+                          ...field.phoneConfig,
+                          allowedCountries: (field.phoneConfig?.allowedCountries ?? []).filter((x) => x !== iso),
+                        },
+                      })}
+                      className="grid h-5 w-5 place-items-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`Remove ${c.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
+              <div className="flex items-center">
+                <CountrySelect
+                  variant="inline"
+                  countries={COUNTRIES.filter(
+                    (c) => !(field.phoneConfig?.allowedCountries ?? []).includes(c.iso2)
+                  )}
+                  value={undefined}
+                  onChange={(iso2) => {
+                    if (!iso2) return;
+                    onUpdate({
+                      phoneConfig: {
+                        ...field.phoneConfig,
+                        allowedCountries: [...(field.phoneConfig?.allowedCountries ?? []), iso2],
+                      },
+                    });
+                  }}
+                />
+              </div>
+            </div>
+          </FieldRow>
+        </>
       )}
 
       {HAS_OPTIONS(field.type) && (

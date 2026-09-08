@@ -276,6 +276,13 @@ export interface FormField {
     multiple?: boolean;
     maxFiles?: number;
   };
+  /** Phone field configuration — the country-code picker shown to respondents. */
+  phoneConfig?: {
+    /** ISO 3166-1 alpha-2 code preselected in the respondent's picker. */
+    defaultCountry?: string;
+    /** When set, the only countries the respondent can choose from. */
+    allowedCountries?: string[];
+  };
   /** Validation rules */
   validation?: {
     min?: number;

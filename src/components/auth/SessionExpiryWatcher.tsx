@@ -1,10 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { logout } from '../../store/authSlice';
 import { onSessionEnded, SESSION_END_MESSAGE } from '../../lib/session';
 import { isApplicationPath, isAuthPath } from '../../lib/appRoutes';
+import { api } from '../../lib/api';
 import { toast } from '../ui/toast';
+
+/** How often to ask the server whether the session is still alive. */
+const SESSION_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 /**
  * Tells people when their session has ended, instead of silently dropping them
@@ -63,6 +67,42 @@ export default function SessionExpiryWatcher() {
     if (tokenRef.current) void dispatch(logout());
     navigate('/auth/login', { replace: true, state: { from: path } });
   }), [dispatch, navigate]);
+
+  /**
+   * A session that expires while nobody is making requests used to go
+   * unnoticed: every thunk had succeeded, so nothing 401'd, and the expiry was
+   * only discovered on the next save — sometimes much later, with no message
+   * if the person only navigated between cached screens.
+   *
+   * So the watcher also asks the server directly, on a quiet interval and the
+   * moment the tab becomes visible again (the classic "left it open over
+   * lunch" case). A dead session answers 401, the api client's refresh
+   * handling signs out, and the listener above says so and routes to sign-in.
+   * Network noise is ignored: being offline is not an expiry.
+   */
+  const checkSession = useCallback(() => {
+    api.get('/auth/session').catch(() => {
+      // Silence is correct here. A refusal is handled (and explained) by the
+      // api client's refresh/sign-out path; anything else is noise.
+    });
+  }, []);
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (!isApplicationPath(path) || isAuthPath(path)) return;
+
+    const interval = window.setInterval(checkSession, SESSION_CHECK_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkSession();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [location.pathname, checkSession]);
 
   return null;
 }

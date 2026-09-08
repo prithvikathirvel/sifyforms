@@ -212,6 +212,13 @@ export const FormFieldSchema = z.object({
     multiple: z.boolean().optional(),
     maxFiles: z.number().optional(),
   }).optional(),
+  // Phone field: the country-code picker shown to respondents. The submitted
+  // value stays a single string ("+91 98765 43210"), so nothing else in the
+  // pipeline changes.
+  phoneConfig: z.object({
+    defaultCountry: z.string().length(2).optional(),
+    allowedCountries: z.array(z.string().length(2)).max(50).optional(),
+  }).optional(),
   validation: z.object({
     minLength: z.number().optional(),
     maxLength: z.number().optional(),
