@@ -304,7 +304,41 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
         if (matched?.dynamicOptions?.length) effectiveOptions = matched.dynamicOptions;
       }
       addOptions(effectiveOptions);
-      if (allowed.size > 0 && selected.some((option) => !allowed.has(option))) {
+
+      // The pre-fieldLinking cascade, still present on older forms. It was
+      // never consulted here, so every field using it fell through to the
+      // empty allow-list below and accepted anything at all.
+      const legacyCascade = field.dynamicOptions;
+      if (allowed.size === 0 && legacyCascade?.enabled && legacyCascade.mappings) {
+        const source = data[legacyCascade.sourceFieldId];
+        const keys = Array.isArray(source) ? source.map(String) : [String(source ?? '')];
+        addOptions(keys.flatMap((key: string) => legacyCascade.mappings[key] ?? []));
+      }
+
+      /*
+       * An empty allow-list rejects, it does not wave things through.
+       *
+       * This used to read `allowed.size > 0 && ...`, so a choice field the
+       * server could find no options for accepted any value the client cared
+       * to send. That is how a "State you want to apply for" dropdown came to
+       * hold the number 100: the options were resolved from another answer, the
+       * lookup missed, the allow-list came back empty, and the check disabled
+       * itself at exactly the moment it was needed.
+       *
+       * Failing closed is safe here because options for a choice field always
+       * live in the published schema — there is no runtime source for them — so
+       * an empty allow-list means the respondent's browser had nothing to
+       * offer them either. A real respondent submits nothing and stops at the
+       * `isEmpty` check further up; only a forged value reaches this line.
+       */
+      if (allowed.size === 0) {
+        console.warn(
+          `[validation] Field "${field.id}" (${field.type}) resolved to zero options; rejecting the submitted value. The form is misconfigured or its cascade source did not match.`,
+        );
+        errors[field.id] = `${field.label} contains an invalid option.`;
+        continue;
+      }
+      if (selected.some((option) => !allowed.has(option))) {
         errors[field.id] = `${field.label} contains an invalid option.`;
         continue;
       }

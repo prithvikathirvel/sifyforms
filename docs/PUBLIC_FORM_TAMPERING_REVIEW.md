@@ -320,6 +320,148 @@ imports, not for a form post.
 
 ---
 
+## 10. Choice fields with no resolvable options accepted anything — CRITICAL (FIXED)
+
+`backend/src/lib/validation.ts:307` (before the fix)
+
+```ts
+if (allowed.size > 0 && selected.some((option) => !allowed.has(option))) {
+```
+
+The option allow-list **disabled itself when it was empty**. The intent was
+"only check when we know the options", but the effect was the opposite of a
+security control: the one case where the server could not establish what was
+legitimate was the case where it accepted everything.
+
+This is the reported bug. A "State you want to apply for" dropdown accepted the
+value `100`, and a "Local Language" dropdown accepted a 43-digit number.
+
+### Why the allow-list came back empty
+
+Four separate ways, all proved against the real validator:
+
+```
+rejected                    select WITH options in the schema
+ACCEPTED  <-- tamper worked select with options: []
+ACCEPTED  <-- tamper worked select with no options key
+ACCEPTED  <-- tamper worked select whose cascade source did not match
+ACCEPTED  <-- tamper worked radio with options: []
+```
+
+The fourth is the likely one in production. When a state list is driven by a
+country answer through `fieldLinking.dynamicConfig.options`, a lookup miss falls
+back to `field.options`, which for a cascading field is `[]`.
+
+There was also a fifth: `field.dynamicOptions` — the older cascade shape, still
+in `types/index.ts:304` — was **never read by the validator at all**. Every form
+using it had zero server-side option checking.
+
+### Reproduce
+
+1. Publish a form with a dropdown whose options cascade from another field.
+2. Fill it in normally, then open DevTools.
+3. `document.querySelector('[name="<fieldId>"]').value = '100'` — or just POST:
+
+```bash
+curl -X POST .../api/submissions \
+  -H 'Content-Type: application/json' \
+  -d '{"formId":"F","data":{"state":"100","language":"1000000000000000000001"}}'
+```
+
+Before the fix: `200 OK`. After: `400` with *"State contains an invalid option."*
+
+### The fix
+
+`allowed.size === 0` now **rejects**. This is safe to fail closed on because
+options for a choice field always live in the published schema — there is no
+runtime API source anywhere in the codebase — so an empty allow-list means the
+respondent's own browser had nothing to offer them either. A real respondent
+submits nothing and stops at the `isEmpty` check further up; only a forged value
+reaches the line. `field.dynamicOptions` is now resolved as well, so the forms
+that used it keep working *and* start being checked.
+
+Verified: forged values rejected in all 5 shapes; legitimate answers, matched
+cascades, legacy cascades, empty optional fields and multi-selects all still
+accepted.
+
+---
+
+## 11. "Locked" steps are locked only in the browser — HIGH
+
+`src/pages/PublicFormPage.tsx:397, 786, 2612`
+
+This is the other half of the report — *"navigates back to edit the entered
+details"*.
+
+`lockedSteps` is a `useState<Set<string>>` mirrored into `sessionStorage`.
+`lockOnComplete` is stored on the step in the schema
+(`backend/src/schemas/form.schema.ts:294`) and the backend **never reads it
+again**:
+
+```
+$ grep -rn "lockOnComplete\|lockedSteps" backend/src/
+backend/src/schemas/form.schema.ts:294:  lockOnComplete: z.boolean().optional(),   ← saving the form only
+```
+
+The entire payload arrives in one POST at the end. Nothing tells the server that
+step 1 was confirmed twenty minutes ago, so nothing can notice that its values
+changed afterwards. Removing a `disabled` attribute in DevTools, or editing
+`sessionStorage.form_auth_<formId>`, is enough.
+
+**Proved:** a field frozen by `lockOnComplete` is accepted with any new value,
+because the *field* is not `disabled` in the schema — only the *step* is locked,
+and only at runtime.
+
+**Fix.** Locking has to leave a server-side record. When a step with
+`lockOnComplete` is confirmed, POST that step's answers and get back a token
+bound to them. At final submit, the server replaces the locked fields with the
+values it stored, or rejects the submission if they differ. The draft mechanism
+already stores per-step data — this is the same store with an immutability flag,
+not a new subsystem.
+
+Note the related quirk: a field with `disabled: true` in the schema is dropped
+silently *and its `required` rule never runs* (`validation.ts:151-162`), so a
+required disabled field simply vanishes from the submission.
+
+---
+
+## 12. The OTP is hardcoded to `1234` and verified in the browser — CRITICAL
+
+`src/pages/PublicFormPage.tsx:435-480`
+
+```js
+// OTP service integrated later — hardcoded as 1234 for now
+setTimeout(() => { ... setAuthStep('email-otp'); }, 800);
+...
+if (authOtp === '1234') { ... sessionStorage.setItem(AUTH_SESSION_KEY, ...) }
+```
+
+There are no OTP routes in the backend at all — `grep -rn "otp" backend/src/routes/`
+returns nothing. No code is sent, nothing is verified, and the "verified" state
+is a `sessionStorage` key the respondent can write themselves:
+
+```js
+sessionStorage.setItem('form_auth_<formId>',
+  JSON.stringify({ email: 'anyone@anywhere.com', step: 'done', verifiedAt: Date.now() }));
+```
+
+The verified address is then prefilled into the mapped field
+(`PublicFormPage.tsx:717-724`) and submitted as an ordinary answer. The server
+never compares the submitted email against any verified identity, because it has
+never seen one.
+
+The in-code comment shows this is a known stub rather than a mistake — but if a
+build with this in it is in front of a security tester, it is the most serious
+item in this document, and it is what makes finding #2 (draft IDOR keyed by
+email) trivially exploitable.
+
+**Fix.** Real OTP issue/verify endpoints, rate-limited per address and per IP,
+with the verified identity held in a server-side session referenced by an
+httpOnly cookie. At submit, the server overwrites the mapped email/phone field
+from the session rather than trusting the posted value.
+
+---
+
 ## Summary
 
 | # | Issue | Severity | Repro cost |
@@ -333,6 +475,9 @@ imports, not for a form post.
 | 7 | Public `check-external` spends the org's credentials | Medium | One curl |
 | 8 | Bot protection is a per-form toggle | Low | — |
 | 9 | 50 MB body parsed before filtering | Low | One large curl |
+| 10 | Empty option allow-list accepted any value — **fixed** | Critical | One curl |
+| 11 | Step `lockOnComplete` enforced only in the browser | High | DevTools |
+| 12 | OTP hardcoded `1234`, verified client-side, no backend | Critical | One sessionStorage write |
 
 ## What is already right
 
