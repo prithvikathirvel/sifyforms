@@ -3,24 +3,26 @@ import prisma from '../../utils/prisma';
 import { DraftDao, DraftRecord, UpsertDraftData } from '../interfaces/DraftDao';
 
 export class MySQLDraftDao implements DraftDao {
-  async findDraftByFormIdAndIdentity(formId: string, identity: string): Promise<DraftRecord | null> {
+  async findDraftByFormIdAndSession(formId: string, sessionId: string): Promise<DraftRecord | null> {
     return prisma.draft.findUnique({
-      where: { formId_identity: { formId, identity } },
+      where: { formId_sessionId: { formId, sessionId } },
     });
   }
 
   async upsert(data: UpsertDraftData): Promise<{ id: string; updatedAt: Date }> {
-    const { formId, identity, data: draftData, stepIndex } = data;
+    const { formId, sessionId, identity, data: draftData, stepIndex } = data;
     const draft = await prisma.draft.upsert({
-      where: { formId_identity: { formId, identity } },
+      where: { formId_sessionId: { formId, sessionId } },
       create: {
         id: randomUUID(),
         formId,
-        identity,
+        sessionId,
+        identity: identity ?? null,
         data: JSON.stringify(draftData ?? {}),
         stepIndex: stepIndex ?? 0,
       },
       update: {
+        identity: identity ?? null,
         data: JSON.stringify(draftData ?? {}),
         stepIndex: stepIndex ?? 0,
         updatedAt: new Date(),
@@ -29,8 +31,8 @@ export class MySQLDraftDao implements DraftDao {
     return { id: draft.id, updatedAt: draft.updatedAt };
   }
 
-  async deleteByFormAndIdentity(formId: string, identity: string): Promise<void> {
-    await prisma.draft.deleteMany({ where: { formId, identity } });
+  async deleteByFormAndSession(formId: string, sessionId: string): Promise<void> {
+    await prisma.draft.deleteMany({ where: { formId, sessionId } });
   }
 }
 

@@ -14,7 +14,7 @@ export { listTemplates, getTemplate, createTemplateFromForm, duplicateTemplate }
 export { getSubmissionResultPublic, getPollResults, getSubmissionResult, getLeaderboard, getAssessmentAnalytics, getAuditLog } from './processing.gcp';
 
 // Form
-export { getPublicForm, createForm, listForms, getForm, updateForm, deleteForm, publishForm, duplicateForm, getFormStats, generateFormWithAI, editFormWithAI } from './form.gcp';
+export { getPublicForm, createFormSession, createForm, listForms, getForm, updateForm, deleteForm, publishForm, duplicateForm, getFormStats, generateFormWithAI, editFormWithAI } from './form.gcp';
 
 // Submission
 export { createSubmission, checkFieldUniqueness, checkExternalValidation, listSubmissions, getSubmission, updateSubmission, deleteSubmission, exportSubmissions, bulkDeleteSubmissions } from './submission.gcp';

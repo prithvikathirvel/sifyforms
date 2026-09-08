@@ -63,7 +63,13 @@ export function lambdaResponse(statusCode: number, body: any): APIGatewayProxyRe
 }
 
 export function lambdaError(error: any): APIGatewayProxyResult {
-  return lambdaResponse(error?.statusCode || 500, { error: error?.message || 'Internal server error' });
+  return lambdaResponse(error?.statusCode || 500, {
+    error: error?.message || 'Internal server error',
+    // Machine-readable codes the browser acts on rather than displays.
+    // FORM_SESSION_REQUIRED means "mint a new form session and retry once";
+    // dropping it here would leave the respondent's autosave silently dead.
+    ...(error?.code ? { code: error.code } : {}),
+  });
 }
 
 export function isLambdaError(result: any): result is APIGatewayProxyResult {

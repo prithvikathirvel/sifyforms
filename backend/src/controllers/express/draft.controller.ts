@@ -1,18 +1,28 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { draftService } from '../../service/draft.service';
+import { PublicSessionRequest } from '../../middleware/publicSession.middleware';
 import logger from '../../utils/logger';
 
-export async function getDraft(req: Request, res: Response): Promise<void> {
+/**
+ * Draft endpoints.
+ *
+ * `requirePublicFormSession` runs in front of all three, so `req.publicSession`
+ * is guaranteed and is the only thing that scopes the read or write. Note what
+ * is absent: nothing here reads an `identity` from the request in order to find
+ * a row. That parameter is what made these routes readable by anyone who knew
+ * an email address.
+ *
+ * Request bodies are no longer logged either. A draft body is a person's
+ * half-finished answers, which for these forms includes identity numbers and
+ * salary — none of which belongs in application logs.
+ */
+
+export async function getDraft(req: PublicSessionRequest, res: Response): Promise<void> {
   try {
-    logger.info('Express --> getDraft --> Request', { params: req.params, query: req.query });
-    const formId = String(req.params.formId);
-    const identity = String(req.query.identity || '');
-    if (!formId || !identity) {
-      res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId and identity are required' });
-      return;
-    }
-    const result = await draftService.getDraft(formId, identity);
+    const session = req.publicSession!;
+    logger.info('Express --> getDraft --> Request', { formId: session.formId });
+    const result = await draftService.getDraft(session.formId, session.id);
     res.json(result);
   } catch (error: any) {
     logger.error('Express --> getDraft --> Error', error);
@@ -20,15 +30,21 @@ export async function getDraft(req: Request, res: Response): Promise<void> {
   }
 }
 
-export async function saveDraft(req: Request, res: Response): Promise<void> {
+export async function saveDraft(req: PublicSessionRequest, res: Response): Promise<void> {
   try {
-    logger.info('Express --> saveDraft --> Request', { body: req.body });
-    const { formId, identity, data, stepIndex } = req.body;
-    if (!formId || !identity) {
-      res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId and identity are required' });
-      return;
-    }
-    const result = await draftService.saveDraft({ formId, identity, data, stepIndex });
+    const session = req.publicSession!;
+    const { data, stepIndex, identity } = req.body ?? {};
+    logger.info('Express --> saveDraft --> Request', { formId: session.formId });
+
+    const result = await draftService.saveDraft({
+      formId: session.formId,
+      sessionId: session.id,
+      // Recorded as a label only. It is never used to find a draft, so a caller
+      // claiming somebody else's address gains nothing by it.
+      identity: typeof identity === 'string' ? identity.slice(0, 320) : null,
+      data: data && typeof data === 'object' ? data : {},
+      stepIndex: Number.isInteger(stepIndex) ? stepIndex : 0,
+    });
     res.json(result);
   } catch (error: any) {
     logger.error('Express --> saveDraft --> Error', error);
@@ -36,16 +52,11 @@ export async function saveDraft(req: Request, res: Response): Promise<void> {
   }
 }
 
-export async function deleteDraft(req: Request, res: Response): Promise<void> {
+export async function deleteDraft(req: PublicSessionRequest, res: Response): Promise<void> {
   try {
-    logger.info('Express --> deleteDraft --> Request', { params: req.params, query: req.query });
-    const formId = String(req.params.formId);
-    const identity = String(req.query.identity || '');
-    if (!formId || !identity) {
-      res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId and identity are required' });
-      return;
-    }
-    const result = await draftService.deleteDraft(formId, identity);
+    const session = req.publicSession!;
+    logger.info('Express --> deleteDraft --> Request', { formId: session.formId });
+    const result = await draftService.deleteDraft(session.formId, session.id);
     res.json(result);
   } catch (error: any) {
     logger.error('Express --> deleteDraft --> Error', error);

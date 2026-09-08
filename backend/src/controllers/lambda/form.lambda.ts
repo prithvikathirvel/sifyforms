@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import * as formService from '../../service/form.service';
 import { CreateFormSchema, UpdateFormSchema, AIEditSchema } from '../../schemas/form.schema';
 import { lambdaAuthMiddleware, lambdaOrgMiddleware, lambdaValidate, lambdaResponse, lambdaError, isLambdaError, parseBody } from '../../utils/lambdaAuth';
+import { issueSessionForPublishedForm } from '../../service/publicSession.service';
 import logger from '../../utils/logger';
 
 // GET /getPublicForm?orgSlug=xxx&formSlug=xxx
@@ -17,6 +18,28 @@ export const getPublicForm = async (event: APIGatewayProxyEvent): Promise<APIGat
     return lambdaResponse(StatusCodes.OK, result);
   } catch (error: any) {
     logger.error('Lambda --> getPublicForm --> Error', error);
+    return lambdaError(error);
+  }
+};
+
+/*
+ * POST /createFormSession?formId=xxx
+ *
+ * A respondent's handle on a public form. Every gated public endpoint —
+ * drafts, check-unique, check-external — needs one, so a deployment without
+ * this handler has a form that cannot autosave. Open by design; throttling
+ * belongs in the API Gateway usage plan here, since Lambda does not share the
+ * Express limiter.
+ */
+export const createFormSession = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const formId = event.queryStringParameters?.formId || parseBody(event)?.formId || '';
+    logger.info('Lambda --> createFormSession --> Request', { formId });
+    if (!formId) return lambdaResponse(StatusCodes.BAD_REQUEST, { error: 'formId is required' });
+    const result = await issueSessionForPublishedForm(String(formId));
+    return lambdaResponse(StatusCodes.CREATED, result);
+  } catch (error: any) {
+    logger.error('Lambda --> createFormSession --> Error', { message: error?.message });
     return lambdaError(error);
   }
 };

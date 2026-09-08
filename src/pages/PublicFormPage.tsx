@@ -28,6 +28,7 @@ import TableField from '../components/ui/TableField';
 import SurveyFieldControl from '../components/fields/SurveyFieldControl';
 import TurnstileWidget from '../components/security/TurnstileWidget';
 import { isBotProtectionEnabled } from '../lib/formPolicy';
+import { clearFormSession, withFormSession } from '../lib/publicFormSession';
 import { UploadRulesProvider } from '../hooks/useUploadRules';
 import { getPublicDownloadUrl, resolveFilesForSubmission, resolveSignatureForSubmission, triggerBrowserDownload } from '../lib/dms';
 import { stableSurveyShuffle } from '../lib/survey';
@@ -627,12 +628,16 @@ export default function PublicFormPage() {
         if (val && typeof val === 'object' && (val as any).status === 'pending') return;
         draftSafe[key] = val;
       });
-      api.post('/drafts', {
+      // The draft is scoped by the server-issued form session, not by the
+      // email address. `identity` still travels because a future verified-OTP
+      // resume needs a label to adopt the draft by, but nothing is looked up by
+      // it — see backend service/draft.service.ts.
+      withFormSession(form.id, (config) => api.post('/drafts', {
         formId: form.id,
         identity: authIdentity,
         data: draftSafe,
         stepIndex: currentStepIndex,
-      }).catch(() => {});
+      }, config)).catch(() => {});
     }, 3000);
     return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
   }, [formValues, currentStepIndex, submitted, authStep, authEmail, authPhone]);
@@ -725,7 +730,7 @@ export default function PublicFormPage() {
 
     const authIdentity = authEmail || authPhone;
     if (form.settings?.partialSubmission?.enabled && authIdentity) {
-      api.get(`/drafts/${form.id}`, { params: { identity: authIdentity } }).then(res => {
+      withFormSession(form.id, (config) => api.get(`/drafts/${form.id}`, config)).then(res => {
         const draft = res.data?.draft;
         if (draft?.data) {
           Object.entries(draft.data).forEach(([key, val]) => setValue(key, val));
@@ -1060,11 +1065,11 @@ export default function PublicFormPage() {
     }
 
     try {
-      const response = await api.post('/submissions/check-unique', {
+      const response = await withFormSession(form.id, (config) => api.post('/submissions/check-unique', {
         formId: form.id,
         fieldId,
         value
-      });
+      }, config));
 
       if (!response.data.isUnique) {
         setUniquenessErrors(prev => ({
@@ -1119,12 +1124,12 @@ export default function PublicFormPage() {
       for (const id of referencedIds) {
         if (id in allValues) minimalFormData[id] = allValues[id];
       }
-      const response = await api.post('/submissions/check-external', {
+      const response = await withFormSession(form.id, (config) => api.post('/submissions/check-external', {
         formId: form.id,
         fieldId,
         value,
         formData: minimalFormData
-      });
+      }, config));
 
       // Ignore responses that arrived out of order (a newer check superseded this one).
       if (externalValidationSeq.current[fieldId] !== seq) return;
@@ -1754,10 +1759,16 @@ export default function PublicFormPage() {
       // Clear auth session so the form can be filled again fresh
       sessionStorage.removeItem(`form_auth_${form.id}`);
 
-      // Delete draft on successful submission
-      const authIdentityFinal = authEmail || authPhone;
-      if (form.settings?.partialSubmission?.enabled && authIdentityFinal) {
-        api.delete(`/drafts/${form.id}`, { params: { identity: authIdentityFinal } }).catch(() => {});
+      // Delete draft on successful submission, then retire the session that
+      // carried it. Clearing is chained rather than fired alongside, because
+      // clearing first would leave the delete to mint a brand-new session and
+      // ask it to delete a draft it never owned.
+      if (form.settings?.partialSubmission?.enabled) {
+        withFormSession(form.id, (config) => api.delete(`/drafts/${form.id}`, config))
+          .catch(() => {})
+          .finally(() => clearFormSession(form.id));
+      } else {
+        clearFormSession(form.id);
       }
 
       if (submissionResponse.data.redirectUrl) {

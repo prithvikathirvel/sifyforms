@@ -1,6 +1,7 @@
 import xss from 'xss';
 import axios from 'axios';
 import { CalculationEngine } from './calculationEngine';
+import { FileValidationContext, verifyFileAnswer } from './fileAnswer';
 
 /**
  * Header keys that may carry credentials. Values for these keys are masked
@@ -141,7 +142,26 @@ export interface ValidationResult {
   data: Record<string, any>;
 }
 
-export async function validateSubmission(schema: any, submittedData: Record<string, any>, captchaActual: { text: string; answer: number } | null, captchaSubmitted: any): Promise<ValidationResult> {
+/**
+ * Everything validation needs that is a fact about the world rather than about
+ * the schema.
+ *
+ * Optional so that callers who only want the schema rules — and every existing
+ * test — keep working. Omitting `files` means file answers are refused rather
+ * than trusted: a submission path that cannot check a document must not accept
+ * one, because the alternative is the behaviour this whole change is undoing.
+ */
+export interface ValidationContext {
+  files?: FileValidationContext;
+}
+
+export async function validateSubmission(
+  schema: any,
+  submittedData: Record<string, any>,
+  captchaActual: { text: string; answer: number } | null,
+  captchaSubmitted: any,
+  context: ValidationContext = {},
+): Promise<ValidationResult> {
   const errors: Record<string, string> = {};
   
   const fields = Array.isArray(schema?.fields) ? schema.fields : [];
@@ -344,40 +364,40 @@ export async function validateSubmission(schema: any, submittedData: Record<stri
       }
     }
 
-    // File field validation (DMS references or base64 objects)
-    if (field.type === 'file' && field.fileConfig) {
-      const files = Array.isArray(value) ? value : [value];
-      const cfg = field.fileConfig;
-      if (!cfg.multiple && files.length > 1) {
-        errors[field.id] = 'Only one file is allowed.';
+    /*
+     * File field validation.
+     *
+     * Two changes from what this used to be, and they are the same change
+     * twice: stop reading facts about the upload out of the request.
+     *
+     * It used to run only `if (field.type === 'file' && field.fileConfig)`, so
+     * a field whose inspector never wrote a config had no validation at all.
+     * And inside, `f.size` and `f.mimeType` came from the request body, so the
+     * answer described itself and the description was believed.
+     *
+     * Now every file field is checked, the form-level ceiling applies when the
+     * field sets none of its own, and each `documentId` is resolved against DMS
+     * so the size, type and owning form are the ones DMS recorded. What gets
+     * stored is DMS's description, not the client's — see lib/fileAnswer.ts.
+     */
+    if (field.type === 'file') {
+      if (!context.files) {
+        // A caller that did not supply the file context cannot verify an
+        // upload, so it does not get to accept one. This is unreachable from
+        // the submission path — it is here so that a future caller who forgets
+        // fails loudly instead of quietly reverting to trusting the browser.
+        errors[field.id] = 'File uploads cannot be verified on this request.';
         continue;
       }
-      if (cfg.maxFiles && files.length > cfg.maxFiles) {
-        errors[field.id] = `Maximum ${cfg.maxFiles} files allowed.`;
+      const result = await verifyFileAnswer(field, value, context.files);
+      if (result.error) {
+        errors[field.id] = result.error;
         continue;
       }
-      for (const f of files) {
-        if (typeof f !== 'object' || !f) continue;
-        const maxBytes = cfg.maxSize > 1024 ? cfg.maxSize : cfg.maxSize * 1024 * 1024;
-        if (cfg.maxSize && f.size && f.size > maxBytes) {
-          errors[field.id] = `File "${f.filename || f.name}" exceeds maximum size.`;
-          break;
-        }
-        if (cfg.accept && cfg.accept.length > 0) {
-          const fname = f.filename || f.name || '';
-          const fmime = f.mimeType || f.type || '';
-          const allowed = (cfg.accept as string[]).some((pattern: string) => {
-            if (pattern.startsWith('.')) return fname.toLowerCase().endsWith(pattern.toLowerCase());
-            if (pattern.endsWith('/*')) return fmime.startsWith(pattern.replace('/*', '/'));
-            return fmime === pattern;
-          });
-          if (!allowed) {
-            errors[field.id] = `File "${fname}" is not an allowed type.`;
-            break;
-          }
-        }
-      }
-      if (errors[field.id]) continue;
+      // Overwrite the answer with the verified form. A caller cannot smuggle
+      // extra keys into storage, and the filename shown to staff later is the
+      // one DMS holds rather than one chosen by the respondent.
+      data[field.id] = Array.isArray(value) ? result.files : (result.files?.[0] ?? null);
     }
 
     // Rules

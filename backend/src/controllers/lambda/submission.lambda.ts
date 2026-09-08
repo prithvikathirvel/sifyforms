@@ -2,6 +2,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { StatusCodes } from 'http-status-codes';
 import * as submissionService from '../../service/submission.service';
 import { lambdaAuthMiddleware, lambdaResponse, lambdaError, isLambdaError, parseBody } from '../../utils/lambdaAuth';
+import { readFormSessionToken, requirePublicSession } from '../../service/publicSession.service';
 import logger from '../../utils/logger';
 
 // POST /createSubmission
@@ -36,33 +37,48 @@ export const saveSurveyPartial = async (event: APIGatewayProxyEvent): Promise<AP
   }
 };
 
-// POST /checkFieldUniqueness
-// No auth — Body: { formId, fieldId, value }
+/*
+ * Public but no longer anonymous, exactly as in the Express routes.
+ * `checkFieldUniqueness` answers "has this person already submitted?", and
+ * `checkExternalValidation` makes this server call the organization's API with
+ * the organization's stored credentials. Both now require a server-issued form
+ * session so the answers and the spending can be budgeted. The gate is shared
+ * with the other two transports on purpose.
+ */
+
+// POST /checkFieldUniqueness   Body: { formId, fieldId, value }   Header: X-Form-Session
 export const checkFieldUniqueness = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    logger.info('Lambda --> checkFieldUniqueness --> Request', { body: event.body });
-    const { formId, fieldId, value } = parseBody(event);
+    const body = parseBody(event);
+    const { formId, fieldId, value } = body;
+    // The value is deliberately absent from the log line: this endpoint is
+    // asked about addresses belonging to people who have submitted nothing.
+    logger.info('Lambda --> checkFieldUniqueness --> Request', { formId, fieldId });
     if (!formId || !fieldId || value === undefined) {
       return lambdaResponse(StatusCodes.BAD_REQUEST, { error: 'formId, fieldId, and value are required' });
     }
-    const result = await submissionService.checkFieldUniqueness(formId, fieldId, value);
+    const session = await requirePublicSession(String(formId), readFormSessionToken(event.headers, body));
+    const result = await submissionService.checkFieldUniqueness(String(formId), String(fieldId), value, session);
     return lambdaResponse(StatusCodes.OK, result);
   } catch (error: any) {
-    logger.error('Lambda --> checkFieldUniqueness --> Error', error);
+    logger.error('Lambda --> checkFieldUniqueness --> Error', { message: error?.message });
     return lambdaError(error);
   }
 };
 
-// POST /checkExternalValidation
-// No auth — Body: { formId, fieldId, value, formData? }
+// POST /checkExternalValidation   Body: { formId, fieldId, value, formData? }   Header: X-Form-Session
 export const checkExternalValidation = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    logger.info('Lambda --> checkExternalValidation --> Request', { body: event.body });
-    const { formId, fieldId, value, formData } = parseBody(event);
-    const result = await submissionService.checkExternalValidation(formId, fieldId, value, formData);
+    const body = parseBody(event);
+    const { formId, fieldId, value, formData } = body;
+    logger.info('Lambda --> checkExternalValidation --> Request', { formId, fieldId });
+    if (!formId) return lambdaResponse(StatusCodes.BAD_REQUEST, { error: 'formId is required' });
+
+    const session = await requirePublicSession(String(formId), readFormSessionToken(event.headers, body));
+    const result = await submissionService.checkExternalValidation(String(formId), fieldId, value, formData, session);
     return lambdaResponse(StatusCodes.OK, result);
   } catch (error: any) {
-    logger.error('Lambda --> checkExternalValidation --> Error', error);
+    logger.error('Lambda --> checkExternalValidation --> Error', { message: error?.message });
     return lambdaError(error);
   }
 };

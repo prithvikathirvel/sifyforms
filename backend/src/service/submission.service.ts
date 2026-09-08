@@ -1,5 +1,6 @@
 import { submissionDao } from '../dao/factory/submissionDao.factory';
 import { formDao } from '../dao/factory/formDao.factory';
+import { submissionUniqueValueDao } from '../dao/factory/submissionUniqueValueDao.factory';
 import { createError } from '../utils/errors';
 import logger from '../utils/logger';
 import { ACTIONS } from '../config/rbac.config';
@@ -12,7 +13,19 @@ import { resolveVoteIdentifier, type DuplicatePrevention } from '../services/vot
 import { CreateSubmissionSchema, UpdateSubmissionInput } from '../schemas/submission.schema';
 import { SubmissionListFilter } from '../dao/interfaces/SubmissionDao';
 import { verifyTurnstileToken } from './turnstile.service';
-import { isBotProtectionEnabled } from '../lib/formPolicy';
+import { isBotProtectionEnabled, resolveUploadRules } from '../lib/formPolicy';
+import { canonicaliseUniqueValue, collectUniqueClaims, hashUniqueValue } from '../lib/uniqueValue';
+import { toCsv } from '../lib/csv';
+import { createDocumentLookup } from './documentVerification.service';
+import {
+  EXTERNAL_CHECK_BUDGET,
+  EXTERNAL_CHECK_HOURLY_BUDGET,
+  UNIQUE_CHECK_BUDGET,
+  budgetExceeded,
+  consumeSessionBudget,
+  consumeSharedBudget,
+  type PublicSession,
+} from './publicSession.service';
 import axios from 'axios';
 import crypto from 'crypto';
 import prisma from '../utils/prisma';
@@ -102,7 +115,17 @@ export async function createSubmission(
 
   // Field validation. The previous math challenge was client-generated and
   // therefore not a security boundary; Turnstile is now verified above.
-  const validation = await validateSubmission(schema, data, null, undefined);
+  //
+  // The file context is what lets validation check an upload instead of reading
+  // the browser's description of it. Without it, file answers are refused —
+  // see lib/fileAnswer.ts.
+  const validation = await validateSubmission(schema, data, null, undefined, {
+    files: {
+      formId,
+      uploadRules: resolveUploadRules(settings.dms),
+      lookup: createDocumentLookup(),
+    },
+  });
   if (!validation.valid) {
     throw Object.assign(createError(400, 'Validation failed'), { details: validation.errors });
   }
@@ -128,17 +151,22 @@ export async function createSubmission(
     if (duplicateError) throw Object.assign(createError(400, duplicateError), { code: 'ALREADY_VOTED' });
   }
 
-  // Server-side uniqueness check
-  const uniqueFields = (schema.fields || []).filter((f: any) => f.unique);
-  if (uniqueFields.length > 0) {
-    const existing = await submissionDao.findSubmissionDataByFormId(formId);
-    for (const field of uniqueFields) {
-      const newValue = finalData[field.id];
-      if (newValue === undefined || newValue === null || newValue === '') continue;
-      const isDuplicate = existing.some(s => {
-        try { return String(JSON.parse(s.data)[field.id]) === String(newValue); } catch { return false; }
-      });
-      if (isDuplicate) throw createError(400, `The value for "${field.label}" must be unique.`);
+  /*
+   * Unique fields: the friendly pre-check.
+   *
+   * This turns away the ordinary case — somebody submitting the same
+   * application twice — with a clear message naming the field, and without
+   * writing anything. It is not the guarantee; the claim after the insert is.
+   * Treat this exactly as `checkVotingDuplicate` above is treated.
+   *
+   * It also no longer costs a full table scan. The old version loaded every
+   * submission for the form and compared answers in Node; this is one indexed
+   * lookup per unique field.
+   */
+  const uniqueClaims = collectUniqueClaims(formId, schema.fields || [], finalData);
+  for (const claim of uniqueClaims) {
+    if (await submissionUniqueValueDao.exists(formId, claim.fieldId, claim.valueHash)) {
+      throw createError(400, `The value for "${claim.label}" must be unique.`);
     }
   }
 
@@ -150,6 +178,39 @@ export async function createSubmission(
     ip: strictAnonymous ? null : ip,
     userAgent: strictAnonymous ? null : userAgent,
   });
+
+  /*
+   * Unique fields: the guarantee.
+   *
+   * A unique index decides who wins, not application code. Two submissions of
+   * the same email that interleave between the pre-check and the insert both
+   * passed the read; only one can create this row.
+   *
+   * The loser's submission is deleted, which cascades the claims it had already
+   * made — so a partly-claimed submission cannot leave values reserved by a
+   * response that no longer exists. Claiming one at a time rather than in a
+   * batch is deliberate: a batch insert tells you it failed but not which value
+   * collided, and the respondent needs to be told which field to change.
+   */
+  for (const claim of uniqueClaims) {
+    let claimed = false;
+    try {
+      claimed = await submissionUniqueValueDao.claim({
+        formId,
+        fieldId: claim.fieldId,
+        valueHash: claim.valueHash,
+        submissionId: submission.id,
+      });
+    } catch (error) {
+      await submissionDao.deleteSubmissionById(submission.id).catch(() => undefined);
+      logger.error(`Failed to record unique value for form ${formId}`, error);
+      throw createError(500, 'We could not save your response. Please try again.');
+    }
+    if (!claimed) {
+      await submissionDao.deleteSubmissionById(submission.id).catch(() => undefined);
+      throw createError(400, `The value for "${claim.label}" must be unique.`);
+    }
+  }
 
   // Claim the vote before telling anyone the submission succeeded. Whoever
   // loses the race here has their submission removed again, so a rejected voter
@@ -204,12 +265,69 @@ export async function createSubmission(
   };
 }
 
-export async function checkFieldUniqueness(formId: string, fieldId: string, value: unknown) {
-  const submissions = await submissionDao.findSubmissionDataByFormId(formId);
-  const isUnique = !submissions.some(s => {
-    try { return JSON.parse(s.data)[fieldId] === value; } catch { return false; }
-  });
-  return { isUnique };
+/**
+ * "Is this value already taken?", asked from a public form while somebody
+ * types.
+ *
+ * ## What was wrong with it
+ *
+ * The endpoint had no authentication, no session and no budget, and it answered
+ * for any `fieldId` at all:
+ *
+ *     curl -d '{"formId":"F","fieldId":"email","value":"ceo@rival.com"}' .../check-unique
+ *     {"isUnique": false}     ← that person applied
+ *
+ * For a recruitment form, a whistleblower form or a medical intake form, "has
+ * this person submitted?" is often the most sensitive fact in the system, and
+ * anyone with the public link could ask it about anyone, as fast as they liked.
+ * Each question also loaded every submission for the form and compared answers
+ * in Node, so one cheap request cost O(total responses).
+ *
+ * ## What it does now
+ *
+ * Four things narrow it, and it is worth being clear that they narrow it rather
+ * than close it — an endpoint whose purpose is to answer this question is an
+ * oracle by construction. The guarantee is still the submit-time check; this is
+ * a courtesy that tells someone about a clash before they fill in the rest of
+ * the page.
+ *
+ *  1. A server-issued session is required, so every question is attributable to
+ *     a handle this server minted rather than to nobody.
+ *  2. Each session may ask a fixed number of times. Enumeration then costs a
+ *     fresh session per batch, and minting is rate limited per address.
+ *  3. Only fields the schema actually marks `unique` can be asked about. Before
+ *     this, `fieldId` was free text, so the endpoint would happily report on
+ *     any answer to any question on the form — salary, medical history,
+ *     anything — not just the ones whose uniqueness the form advertises.
+ *  4. The lookup is a single indexed read of hashed values instead of a scan.
+ */
+export async function checkFieldUniqueness(
+  formId: string,
+  fieldId: string,
+  value: unknown,
+  session: PublicSession,
+) {
+  const form = await formDao.findFormById(formId);
+  if (!form || !form.isPublished) throw createError(404, 'Form not found or not published');
+
+  const schema = JSON.parse(form.schema);
+  const field = (schema.fields || []).find((f: any) => String(f.id) === fieldId);
+
+  // Not a unique field, so there is nothing to disclose. Reported as "unique"
+  // rather than as an error: the browser asks this speculatively and a 400 here
+  // would surface as a broken-looking field rather than as the no-op it is.
+  if (!field?.unique) return { isUnique: true };
+
+  const canonical = canonicaliseUniqueValue(value);
+  if (canonical === null) return { isUnique: true };
+
+  if (!(await consumeSessionBudget(session.id, 'uniqueChecks', UNIQUE_CHECK_BUDGET))) {
+    throw budgetExceeded();
+  }
+
+  const valueHash = hashUniqueValue(formId, fieldId, canonical);
+  const taken = await submissionUniqueValueDao.exists(formId, fieldId, valueHash);
+  return { isUnique: !taken };
 }
 
 export async function listSubmissions(
@@ -413,18 +531,10 @@ export async function exportSubmissions(
   if (format === 'csv') {
     if (data.length === 0) return { format: 'csv' as const, formName: form.name, csvContent: 'No submissions' };
     const headers = Array.from(new Set(data.flatMap((row) => Object.keys(row))));
-    const csvRows = [
-      headers.join(','),
-      ...data.map((row: Record<string, unknown>) =>
-        headers.map(h => {
-          const val = row[h];
-          if (val === null || val === undefined) return '';
-          if (typeof val === 'object') return `"${JSON.stringify(val).replace(/"/g, '""')}"`;
-          return `"${String(val).replace(/"/g, '""')}"`;
-        }).join(',')
-      ),
-    ];
-    return { format: 'csv' as const, formName: form.name, csvContent: csvRows.join('\n') };
+    // Quoting alone protected the file's shape, not the person opening it: a
+    // value beginning `=`, `+`, `-` or `@` is still a live formula once Excel
+    // has unquoted the cell. See lib/csv.ts.
+    return { format: 'csv' as const, formName: form.name, csvContent: toCsv(headers, data) };
   }
 
   return { format: 'json' as const, formName: form.name, data };
@@ -442,11 +552,47 @@ export async function bulkDeleteSubmissions(
   return { message: `${ids.length} submissions deleted successfully` };
 }
 
+/**
+ * Ask the organization's own API whether a value is valid — a PAN number, an
+ * employee id, a policy number.
+ *
+ * ## What was wrong with it
+ *
+ * The endpoint was public, and the config it loads holds the customer's stored
+ * credentials: a bearer token, a basic-auth password or a custom API key. So an
+ * unauthenticated caller could make this server send a request to the
+ * customer's endpoint, with the customer's credentials, as often as they liked:
+ *
+ *     curl -d '{"formId":"F","fieldId":"pan","value":"X","formData":{...}}' .../check-external
+ *
+ * `formData` made it worse. `param.type === 'field'` copies values out of it
+ * into the outbound body, so the caller partially chose the contents of a
+ * request sent by us, signed by them. Enough volume and the organization's
+ * third-party quota is spent or their rate limit trips — and neither the bill
+ * nor the block lands on the person who caused it.
+ *
+ * ## What it does now
+ *
+ * A session is required, so the calls are attributable and boundable. Two
+ * budgets apply, and they answer different questions:
+ *
+ *  - per session, because one respondent filling in one form needs a handful of
+ *    checks, not hundreds;
+ *  - per form per hour, shared across every replica, because the thing being
+ *    protected is the organization's spend. `express-rate-limit` cannot express
+ *    this: its counters live in one process's memory, so its limit is really
+ *    per replica per restart. See `consumeSharedBudget`.
+ *
+ * And `formData` is filtered here rather than in the browser. The client
+ * already sends only the referenced fields, but a client-side filter is a
+ * courtesy; this is the copy that decides what may enter the outbound payload.
+ */
 export async function checkExternalValidation(
   formId: string,
   fieldId: string,
   value: unknown,
-  formData?: Record<string, unknown>,
+  formData: Record<string, unknown> | undefined,
+  session: PublicSession,
 ) {
   const form = await formDao.findFormById(formId);
   if (!form) throw createError(404, 'Form not found');
@@ -457,14 +603,46 @@ export async function checkExternalValidation(
   if (!field || !field.externalValidation?.enabled) return { isValid: true };
 
   const config = field.externalValidation;
+
+  // Both budgets are consumed before the outbound call. The session's own
+  // budget is spent first so that a call we are going to refuse anyway is not
+  // also charged to the organization's hourly ceiling. Checking in the other
+  // order would not make the ceiling any stronger — a caller with a fresh
+  // session per request passes the session budget every time regardless — it
+  // would only bill the customer for requests that never left the building.
+  if (!(await consumeSessionBudget(session.id, 'externalChecks', EXTERNAL_CHECK_BUDGET))) {
+    throw budgetExceeded();
+  }
+  if (!(await consumeSharedBudget(`external:${formId}`, 60 * 60 * 1000, EXTERNAL_CHECK_HOURLY_BUDGET))) {
+    throw createError(429, 'This form has reached its verification limit for now. Please try again later.');
+  }
+
   const payload: Record<string, unknown> = {};
   payload[config.fieldValueKey || 'value'] = value;
+
+  // Only fields this config names may contribute to the outbound body. An id
+  // that is not in the list, or not a real field on this form, is dropped.
+  const referenced = new Set<string>(
+    (Array.isArray(config.referencedFieldIds) ? config.referencedFieldIds : []).map(String),
+  );
+  const publishedFieldIds = new Set<string>((schema.fields || []).map((f: any) => String(f.id)));
 
   if (config.params && Array.isArray(config.params)) {
     config.params.forEach((param: any) => {
       if (!param.key) return;
-      if (param.type === 'static') payload[param.key] = param.value;
-      else if (param.type === 'field' && formData) payload[param.key] = formData[param.value];
+      if (param.type === 'static') {
+        // Set by the organization when it configured the field, not by the
+        // caller, so it passes through as written.
+        payload[param.key] = param.value;
+        return;
+      }
+      if (param.type !== 'field' || !formData) return;
+      const sourceId = String(param.value);
+      // `param.value` naming a field is the config's decision; whether that
+      // field may be read from the request is checked here.
+      if (!publishedFieldIds.has(sourceId)) return;
+      if (referenced.size > 0 && !referenced.has(sourceId)) return;
+      payload[param.key] = formData[sourceId];
     });
   }
 

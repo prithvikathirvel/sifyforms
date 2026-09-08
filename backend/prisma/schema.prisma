@@ -222,6 +222,8 @@ model Form {
   submissions Submission[]
   surveyResponseSessions SurveyResponseSession[]
   drafts      Draft[]
+  publicSessions PublicFormSession[]
+  uniqueValues   SubmissionUniqueValue[]
 
   createdBy String
   createdAt DateTime @default(now())
@@ -290,11 +292,106 @@ model Submission {
   form             Form              @relation(fields: [formId], references: [id], onDelete: Cascade)
   processingResult ProcessingResult?
   auditLog         AuditLog?
+  uniqueValues     SubmissionUniqueValue[]
 
   @@index([formId])
   @@index([createdAt])
   // Optional analytics/read-path index; additive and safe for existing rows.
   @@index([formId, createdAt])
+}
+
+/// The uniqueness guarantee for fields marked `unique` in the form schema.
+///
+/// The old check read every submission for the form, compared answers in Node
+/// and then inserted. Two requests that interleave between the read and the
+/// insert both see "not taken" and both succeed, so the constraint that the
+/// form promised was never actually enforced — and the read cost grew with the
+/// number of responses, on a public endpoint.
+///
+/// This is the same shape as `AuditLog` for votes: the pre-check stays as a
+/// fast, friendly way to turn away the common case, and this row is the
+/// guarantee. The claim happens after the submission row exists so it can
+/// reference it; whoever loses the race has their submission deleted again,
+/// which cascades the claims they had already made.
+model SubmissionUniqueValue {
+  id           String @id @default(cuid())
+  formId       String
+  fieldId      String @db.VarChar(191)
+
+  /// sha256 of the canonicalised answer (trimmed, lower-cased). Hashed rather
+  /// than stored raw because this table would otherwise be a plaintext index
+  /// of every email address and identity number ever submitted, sitting next
+  /// to a public endpoint that queries it.
+  valueHash    String @db.VarChar(64)
+
+  submissionId String
+
+  createdAt DateTime @default(now())
+
+  form       Form       @relation(fields: [formId], references: [id], onDelete: Cascade)
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, fieldId, valueHash])
+  @@index([submissionId])
+}
+
+/// A respondent's session on a public form.
+///
+/// Everything a public form needs to scope to "this respondent, this visit"
+/// used to be scoped to their email address instead, which is not a secret and
+/// which the browser chooses for itself. This row is the secret: the server
+/// mints an unguessable token, keeps only its hash, and the browser presents
+/// the token on later requests.
+///
+/// `verifiedIdentity` is deliberately separate from anything the client sends.
+/// It is written only when the server itself has verified an identity, so a
+/// caller cannot claim to be somebody by saying so. There is no OTP backend
+/// yet, so today it is always null and every identity-scoped path stays shut —
+/// which is the correct state for a check that does not exist.
+model PublicFormSession {
+  id     String @id @default(cuid())
+  formId String
+
+  /// sha256 of the token. A leaked database backup must not hand out live
+  /// sessions.
+  tokenHash String @db.VarChar(64) @unique
+
+  /// Set only by a server-side verification step, never from request input.
+  verifiedIdentity String?   @db.VarChar(320)
+  verifiedAt       DateTime?
+
+  /// Per-session budgets. These endpoints answer questions about other
+  /// people's data or spend the organization's third-party credentials, so a
+  /// session may ask a limited number of times before it has to be replaced —
+  /// and minting a session is itself rate limited per address.
+  uniqueChecks   Int @default(0)
+  externalChecks Int @default(0)
+
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+
+  form   Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  drafts Draft[]
+
+  @@index([formId])
+  @@index([expiresAt])
+}
+
+/// A counter shared by every replica, for budgets that must hold across the
+/// whole deployment rather than per process.
+///
+/// `express-rate-limit`'s default store lives in memory, so a limit of 100 is
+/// really 100 per replica per restart. That is fine for coarse abuse control
+/// and useless for "this form may spend its API credentials 200 times an
+/// hour", which is a fact about the organization, not about one process.
+model PublicRateCounter {
+  scope       String   @db.VarChar(191)
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([scope, windowStart])
+  @@index([windowStart])
 }
 
 // Stores computed output after post-submission processing (assessment scores, vote tallies)
@@ -351,15 +448,30 @@ model AuditLog {
 model Draft {
   id        String   @id @default(cuid())
   formId    String
-  identity  String // verified email or phone — used as the lookup key
+
+  /// Historical key: the respondent's email or phone, taken from the query
+  /// string. It is not a secret, so it never scopes a read any more — see
+  /// `sessionId`. Kept because existing rows carry it and because a future
+  /// server-verified OTP flow needs somewhere to record whose draft this is.
+  /// The unique constraint that used to sit on it is gone: it was the index
+  /// that made an email address into a lookup key.
+  identity  String?
+
+  /// The row that actually authorises access. Null only for drafts written
+  /// before this column existed; those are unreachable by the new lookup,
+  /// which is the intended outcome — they were readable by anyone who knew an
+  /// email address.
+  sessionId String?
+
   data      String   @db.LongText // JSON field values
   stepIndex Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+  form    Form               @relation(fields: [formId], references: [id], onDelete: Cascade)
+  session PublicFormSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@unique([formId, identity])
+  @@unique([formId, sessionId])
   @@index([formId])
 }
 

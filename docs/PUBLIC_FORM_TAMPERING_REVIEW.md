@@ -25,7 +25,7 @@ browser and is believed. That is where all the high-severity findings live.
 
 ---
 
-## 1. File uploads are entirely self-reported — CRITICAL
+## 1. File uploads are entirely self-reported — CRITICAL (FIXED)
 
 `backend/src/lib/validation.ts:314-346`
 
@@ -120,7 +120,7 @@ is absent, rather than skipping.
 
 ---
 
-## 2. Anyone can read anyone's saved draft — CRITICAL
+## 2. Anyone can read anyone's saved draft — CRITICAL (FIXED)
 
 `backend/src/routes/draft.routes.ts` — no `authMiddleware`, no rate limiter.
 `backend/src/controllers/express/draft.controller.ts:10`
@@ -156,7 +156,7 @@ and you can overwrite another respondent's in-progress survey.
 
 ---
 
-## 3. `check-unique` is a public membership oracle — HIGH
+## 3. `check-unique` is a public membership oracle — HIGH (FIXED)
 
 `backend/src/routes/submission.routes.ts:24` (no auth)
 `backend/src/service/submission.service.ts:207`
@@ -184,7 +184,7 @@ let the submit-time uniqueness check report the collision. Either way, make it a
 
 ---
 
-## 4. Unique fields are check-then-write, with no constraint behind them — HIGH
+## 4. Unique fields are check-then-write, with no constraint behind them — HIGH (FIXED)
 
 `backend/src/service/submission.service.ts:132-141`
 
@@ -251,7 +251,7 @@ depth cap.
 
 ---
 
-## 6. CSV export has no formula-injection guard — MEDIUM
+## 6. CSV export has no formula-injection guard — MEDIUM (FIXED)
 
 `backend/src/service/submission.service.ts:413-427`
 
@@ -271,7 +271,7 @@ one click exfiltrates it. `cmd|' /C calc'!A0` is the other classic.
 
 ---
 
-## 7. An unauthenticated caller can spend the org's API credentials — MEDIUM
+## 7. An unauthenticated caller can spend the org's API credentials — MEDIUM (FIXED)
 
 `backend/src/routes/submission.routes.ts:25` → `submission.service.ts:445`
 
@@ -466,18 +466,23 @@ from the session rather than trusting the posted value.
 
 | # | Issue | Severity | Repro cost |
 |---|---|---|---|
-| 1 | File size/type/owner are self-reported; `documentId` unbound | Critical | One curl |
-| 2 | Drafts keyed by email, no auth — read/write/delete anyone's | Critical | One curl |
-| 3 | `check-unique` public membership oracle + O(n) scan | High | One curl |
-| 4 | Unique-field TOCTOU, no DB constraint | High | Five parallel curls |
-| 5 | `normalizeValue` does not recurse into objects | Medium | Proved above |
-| 6 | CSV export lacks formula-injection guard | Medium | Type into the form |
-| 7 | Public `check-external` spends the org's credentials | Medium | One curl |
-| 8 | Bot protection is a per-form toggle | Low | — |
-| 9 | 50 MB body parsed before filtering | Low | One large curl |
-| 10 | Empty option allow-list accepted any value — **fixed** | Critical | One curl |
-| 11 | Step `lockOnComplete` enforced only in the browser | High | DevTools |
-| 12 | OTP hardcoded `1234`, verified client-side, no backend | Critical | One sessionStorage write |
+| # | Issue | Severity | Status |
+|---|---|---|---|
+| 1 | File size/type/owner are self-reported; `documentId` unbound | Critical | **Fixed** |
+| 2 | Drafts keyed by email, no auth — read/write/delete anyone's | Critical | **Fixed** |
+| 3 | `check-unique` public membership oracle + O(n) scan | High | **Fixed** |
+| 4 | Unique-field TOCTOU, no DB constraint | High | **Fixed** |
+| 5 | `normalizeValue` does not recurse into objects | Medium | Open |
+| 6 | CSV export lacks formula-injection guard | Medium | **Fixed** |
+| 7 | Public `check-external` spends the org's credentials | Medium | **Fixed** |
+| 8 | Bot protection is a per-form toggle | Low | Open (by design) |
+| 9 | 50 MB body parsed before filtering | Low | Open |
+| 10 | Empty option allow-list accepted any value | Critical | **Fixed** |
+| 11 | Step `lockOnComplete` enforced only in the browser | High | Open |
+| 12 | OTP hardcoded `1234`, verified client-side, no backend | Critical | Open |
+
+The six marked fixed in this round are covered by `docs/PUBLIC_FORM_HARDENING.md`,
+which records what changed and the verification each one was held to.
 
 ## What is already right
 

@@ -1,6 +1,7 @@
 import * as submissionService from '../../service/submission.service';
 import { gcfAuthMiddleware } from '../../utils/gcfAuth';
 import { AuthRequest } from '../../middleware/auth.middleware';
+import { readFormSessionToken, requirePublicSession } from '../../service/publicSession.service';
 import logger from '../../utils/logger';
 import { StatusCodes } from 'http-status-codes';
 
@@ -39,35 +40,61 @@ export const saveSurveyPartial = functions.http('saveSurveyPartial', async (req:
   }
 });
 
+/*
+ * These two are public but no longer anonymous, exactly as in the Express
+ * routes. `checkFieldUniqueness` answers "has this person already submitted?",
+ * and `checkExternalValidation` makes this server call the organization's API
+ * with the organization's stored credentials. Both now require a server-issued
+ * form session so the answers and the spending can be budgeted.
+ *
+ * The gate lives in `requirePublicSession` rather than in a middleware so that
+ * all three transports enforce the same thing; guarding only the Express copy
+ * would leave this one exactly as it was.
+ */
+
+function publicSessionFailure(res: any, label: string, error: any): void {
+  logger.error(`GCF --> ${label} --> Error`, { message: error?.message });
+  res.status(error?.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+    error: error?.message,
+    ...(error?.code ? { code: error.code } : {}),
+  });
+}
+
 // POST https://<region>-<project>.cloudfunctions.net/checkFieldUniqueness
-// No auth — Body: { formId, fieldId, value }
+// Body: { formId, fieldId, value }   Header: X-Form-Session
 export const checkFieldUniqueness = functions.http('checkFieldUniqueness', async (req: any, res: any) => {
   try {
-    logger.info('GCF --> checkFieldUniqueness --> Request', { formId: req.body.formId });
-    const { formId, fieldId, value } = req.body;
+    const { formId, fieldId, value } = req.body ?? {};
+    // The value is deliberately absent from the log line: this endpoint is
+    // asked about addresses belonging to people who have submitted nothing.
+    logger.info('GCF --> checkFieldUniqueness --> Request', { formId, fieldId });
     if (!formId || !fieldId || value === undefined) {
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId, fieldId, and value are required' });
       return;
     }
-    const result = await submissionService.checkFieldUniqueness(formId, fieldId, value);
+    const session = await requirePublicSession(String(formId), readFormSessionToken(req.headers, req.body));
+    const result = await submissionService.checkFieldUniqueness(String(formId), String(fieldId), value, session);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
-    logger.error('GCF --> checkFieldUniqueness --> Error', error);
-    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
+    publicSessionFailure(res, 'checkFieldUniqueness', error);
   }
 });
 
 // POST https://<region>-<project>.cloudfunctions.net/checkExternalValidation
-// No auth — Body: { formId, fieldId, value, formData? }
+// Body: { formId, fieldId, value, formData? }   Header: X-Form-Session
 export const checkExternalValidation = functions.http('checkExternalValidation', async (req: any, res: any) => {
   try {
-    logger.info('GCF --> checkExternalValidation --> Request', { formId: req.body.formId });
-    const { formId, fieldId, value, formData } = req.body;
-    const result = await submissionService.checkExternalValidation(formId, fieldId, value, formData);
+    const { formId, fieldId, value, formData } = req.body ?? {};
+    logger.info('GCF --> checkExternalValidation --> Request', { formId, fieldId });
+    if (!formId) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId is required' });
+      return;
+    }
+    const session = await requirePublicSession(String(formId), readFormSessionToken(req.headers, req.body));
+    const result = await submissionService.checkExternalValidation(String(formId), fieldId, value, formData, session);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
-    logger.error('GCF --> checkExternalValidation --> Error', error);
-    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
+    publicSessionFailure(res, 'checkExternalValidation', error);
   }
 });
 

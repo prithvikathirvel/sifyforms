@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { AuthRequest } from '../../middleware/auth.middleware';
+import { PublicSessionRequest } from '../../middleware/publicSession.middleware';
 import { UpdateSubmissionInput } from '../../schemas/submission.schema';
 import * as submissionService from '../../service/submission.service';
 import logger from '../../utils/logger';
@@ -42,15 +43,20 @@ export async function createSubmission(req: Request, res: Response): Promise<voi
   }
 }
 
-export async function checkFieldUniqueness(req: Request, res: Response): Promise<void> {
+export async function checkFieldUniqueness(req: PublicSessionRequest, res: Response): Promise<void> {
   try {
     const { formId, fieldId, value } = req.body;
     if (!formId || !fieldId || value === undefined) {
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId, fieldId, and value are required' });
       return;
     }
+    // The value is not logged. This endpoint is asked about email addresses and
+    // identity numbers belonging to people who have not submitted anything, and
+    // a log line is a copy of that question.
     logger.info('Express --> checkFieldUniqueness --> Request', { formId, fieldId });
-    const result = await submissionService.checkFieldUniqueness(formId, fieldId, value);
+    const result = await submissionService.checkFieldUniqueness(
+      formId, String(fieldId), value, req.publicSession!,
+    );
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     logger.error('Express --> checkFieldUniqueness --> Error', error);
@@ -58,11 +64,13 @@ export async function checkFieldUniqueness(req: Request, res: Response): Promise
   }
 }
 
-export async function checkExternalValidation(req: Request, res: Response): Promise<void> {
+export async function checkExternalValidation(req: PublicSessionRequest, res: Response): Promise<void> {
   try {
     const { formId, fieldId, value, formData } = req.body;
     logger.info('Express --> checkExternalValidation --> Request', { formId, fieldId });
-    const result = await submissionService.checkExternalValidation(formId, fieldId, value, formData);
+    const result = await submissionService.checkExternalValidation(
+      formId, fieldId, value, formData, req.publicSession!,
+    );
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     logger.error('Express --> checkExternalValidation --> Error', error);

@@ -23,6 +23,8 @@ import {
 import { validate } from '../middleware/validate.middleware';
 import { authMiddleware, orgMiddleware } from '../middleware/auth.middleware';
 import { requirePermission } from '../middleware/permission.middleware';
+import { createFormSession } from '../controllers/express/publicSession.controller';
+import rateLimit from 'express-rate-limit';
 import { ACTIONS } from '../config/rbac.config';
 import { CreateFormSchema, UpdateFormSchema, AIEditSchema } from '../schemas/form.schema';
 
@@ -34,6 +36,28 @@ const upload = multer({
 
 // Public route for viewing published forms
 router.get('/public/:orgSlug/:formSlug', getPublicForm);
+
+/*
+ * A respondent's handle on this form.
+ *
+ * Open, because a public form is public: the point is not to decide who may
+ * have one, it is that the handle is minted by the server instead of being
+ * whatever the browser called itself. It is what scopes drafts and what makes
+ * the budgets on check-unique and check-external enforceable.
+ *
+ * The limit is the outer bound on abusing any of that. Everything downstream is
+ * budgeted per session, so churning through sessions is the way around those
+ * budgets, and this is what makes churning expensive. A real respondent needs
+ * one per visit.
+ */
+const sessionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+router.post('/public/:formId/session', sessionLimiter, createFormSession);
 
 // Protected routes
 router.use(authMiddleware);

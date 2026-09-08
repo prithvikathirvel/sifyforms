@@ -11,6 +11,7 @@
 
 import { execSync } from 'child_process';
 import mysql from 'mysql2/promise';
+import { backfillUniqueValues } from './backfill-unique-values.mjs';
 
 function parseDATABASE_URL(url) {
   const withoutProtocol = url.replace(/^mysql:\/\//, '');
@@ -72,6 +73,15 @@ try {
     await conn.query(sql);
     console.log(' ✔', sql.replace('ALTER TABLE ', '').replace(' MODIFY ', ' → '));
   }
+
+  // Step 3 — fill the uniqueness index from the submissions that already exist.
+  //
+  // The unique-field guarantee moved out of application code and into a
+  // constraint on SubmissionUniqueValue. The table is created empty, so until
+  // it knows about the responses already in the database, a repeat of an older
+  // answer would not be recognised. Idempotent, so re-running a deploy is free.
+  console.log('\nBackfilling the unique-value index...');
+  await backfillUniqueValues(conn, { log: (line) => console.log(line) });
 
   console.log('\n✅ Migration complete. Database is ready for production.');
 } finally {

@@ -2,6 +2,7 @@ import * as formService from '../../service/form.service';
 import { gcfAuthMiddleware, gcfValidate } from '../../utils/gcfAuth';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import { CreateFormSchema, UpdateFormSchema, AIEditSchema } from '../../schemas/form.schema';
+import { issueSessionForPublishedForm } from '../../service/publicSession.service';
 import logger from '../../utils/logger';
 import { StatusCodes } from 'http-status-codes';
 
@@ -22,6 +23,31 @@ export const getPublicForm = functions.http('getPublicForm', async (req: any, re
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     logger.error('GCF --> getPublicForm --> Error', error);
+    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
+  }
+});
+
+/*
+ * POST .../createFormSession?formId=xxx
+ *
+ * A respondent's handle on a public form. Every gated public endpoint —
+ * drafts, check-unique, check-external — needs one, so a deployment without
+ * this function has a form that cannot autosave. Open by design; the limit on
+ * abusing it belongs in the platform's own rate configuration here, since Cloud
+ * Functions do not share the Express limiter.
+ */
+export const createFormSession = functions.http('createFormSession', async (req: any, res: any) => {
+  try {
+    const formId = String(req.query.formId || req.body?.formId || '');
+    logger.info('GCF --> createFormSession --> Request', { formId });
+    if (!formId) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'formId is required' });
+      return;
+    }
+    const result = await issueSessionForPublishedForm(formId);
+    res.status(StatusCodes.CREATED).json(result);
+  } catch (error: any) {
+    logger.error('GCF --> createFormSession --> Error', { message: error?.message });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
   }
 });

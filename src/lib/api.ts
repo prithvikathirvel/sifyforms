@@ -79,6 +79,18 @@ api.interceptors.request.use((config) => {
 /** Endpoints that must never trigger a refresh attempt of their own. */
 const CREDENTIAL_PATHS = ['/auth/login', '/auth/refresh', '/auth/register', '/auth/logout'];
 
+/**
+ * Endpoints belonging to the public form, which has no signed-in user at all.
+ *
+ * A 401 from one of these means "your *form* session expired, mint a new one"
+ * — see lib/publicFormSession.ts. Letting it reach the refresh handler below
+ * would be actively harmful: the refresh would fail (there is no refresh
+ * cookie), that failure would be read as a dead login, and a respondent
+ * half-way through a job application would be redirected to a sign-in screen
+ * for an application they are not signing in to.
+ */
+const PUBLIC_FORM_PATHS = ['/drafts', '/submissions/check-unique', '/submissions/check-external', '/forms/public/'];
+
 let refreshInFlight: Promise<string> | null = null;
 
 /**
@@ -174,7 +186,8 @@ api.interceptors.response.use(
       error.response?.status !== 401 ||
       !originalRequest ||
       originalRequest._retry ||
-      CREDENTIAL_PATHS.some((path) => originalRequest.url?.includes(path))
+      CREDENTIAL_PATHS.some((path) => originalRequest.url?.includes(path)) ||
+      PUBLIC_FORM_PATHS.some((path) => originalRequest.url?.includes(path))
     ) {
       return Promise.reject(error);
     }
