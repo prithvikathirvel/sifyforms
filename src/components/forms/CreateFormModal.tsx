@@ -62,7 +62,7 @@ const KIND_CARDS: {
 
 const STEP_DESCRIPTION: Record<Step, string> = {
   choose: 'Choose the best starting point for your form.',
-  scratch: 'Name the form — the kind you picked decides what the editor provides.',
+  scratch: 'Name the form — the type you picked decides what the editor provides.',
   template: 'Start quickly with a reusable, preconfigured form.',
   json: 'Import a form from an existing SifyForms JSON schema.',
   ai: 'Create a form using AI — just describe what you need.',
@@ -313,9 +313,14 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   };
 
   const renderTeamPicker = () => (
-    <section className="rounded-xl border border-primary/[0.08] bg-primary/[0.018] p-3.5 sm:p-4" aria-labelledby="form-team-label">
-      <Label id="form-team-label" htmlFor="formTeam">Team</Label>
-      <div className="mt-2 w-full sm:max-w-xl">
+    <section
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-ink-50/50 px-3.5 py-2.5"
+      aria-labelledby="form-team-label"
+    >
+      <Label id="form-team-label" htmlFor="formTeam" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        Team
+      </Label>
+      <div className="w-full sm:w-auto sm:min-w-[220px] sm:max-w-xs">
         <TeamTreeSelect
           teams={teamList}
           value={effectiveTeamId}
@@ -323,9 +328,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
           isLoading={teamsLoading}
         />
       </div>
-      <p className="mt-2.5 text-[11px] font-medium leading-4 text-muted-foreground">
-        Your organization role governs who can edit and see responses; teams group the form.
-      </p>
+      <p className="text-[10.5px] font-medium text-muted-foreground">Teams decide who can edit this form and see responses.</p>
     </section>
   );
 
@@ -333,6 +336,12 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
     <div className="space-y-5">
       {renderTeamPicker()}
 
+      {/*
+        One ordered grid: the two ways to start (AI, scratch) and the three
+        typed forms, then template and import. "Start from scratch" is the
+        plain Collect-answers form; the typed cards open the same details
+        step with their type preselected.
+      */}
       <section aria-labelledby="creation-method-title">
         <div className="mb-3">
           <h3 id="creation-method-title" className="font-display text-[13px] font-bold text-foreground">Choose a creation method</h3>
@@ -351,8 +360,27 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
             icon={<FilePlus2 className="h-5 w-5" strokeWidth={1.8} />}
             title="Start from scratch"
             description="Open a clean canvas and build each field yourself."
-            onClick={() => goTo('scratch')}
+            onClick={() => {
+              setFormKind('collect');
+              goTo('scratch');
+            }}
           />
+          {(['voting', 'assessment', 'survey'] as const).map((id) => {
+            const kind = KIND_CARDS.find((k) => k.id === id)!;
+            return (
+              <MethodCard
+                key={kind.id}
+                icon={kind.icon}
+                title={kind.title}
+                description={kind.sub}
+                badge="Type of form"
+                onClick={() => {
+                  setFormKind(kind.id);
+                  goTo('scratch');
+                }}
+              />
+            );
+          })}
           <MethodCard
             icon={<LayoutTemplate className="h-5 w-5" strokeWidth={1.8} />}
             title="Use a template"
@@ -365,31 +393,6 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
             description="Bring in an existing schema and continue in the builder."
             onClick={() => goTo('json')}
           />
-        </div>
-      </section>
-
-      {/*
-        The kind comes first now (it used to be a switchable setting inside
-        the editor). Each card opens the same details step, preselected.
-      */}
-      <section aria-labelledby="creation-kind-title">
-        <div className="mb-3">
-          <h3 id="creation-kind-title" className="font-display text-[13px] font-bold text-foreground">What kind of form?</h3>
-          <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Sets the starter questions and the settings you will see. This is decided once, here.</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {KIND_CARDS.map((kind) => (
-            <MethodCard
-              key={kind.id}
-              icon={kind.icon}
-              title={kind.title}
-              description={kind.sub}
-              onClick={() => {
-                setFormKind(kind.id);
-                goTo('scratch');
-              }}
-            />
-          ))}
         </div>
       </section>
 
@@ -419,7 +422,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
                 {KIND_CARDS.find((k) => k.id === formKind)?.icon}
               </span>
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Kind of form</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Type of form</p>
                 <p className="truncate text-sm font-semibold text-foreground">
                   {KIND_CARDS.find((k) => k.id === formKind)?.title}
                 </p>

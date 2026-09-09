@@ -1,9 +1,6 @@
-import { BarChart2, Check, ChevronRight, ClipboardCheck, LayoutTemplate, ListChecks, Calculator, Vote } from 'lucide-react';
-import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
-import { updateField } from '../../store/builderSlice';
-import type { FormField } from '../../types';
-import { cn } from '../../lib/utils';
-import { POLLABLE, countShowWhenLeaves } from './formSetup';
+import { BarChart2, ChevronRight, ClipboardCheck, LayoutTemplate, ListChecks, Calculator, Vote } from 'lucide-react';
+import { useAppSelector } from '../../hooks/useAppDispatch';
+import { countShowWhenLeaves } from './formSetup';
 
 interface FormSetupPanelProps {
   /** Opens the data-calculations manager (rendered at page level). */
@@ -48,7 +45,6 @@ function SectionRow({ icon: Icon, label, hint, onClick }: {
 }
 
 export default function FormSetupPanel({ onOpenVariables, onOpenLayout }: FormSetupPanelProps) {
-  const dispatch = useAppDispatch();
   const builder = useAppSelector((state) => state.builder);
   const fields = builder.schema.fields;
   const variables = builder.schema.variables ?? [];
@@ -56,16 +52,6 @@ export default function FormSetupPanel({ onOpenVariables, onOpenLayout }: FormSe
   const layout = builder.layout;
 
   const formType = settings.formType ?? 'collect';
-
-  /** The poll's counted question: one of the choice fields, exclusive. */
-  const setPollQuestion = (field: FormField) => {
-    fields.forEach((f) => {
-      if (f.id !== field.id && f.isPollQuestion) dispatch(updateField({ id: f.id, updates: { isPollQuestion: false } }));
-    });
-    dispatch(updateField({ id: field.id, updates: { isPollQuestion: !field.isPollQuestion } }));
-  };
-
-  const pollChoices = fields.filter((f) => POLLABLE(f.type));
 
   return (
     <div className="flex h-full flex-col">
@@ -75,7 +61,7 @@ export default function FormSetupPanel({ onOpenVariables, onOpenLayout }: FormSe
 
       <div className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-3.5 py-3 pb-8 scrollbar-subtle">
         {/*
-          The form's kind — stated, not switched. It was chosen when the form
+          The form's type — stated, not switched. It was chosen when the form
           was created and decides what the editor offers (survey questions for
           surveys, the counted question for polls, scoring for assessments).
         */}
@@ -89,48 +75,13 @@ export default function FormSetupPanel({ onOpenVariables, onOpenLayout }: FormSe
                   <Icon className="h-4 w-4" strokeWidth={1.8} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Kind of form</p>
+                  <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Type of form</p>
                   <p className="truncate text-[12.5px] font-semibold text-foreground">{kind.title}</p>
                 </div>
               </>
             );
           })()}
         </section>
-
-        {/* The poll's counted question */}
-        {formType === 'voting' && (
-          <section className="rounded-xl border border-primary/25 bg-accent px-2.5 py-2.5">
-            <h3 className="flex items-center gap-1.5 text-[11.5px] font-bold text-foreground">
-              <BarChart2 className="h-3.5 w-3.5 text-primary" />
-              Which question are people voting on?
-            </h3>
-            <p className="mb-2 mt-1 text-[10.5px] leading-snug text-accent-foreground">
-              A poll counts answers to one question. Set it here or from a question&apos;s Advanced tab — both stay in sync.
-            </p>
-            <div className="flex flex-col gap-1.5">
-              {pollChoices.length ? pollChoices.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setPollQuestion(f)}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 text-left text-[11.5px] transition-colors',
-                    f.isPollQuestion
-                      ? 'border-primary bg-primary/[0.05] font-semibold'
-                      : 'border-border hover:border-primary/50'
-                  )}
-                >
-                  <span className="min-w-0 flex-1 truncate">{f.label || 'Untitled question'}</span>
-                  {f.isPollQuestion && <Check className="h-3.5 w-3.5 flex-none text-primary" />}
-                </button>
-              )) : (
-                <p className="text-[10.5px] leading-snug text-muted-foreground">
-                  Add a choice question first — a poll counts answers to one of them.
-                </p>
-              )}
-            </div>
-          </section>
-        )}
 
         {/* Structure */}
         <section className="flex flex-col gap-1.5">

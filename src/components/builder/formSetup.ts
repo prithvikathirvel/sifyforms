@@ -24,7 +24,7 @@ export const TYPE_LABEL: Record<string, string> = {
   radio: 'Radio', checkbox: 'Checkbox', multiselect: 'Multi-Select', date: 'Date',
   time: 'Time', textarea: 'Long Text', file: 'File', rating: 'Rating',
   signature: 'Signature', html: 'HTML', display: 'Display Value', table: 'Table Grid',
-  nps: 'NPS', csat: 'CSAT', ces: 'Effort Score', likert: 'Likert', ranking: 'Ranking',
+  nps: 'Rating 0–10', csat: 'Satisfaction', ces: 'Ease', likert: 'Agreement', ranking: 'Ranking',
 };
 
 /** v2 §3.2 — what the type is called in the question's own type picker.
@@ -36,8 +36,9 @@ export const TYPE_FRIENDLY: Record<string, string> = {
   number: 'Number', select: 'Dropdown', radio: 'Radio Buttons', checkbox: 'Checkboxes',
   multiselect: 'Multi-Select', date: 'Date Picker', time: 'Time Picker',
   file: 'File Upload', rating: 'Rating', signature: 'Signature', html: 'Custom HTML',
-  display: 'Display Value', table: 'Table Grid', nps: 'NPS (0–10)', csat: 'CSAT',
-  ces: 'Effort Score', likert: 'Likert Matrix', ranking: 'Ranking',
+  display: 'Display Value', table: 'Table Grid',
+  nps: 'Rating 0–10 (NPS)', csat: 'Satisfaction rating (CSAT)',
+  ces: 'Ease rating (CES)', likert: 'Agreement scale (Likert)', ranking: 'Ranking',
 };
 
 /** The icon each type carried in the previous editor's field list. */

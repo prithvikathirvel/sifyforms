@@ -1371,6 +1371,80 @@ export default function FieldEditor({
             ))}
           </div>
 
+          {/*
+            The option this form's type cares about, right next to width and
+            Required — Count for a poll's question, Score for an assessment,
+            the scale for survey questions. The same control lives in the
+            Advanced tab; here it is one click from the collapsed card.
+          */}
+          {formType === 'voting' && POLLABLE(field.type) && (
+            <button
+              type="button"
+              onClick={() => {
+                // A poll counts one question: selecting this one deselects the rest.
+                allFields.forEach((f) => {
+                  if (f.id !== field.id && f.isPollQuestion) onUpdateField(f.id, { isPollQuestion: false });
+                });
+                onUpdateField(field.id, { isPollQuestion: !field.isPollQuestion });
+              }}
+              className={cn(
+                'inline-flex items-center gap-1.5 text-xs font-semibold',
+                field.isPollQuestion ? 'text-foreground' : 'text-muted-foreground'
+              )}
+              aria-pressed={!!field.isPollQuestion}
+              title="The poll tallies answers to this question"
+            >
+              <span className={cn(
+                'relative h-[19px] w-[34px] rounded-full transition-colors',
+                field.isPollQuestion ? 'bg-primary' : 'bg-ink-300'
+              )}>
+                <span className={cn(
+                  'absolute top-0.5 h-[15px] w-[15px] rounded-full bg-white shadow transition-transform',
+                  field.isPollQuestion ? 'translate-x-[15px] left-[2px]' : 'left-[2px]'
+                )} />
+              </span>
+              Count
+            </button>
+          )}
+          {formType === 'assessment' && POLLABLE(field.type) && (
+            <button
+              type="button"
+              onClick={() => onOpenModal('scoring')}
+              className={cn(
+                'inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px] font-semibold transition-colors',
+                field.correctAnswer != null
+                  ? 'border-primary/40 bg-primary/[0.06] text-primary'
+                  : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-primary'
+              )}
+              title="Mark the correct answer and its points"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" strokeWidth={1.8} />
+              {field.correctAnswer != null ? 'Scored' : 'Score'}
+            </button>
+          )}
+          {formType === 'survey' && TYPE_SURVEY_GROUP.types.includes(field.type) && (() => {
+            // One line stating the question's defining setting; a click
+            // opens the Content tab where it is edited.
+            const label = field.type === 'likert'
+              ? `${(field.surveyConfig?.rows ?? []).length || 0} statements`
+              : field.type === 'ranking'
+                ? `${(field.options ?? []).length || 0} items to rank`
+                : field.surveyConfig?.scale
+                  ? `Scale ${field.surveyConfig.scale.min}–${field.surveyConfig.scale.max}`
+                  : 'Set the scale';
+            return (
+              <button
+                type="button"
+                onClick={() => setTab('content')}
+                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                title="Edit this question's scale"
+              >
+                <BarChart2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+                {label}
+              </button>
+            );
+          })()}
+
           <span className="flex-1" />
 
           {/* Required toggle */}
