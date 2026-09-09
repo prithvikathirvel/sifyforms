@@ -975,7 +975,7 @@ export default function FormBuilderPage() {
   return (
     <div className="app-shell flex h-screen flex-col overflow-hidden bg-workspace">
       {/* Header (v2: mode switch centred, autosave replaces Save) */}
-      <header className="relative shrink-0 border-b border-border/70 bg-card">
+      <header className="relative shrink-0 border-b border-border/70 bg-card shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
         <div className="grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2.5 sm:px-3">
           {/* Left — back, name, status */}
           <div className="flex min-w-0 items-center gap-1">
@@ -983,9 +983,15 @@ export default function FormBuilderPage() {
               variant="ghost"
               size="sm"
               className="h-7 w-7 flex-none p-0 text-muted-foreground hover:text-foreground"
-              onClick={() => navigate('/dashboard')}
-              title="Back to dashboard"
-              aria-label="Back to dashboard"
+              onClick={() => {
+                // One back button, two destinations: out of Preview or
+                // Settings it returns to the canvas; from the canvas it
+                // leaves the editor for the dashboard.
+                if (mode !== 'canvas') setMode('canvas');
+                else navigate('/dashboard');
+              }}
+              title={mode !== 'canvas' ? 'Back to canvas' : 'Back to dashboard'}
+              aria-label={mode !== 'canvas' ? 'Back to canvas' : 'Back to dashboard'}
             >
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
             </Button>
@@ -1368,7 +1374,7 @@ export default function FormBuilderPage() {
             schema={builder.schema}
             settings={builder.settings}
             formId={formId}
-            name={builder.formName}
+            name={builder.settings.title || builder.formName}
             description={builder.formDescription}
             orientation={builder.layout.orientation}
             layout={builder.layout}
@@ -1402,7 +1408,7 @@ export default function FormBuilderPage() {
 
           {/* Canvas */}
           <main
-            className="min-w-0 flex-1 overflow-y-auto bg-workspace scrollbar-subtle"
+            className="min-w-0 flex-1 overflow-y-auto bg-workspace bg-[radial-gradient(64rem_16rem_at_50%_-8rem,rgba(59,130,246,0.05),transparent)] scrollbar-subtle"
             onClick={(e) => {
               if ((e.target as HTMLElement).closest('[data-question-card]')) return;
               dispatch(selectField(null));
@@ -1410,12 +1416,12 @@ export default function FormBuilderPage() {
           >
             <div className="min-h-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
               <div className={cn(
-                'mx-auto rounded-xl border border-border bg-card shadow-sm',
+                'mx-auto rounded-2xl border border-border/70 bg-card shadow-lg shadow-foreground/[0.04]',
                 builder.layout.orientation === 'horizontal' ? 'w-full' : 'max-w-[900px]'
               )}>
                 {/* Form title + description */}
-                <div className="border-b border-border/70 px-5 py-6 sm:px-8">
-                  <h1 className="min-w-0 break-words text-lg font-bold tracking-tight text-foreground sm:text-xl">
+                <div className="border-b border-border/70 px-6 py-7 sm:px-10 sm:py-8">
+                  <h1 className="min-w-0 break-words text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
                     {builder.formName || 'Untitled form'}
                   </h1>
                   <Textarea
@@ -1439,17 +1445,21 @@ export default function FormBuilderPage() {
                       >
                         <div className="space-y-3">
                           {builder.schema.fields.length === 0 ? (
-                            <div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-6 py-14 text-center">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/[0.06] text-primary">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setAddQuestionOpen(true); }}
+                              className="group flex min-h-[320px] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/80 px-6 py-14 text-center transition-colors hover:border-primary/50 hover:bg-primary/[0.03]"
+                            >
+                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/[0.07] text-primary transition-transform group-hover:scale-105">
                                 <Plus className="h-6 w-6" strokeWidth={1.8} />
                               </div>
                               <p className="mt-4 text-[14px] font-semibold text-foreground">
                                 Start with your first question
                               </p>
                               <p className="mt-1 text-[12px] text-muted-foreground">
-                                Click “Add a question” below and pick a type
+                                Browse every question type — search, pick, done
                               </p>
-                            </div>
+                            </button>
                           ) : (
                             <FieldsByWidth
                               fields={builder.schema.fields}
@@ -1460,7 +1470,7 @@ export default function FormBuilderPage() {
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setAddQuestionOpen(true); }}
-                            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-border px-4 py-3.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/45 hover:bg-accent/60 hover:text-primary"
+                            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-border px-4 py-3.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/45 hover:bg-accent/60 hover:text-primary"
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
                             Add a question

@@ -468,6 +468,20 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
                   <p className="mt-1 text-sm text-muted-foreground">Control the form’s availability and basic response metadata.</p>
                 </div>
 
+                <section className="space-y-2.5 rounded-xl border border-border p-5 sm:p-6">
+                  <div>
+                    <Label htmlFor="general-title-input" className="text-sm font-semibold">Form title</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">The heading people see at the top of the form. Leave empty to use the form’s name.</p>
+                  </div>
+                  <Input
+                    id="general-title-input"
+                    value={builder.settings.title ?? ''}
+                    onChange={(event) => dispatch(updateSettings({ title: event.target.value || undefined }))}
+                    placeholder={builder.formName || 'Untitled form'}
+                    maxLength={200}
+                  />
+                </section>
+
                 <section className="space-y-5 rounded-xl border border-border p-5 sm:p-6">
                   <div>
                     <Label className="text-sm font-semibold">Form availability</Label>

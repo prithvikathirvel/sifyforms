@@ -656,6 +656,11 @@ export interface PostSubmitSettings {
 }
 
 export interface FormSettings {
+  /**
+   * The heading shown on the published form. Independent of the internal form
+   * name (which lists, URLs and exports key on); falls back to the name.
+   */
+  title?: string;
   thankYouMessage?: string;
   postSubmit?: PostSubmitSettings;
   redirectUrl?: string | null;

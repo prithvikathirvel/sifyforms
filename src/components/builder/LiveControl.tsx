@@ -43,11 +43,11 @@ export default function LiveControl({ field, variables, variant = 'compact' }: {
       const c = initialPhoneCountry(field.phoneConfig, phoneCountries(field.phoneConfig));
       return (
         <div className="flex w-full max-w-[340px] items-stretch">
-          <span className="flex flex-none items-center gap-1.5 rounded-l-lg border border-r-0 border-input bg-muted/40 px-2.5 text-[13.5px] text-foreground">
+          <span className="flex flex-none items-center gap-1.5 rounded-l-md border border-r-0 border-input bg-muted/40 px-2.5 text-[13.5px] text-foreground">
             <span className="text-base leading-none">{c ? flagForIso(c.iso2) : '🌐'}</span>
             <span className="text-ink-500">+{c?.dial ?? '91'}</span>
           </span>
-          <span className="min-w-0 flex-1 truncate rounded-r-lg border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">
+          <span className="min-w-0 flex-1 truncate rounded-r-md border border-input bg-background px-3 py-2 text-[13.5px] text-ink-400">
             {field.placeholder || '\u00a0'}
           </span>
         </div>

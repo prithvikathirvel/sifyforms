@@ -9,7 +9,7 @@ import { Checkbox as UICheckbox } from '../components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight, ExternalLink, CreditCard, BarChart2, XCircle, Lock, ShieldCheck } from 'lucide-react';
-import CountrySelect from '../components/ui/CountrySelect';
+import PhoneControl from '../components/ui/PhoneControl';
 import { initialPhoneCountry, phoneCountries, splitPhoneValue } from '../lib/countries';
 import { PoweredBySify } from '../components/ui/SifyWordmark';
 import { FormBranding } from '../components/ui/FormBranding';
@@ -2121,37 +2121,27 @@ export default function PublicFormPage() {
               const current = countries.find((c) => c.dial === dial) ?? initial;
               const fullValue = (national: string) => (national ? `+${current?.dial} ${national}` : '');
               return (
-                <div className="flex w-full items-stretch">
-                  <CountrySelect
-                    variant="inline"
-                    countries={countries}
-                    value={current?.iso2}
-                    disabled={isDisabled}
-                    onChange={(iso2) => {
-                      // Keep the typed digits, swap the code in the stored value.
-                      const next = countries.find((c) => c.iso2 === iso2);
-                      if (next) onChange(national ? `+${next.dial} ${national}` : '');
-                    }}
-                    className="[&>button]:rounded-r-none [&>button]:border-r-0"
-                  />
-                  <Input
-                    type="tel"
-                    inputMode="tel"
-                    value={national}
-                    disabled={isDisabled}
-                    placeholder={field.placeholder}
-                    className="rounded-l-none"
-                    onChange={(e) => onChange(fullValue(e.target.value))}
-                    onBlur={() => {
-                      onBlur();
-                      const v = fullValue(national);
-                      if (field.unique) handleUniquenessCheck(field.id, v);
-                      if (field.externalValidation?.enabled && (field.externalValidation.trigger ?? 'auto') === 'auto') {
-                        void runAutoExternalValidation(field.id, v);
-                      }
-                    }}
-                  />
-                </div>
+                <PhoneControl
+                  countries={countries}
+                  iso2={current?.iso2}
+                  national={national}
+                  placeholder={field.placeholder}
+                  disabled={isDisabled}
+                  onCountryChange={(iso2) => {
+                    // Keep the typed digits, swap the code in the stored value.
+                    const next = countries.find((c) => c.iso2 === iso2);
+                    if (next) onChange(national ? `+${next.dial} ${national}` : '');
+                  }}
+                  onNationalChange={(n) => onChange(fullValue(n))}
+                  onBlur={() => {
+                    onBlur();
+                    const v = fullValue(national);
+                    if (field.unique) handleUniquenessCheck(field.id, v);
+                    if (field.externalValidation?.enabled && (field.externalValidation.trigger ?? 'auto') === 'auto') {
+                      void runAutoExternalValidation(field.id, v);
+                    }
+                  }}
+                />
               );
             }}
           />
@@ -3056,7 +3046,7 @@ export default function PublicFormPage() {
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
               <CreditCard className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="min-w-0 break-words text-xl">{form.name}</CardTitle>
+            <CardTitle className="min-w-0 break-words text-xl">{form.settings?.title || form.name}</CardTitle>
             {stepLabel && <p className="text-xs font-medium text-primary">{stepLabel}</p>}
             <CardDescription>
               {isOtpStep
@@ -3140,7 +3130,7 @@ export default function PublicFormPage() {
       <div className={layout.orientation === 'horizontal' ? 'mx-auto w-full max-w-[1400px]' : 'mx-auto max-w-3xl'}>
         <Card className="shadow-none form-card border-border">
           <CardHeader className="px-5 pb-2 pt-6 sm:px-7 sm:pt-7">
-            <CardTitle className="min-w-0 break-words text-2xl">{form.name}</CardTitle>
+            <CardTitle className="min-w-0 break-words text-2xl">{form.settings?.title || form.name}</CardTitle>
             {form.description && (
               <CardDescription className="break-words">{form.description}</CardDescription>
             )}

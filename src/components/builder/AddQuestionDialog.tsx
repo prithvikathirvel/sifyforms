@@ -52,8 +52,11 @@ export default function AddQuestionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-lg overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl">
-        <DialogHeader className="border-b border-border/70 px-5 py-4">
+      <DialogContent
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl"
+        onClose={() => onOpenChange(false)}
+      >
+        <DialogHeader className="border-b border-border/70 px-5 py-4 pr-12">
           <DialogTitle className="text-[15px] font-semibold text-foreground">Add a question</DialogTitle>
         </DialogHeader>
 

@@ -17,6 +17,12 @@ interface CountrySelectProps {
    */
   variant?: 'field' | 'inline' | 'add';
   disabled?: boolean;
+  /**
+   * For the inline variant: visually join the button to a phone input on its
+   * right (shared corners, no dividing border, no own focus ring — the
+   * surrounding group draws one).
+   */
+  joined?: boolean;
 }
 
 /** Search field + list height, used to place the popover and cap its height. */
@@ -35,7 +41,7 @@ const LIST_GAP = 12;
  * that is where the room is.
  */
 export default function CountrySelect({
-  value, onChange, countries = COUNTRIES, className, variant = 'field', disabled,
+  value, onChange, countries = COUNTRIES, className, variant = 'field', disabled, joined,
 }: CountrySelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -112,9 +118,9 @@ export default function CountrySelect({
       className="fixed z-50 w-[264px] overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-foreground/10"
       style={{ left: pos.left, top: pos.top, bottom: pos.bottom }}
     >
-      <div className="border-b border-border/70 bg-muted/40 p-2">
-        <div className="flex items-center gap-2 rounded-lg bg-background px-2.5 py-1.5 ring-1 ring-inset ring-border/70 transition-shadow focus-within:ring-2 focus-within:ring-primary/50">
-          <Search className="h-3.5 w-3.5 flex-none text-muted-foreground" />
+      <div className="border-b border-border p-2">
+        <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-2.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/20">
+          <Search className="h-4 w-4 flex-none text-muted-foreground" />
           <input
             autoFocus
             value={query}
@@ -122,7 +128,7 @@ export default function CountrySelect({
             onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) pick(results[0]); }}
             placeholder="Search country or code…"
             aria-label="Search country"
-            className="h-6 min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+            className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
           />
           {query && (
             <button
@@ -152,7 +158,7 @@ export default function CountrySelect({
                 aria-selected={active}
                 onClick={() => pick(c)}
                 className={cn(
-                  'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] hover:bg-accent hover:text-accent-foreground',
+                  'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] hover:bg-accent hover:text-accent-foreground',
                   active && 'bg-accent/60 font-semibold text-foreground'
                 )}
               >
@@ -200,7 +206,12 @@ export default function CountrySelect({
           aria-expanded={open}
           aria-haspopup="listbox"
           title={selected ? `${selected.name} (+${selected.dial})` : 'Choose country'}
-          className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-background px-2.5 text-[13.5px] font-medium text-foreground transition-colors hover:border-ink-300 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+          className={cn(
+            'flex h-10 items-center gap-1.5 border border-input bg-background px-2.5 text-[13.5px] font-medium text-foreground transition-colors hover:border-ink-300 focus:outline-none disabled:opacity-60',
+            joined
+              ? 'rounded-l-md rounded-r-none border-r-0'
+              : 'rounded-md focus:ring-2 focus:ring-primary/30'
+          )}
         >
           <span className="text-base leading-none">{selected ? flagForIso(selected.iso2) : '🌐'}</span>
           <span className="text-ink-500">+{selected?.dial ?? '—'}</span>

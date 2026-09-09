@@ -397,6 +397,8 @@ export const FormSchemaDefinition = z.object({
 });
 
 export const FormSettingsSchema = z.object({
+  /** Public heading of the form; falls back to the form name client-side. */
+  title: z.string().max(200).optional(),
   thankYouMessage: z.string().max(4000).optional(),
   postSubmit: z.object({
     template: z.enum(['minimal', 'celebration', 'professional', 'nextSteps']).optional(),

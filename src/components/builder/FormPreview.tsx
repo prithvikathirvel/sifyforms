@@ -21,7 +21,7 @@ import SurveyFieldControl from '../fields/SurveyFieldControl';
 import { UploadRulesProvider } from '../../hooks/useUploadRules';
 import { fieldDomId, scrollToFirstError } from '../../lib/fieldFocus';
 import { FieldError, FieldPending, FieldSuccess } from '../ui/field-feedback';
-import CountrySelect from '../ui/CountrySelect';
+import PhoneControl from '../ui/PhoneControl';
 import { initialPhoneCountry, phoneCountries, splitPhoneValue } from '../../lib/countries';
 
 interface FormPreviewProps {
@@ -55,29 +55,19 @@ function PhonePreviewField({ field, value, onChange, onBlur, disabled }: {
   const current = countries.find((c) => c.dial === dial) ?? initial;
   const fullValue = (n: string) => (n ? `+${current?.dial} ${n}` : '');
   return (
-    <div className="flex w-full items-stretch">
-      <CountrySelect
-        variant="inline"
-        countries={countries}
-        value={current?.iso2}
-        disabled={disabled}
-        onChange={(iso2) => {
-          const next = countries.find((c) => c.iso2 === iso2);
-          if (next) onChange(national ? `+${next.dial} ${national}` : '');
-        }}
-        className="[&>button]:rounded-r-none [&>button]:border-r-0"
-      />
-      <Input
-        type="tel"
-        inputMode="tel"
-        value={national}
-        disabled={disabled}
-        placeholder={field.placeholder}
-        className="rounded-l-none"
-        onChange={(e) => onChange(fullValue(e.target.value))}
-        onBlur={onBlur}
-      />
-    </div>
+    <PhoneControl
+      countries={countries}
+      iso2={current?.iso2}
+      national={national}
+      placeholder={field.placeholder}
+      disabled={disabled}
+      onCountryChange={(iso2) => {
+        const next = countries.find((c) => c.iso2 === iso2);
+        if (next) onChange(national ? `+${next.dial} ${national}` : '');
+      }}
+      onNationalChange={(n) => onChange(fullValue(n))}
+      onBlur={onBlur}
+    />
   );
 }
 
