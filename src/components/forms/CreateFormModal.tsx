@@ -3,13 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
+  BarChart2,
   Braces,
   CircleAlert,
+  ClipboardCheck,
   Download,
   FilePlus2,
   Info,
   LayoutTemplate,
+  ListChecks,
   Loader2,
+  Vote,
   Wand2,
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
@@ -35,9 +39,30 @@ type Step = 'choose' | 'scratch' | 'template' | 'json' | 'ai';
 
 type JsonObject = Record<string, unknown>;
 
+/**
+ * The form's kind, chosen once at creation. It decides the starter questions,
+ * the processing settings and what the editor offers from here on — the kind
+ * is not a switchable setting afterwards.
+ */
+type FormKind = 'collect' | 'voting' | 'assessment' | 'survey';
+
+const KIND_CARDS: {
+  id: FormKind;
+  title: string;
+  sub: string;
+  icon: React.ReactNode;
+  /** Value persisted as settings.formType (undefined for a plain form). */
+  formType: FormSettings['formType'];
+}[] = [
+  { id: 'collect', title: 'Collect answers', sub: 'Registrations, applications, files, structured data.', icon: <ListChecks className="h-[18px] w-[18px]" strokeWidth={1.8} />, formType: undefined },
+  { id: 'voting', title: 'Poll or vote', sub: 'Count answers to one question and show results.', icon: <Vote className="h-[18px] w-[18px]" strokeWidth={1.8} />, formType: 'voting' },
+  { id: 'assessment', title: 'Quiz or assessment', sub: 'Score answers, set correct ones, set a pass mark.', icon: <ClipboardCheck className="h-[18px] w-[18px]" strokeWidth={1.8} />, formType: 'assessment' },
+  { id: 'survey', title: 'Survey', sub: 'NPS, CSAT, Likert, ranking and research settings.', icon: <BarChart2 className="h-[18px] w-[18px]" strokeWidth={1.8} />, formType: 'survey' },
+];
+
 const STEP_DESCRIPTION: Record<Step, string> = {
   choose: 'Choose the best starting point for your form.',
-  scratch: 'Start with a blank form and build from scratch.',
+  scratch: 'Name the form — the kind you picked decides what the editor provides.',
   template: 'Start quickly with a reusable, preconfigured form.',
   json: 'Import a form from an existing SifyForms JSON schema.',
   ai: 'Create a form using AI — just describe what you need.',
@@ -61,7 +86,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   const [step, setStep] = useState<Step>('choose');
   const [formName, setFormNameLocal] = useState('');
   const [formDescription, setFormDescriptionLocal] = useState('');
-  const [formMode, setFormMode] = useState<'standard' | 'survey'>('standard');
+  const [formKind, setFormKind] = useState<FormKind>('collect');
   const [teamId, setTeamId] = useState<string | null>(null);
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState('');
@@ -81,7 +106,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
     setStep('choose');
     setFormNameLocal('');
     setFormDescriptionLocal('');
-    setFormMode('standard');
+    setFormKind('collect');
     setJsonInput('');
     setJsonError('');
     setActionError('');
@@ -106,20 +131,26 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
         description: formDescription.trim(),
         teamId: effectiveTeamId,
         schema: {
-          // Editor v2 §3.1 — a new form starts with one empty short-answer
-          // question on the canvas, not an empty state. The first interaction
-          // becomes typing, not deciding.
-          fields: formMode === 'survey' ? [
+          // The starter follows the kind chosen at creation. Every kind opens
+          // with something on the canvas (editor v2 §3.1) — typing, not
+          // deciding, is the first interaction.
+          fields: formKind === 'survey' ? [
             { id: 'survey_nps', type: 'nps', label: 'How likely are you to recommend us?', required: true, surveyConfig: { kind: 'nps', scale: { min: 0, max: 10, minLabel: 'Not at all likely', maxLabel: 'Extremely likely' } } },
             { id: 'survey_feedback', type: 'textarea', label: 'What is the main reason for your score?', required: false, placeholder: 'Share your feedback' },
-          ] as FormField[] : [
+          ] as FormField[] : formKind === 'voting' ? [
+            { id: 'poll_choice', type: 'radio', label: 'Which option do you prefer?', required: true, isPollQuestion: true, options: [{ label: 'Option A', value: 'option_a' }, { label: 'Option B', value: 'option_b' }] } as FormField,
+          ] : [
             { id: `field_${Date.now()}`, type: 'text', label: '', placeholder: '', required: false } as FormField,
           ],
           layout: { mode: 'singlePage', steps: [] },
         },
-        settings: formMode === 'survey'
+        settings: formKind === 'survey'
           ? { formType: 'survey', thankYouMessage: 'Thank you for sharing your feedback!', survey: { identityMode: 'anonymous', showQuestionNumbers: true, showProgress: true, allowBackNavigation: true, saveIncomplete: true } }
-          : { thankYouMessage: 'Thank you for your submission!' },
+          : formKind === 'voting'
+            ? { formType: 'voting', thankYouMessage: 'Thanks for voting!', voting: { duplicatePrevention: 'none', showResultsAfterVoting: true, showResultsPublic: false } }
+            : formKind === 'assessment'
+              ? { formType: 'assessment', thankYouMessage: 'Your answers have been submitted.', assessment: { passThreshold: 60, showScoreAfterSubmit: true, showCorrectAnswers: false } }
+              : { thankYouMessage: 'Thank you for your submission!' },
       })).unwrap();
 
       dispatch(resetBuilder());
@@ -337,10 +368,35 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
         </div>
       </section>
 
+      {/*
+        The kind comes first now (it used to be a switchable setting inside
+        the editor). Each card opens the same details step, preselected.
+      */}
+      <section aria-labelledby="creation-kind-title">
+        <div className="mb-3">
+          <h3 id="creation-kind-title" className="font-display text-[13px] font-bold text-foreground">What kind of form?</h3>
+          <p className="mt-0.5 text-[11px] font-medium text-muted-foreground">Sets the starter questions and the settings you will see. This is decided once, here.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {KIND_CARDS.map((kind) => (
+            <MethodCard
+              key={kind.id}
+              icon={kind.icon}
+              title={kind.title}
+              description={kind.sub}
+              onClick={() => {
+                setFormKind(kind.id);
+                goTo('scratch');
+              }}
+            />
+          ))}
+        </div>
+      </section>
+
       <div className="flex items-start gap-2.5 rounded-xl border border-border/70 bg-card px-3.5 py-3 text-[11px] font-medium leading-4 text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
         <p>
-          Not sure where to begin? Use AI for a guided draft, or start from scratch when you already know the exact structure.
+          Not sure where to begin? Use AI for a guided draft, or pick a kind above to start from scratch.
         </p>
       </div>
     </div>
@@ -356,23 +412,26 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
     >
       <div className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         <div className="mx-auto max-w-4xl space-y-5">
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold">What are you creating?</legend>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {([
-                { value: 'standard', title: 'Standard form', description: 'Collect registrations, applications, files, and structured data.' },
-                { value: 'survey', title: 'Survey', description: 'Start with NPS and use research-ready scales, ranking, pages, and reports.' },
-              ] as const).map((option) => (
-                <button key={option.value} type="button" onClick={() => setFormMode(option.value)}
-                  className={`rounded-xl border p-4 text-left ${formMode === option.value ? 'border-primary bg-primary/[0.04]' : 'border-border hover:border-primary/30'}`}>
-                  <span className="block text-sm font-semibold">{option.title}</span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">{option.description}</span>
-                </button>
-              ))}
+          {/* The chosen kind, stated plainly — with one click back if it is wrong. */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-ink-50/60 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.06] text-primary">
+                {KIND_CARDS.find((k) => k.id === formKind)?.icon}
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Kind of form</p>
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {KIND_CARDS.find((k) => k.id === formKind)?.title}
+                </p>
+              </div>
             </div>
-          </fieldset>
+            <Button type="button" variant="outline" size="sm" onClick={() => goTo('choose')} className={slateCancelClass}>
+              <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+              Change kind
+            </Button>
+          </div>
           <div className="space-y-2">
-            <Label htmlFor="formName">{formMode === 'survey' ? 'Survey name' : 'Form name'}</Label>
+            <Label htmlFor="formName">{formKind === 'survey' ? 'Survey name' : 'Form name'}</Label>
             <Input
               id="formName"
               autoFocus
@@ -512,7 +571,7 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && resetAndClose()}>
       <DialogContent
-        className={`flex max-w-5xl flex-col overflow-visible rounded-2xl border-border bg-card p-0 shadow-[0_24px_70px_rgba(15,23,42,0.2)] ${step === 'template' ? 'h-[min(46rem,92dvh)]' : step === 'json' ? 'h-[min(44rem,90dvh)]' : step === 'choose' ? 'max-h-[92dvh]' : 'h-[min(40rem,92dvh)]'}`}
+        className={`flex max-w-5xl flex-col overflow-visible rounded-2xl border-border bg-card p-0 shadow-[0_24px_70px_rgba(15,23,42,0.2)] ${step === 'template' ? 'h-[min(46rem,92dvh)]' : step === 'json' ? 'h-[min(44rem,90dvh)]' : step === 'choose' ? 'h-[min(50rem,92dvh)]' : 'h-[min(40rem,92dvh)]'}`}
         onClose={resetAndClose}
       >
         <DialogHeader className="shrink-0 border-b border-border/70 px-5 py-4 pr-14 sm:px-6 sm:py-5">

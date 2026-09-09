@@ -1,7 +1,7 @@
-import { BarChart2, Check, ChevronRight, LayoutTemplate, Calculator } from 'lucide-react';
+import { BarChart2, Check, ChevronRight, ClipboardCheck, LayoutTemplate, ListChecks, Calculator, Vote } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
-import { updateSettings, updateField } from '../../store/builderSlice';
-import type { FormField, FormSettings } from '../../types';
+import { updateField } from '../../store/builderSlice';
+import type { FormField } from '../../types';
 import { cn } from '../../lib/utils';
 import { POLLABLE, countShowWhenLeaves } from './formSetup';
 
@@ -12,14 +12,15 @@ interface FormSetupPanelProps {
   onOpenLayout: () => void;
 }
 
-type FormKind = 'collect' | 'voting' | 'assessment' | 'survey';
-
-const KIND_CARDS: { id: FormKind; title: string; sub: string }[] = [
-  { id: 'collect', title: 'Collect answers', sub: 'An ordinary form.' },
-  { id: 'voting', title: 'Poll or vote', sub: 'Count answers to one question.' },
-  { id: 'assessment', title: 'Quiz or assessment', sub: 'Score answers, set a pass mark.' },
-  { id: 'survey', title: 'Survey', sub: 'NPS, CSAT, Likert and ranking.' },
-];
+/** How each form type reads in the panel. The kind is chosen at creation. */
+const KIND_LABEL: Record<string, { title: string; icon: React.ElementType }> = {
+  collect: { title: 'Collect answers', icon: ListChecks },
+  registration: { title: 'Collect answers', icon: ListChecks },
+  application: { title: 'Collect answers', icon: ListChecks },
+  voting: { title: 'Poll or vote', icon: Vote },
+  assessment: { title: 'Quiz or assessment', icon: ClipboardCheck },
+  survey: { title: 'Survey', icon: BarChart2 },
+};
 
 /** A polished jump-list row shared by Sections and Form structure. */
 function SectionRow({ icon: Icon, label, hint, onClick }: {
@@ -56,32 +57,6 @@ export default function FormSetupPanel({ onOpenVariables, onOpenLayout }: FormSe
 
   const formType = settings.formType ?? 'collect';
 
-  /** v2 §3.4 — the form's kind, asked once. Mutually exclusive by construction. */
-  const setFormKind = (kind: FormKind) => {
-    const updates: Partial<FormSettings> = {};
-    if (kind === 'collect') {
-      updates.formType = undefined;
-    } else {
-      updates.formType = kind;
-      if (kind === 'voting' && !settings.voting) {
-        updates.voting = { duplicatePrevention: 'none', showResultsAfterVoting: true, showResultsPublic: false };
-      }
-      if (kind === 'assessment' && !settings.assessment) {
-        updates.assessment = { passThreshold: 60, showScoreAfterSubmit: true, showCorrectAnswers: false };
-      }
-      if (kind === 'survey' && !settings.survey) {
-        updates.survey = { identityMode: 'anonymous', showQuestionNumbers: true, showProgress: true, saveIncomplete: true };
-      }
-    }
-    dispatch(updateSettings(updates));
-    // Leaving poll mode clears the counted flag — the poll no longer exists.
-    if (kind !== 'voting') {
-      fields.forEach((f) => {
-        if (f.isPollQuestion) dispatch(updateField({ id: f.id, updates: { isPollQuestion: false } }));
-      });
-    }
-  };
-
   /** The poll's counted question: one of the choice fields, exclusive. */
   const setPollQuestion = (field: FormField) => {
     fields.forEach((f) => {
@@ -99,41 +74,27 @@ export default function FormSetupPanel({ onOpenVariables, onOpenLayout }: FormSe
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-3.5 py-3 pb-8 scrollbar-subtle">
-        {/* v2 §3.4 — form type, asked once */}
-        <section className="flex flex-col gap-2">
-          <span className="text-[12px] font-bold text-foreground">What kind of form is this?</span>
-          <div className="flex flex-col gap-1.5">
-            {KIND_CARDS.map((card) => {
-              const active = formType === card.id;
-              return (
-                <button
-                  key={card.id}
-                  type="button"
-                  onClick={() => setFormKind(card.id)}
-                  aria-pressed={active}
-                  className={cn(
-                    'flex w-full items-start gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors',
-                    active
-                      ? 'border-primary/50 bg-accent'
-                      : 'border-border hover:border-ink-300 hover:bg-ink-50'
-                  )}
-                >
-                  <span className={cn(
-                    'relative mt-0.5 h-4 w-4 flex-none rounded-full border-[1.5px]',
-                    active ? 'border-primary' : 'border-input'
-                  )}>
-                    {active && (
-                      <span className="absolute left-1/2 top-1/2 h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" />
-                    )}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[12px] font-semibold text-foreground">{card.title}</span>
-                    <span className="mt-px block text-[10.5px] leading-snug text-muted-foreground">{card.sub}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+        {/*
+          The form's kind — stated, not switched. It was chosen when the form
+          was created and decides what the editor offers (survey questions for
+          surveys, the counted question for polls, scoring for assessments).
+        */}
+        <section className="flex items-center gap-2.5 rounded-xl border border-border bg-ink-50/60 px-2.5 py-2">
+          {(() => {
+            const kind = KIND_LABEL[formType] ?? KIND_LABEL.collect;
+            const Icon = kind.icon;
+            return (
+              <>
+                <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-primary/10 bg-primary/[0.06] text-primary">
+                  <Icon className="h-4 w-4" strokeWidth={1.8} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Kind of form</p>
+                  <p className="truncate text-[12.5px] font-semibold text-foreground">{kind.title}</p>
+                </div>
+              </>
+            );
+          })()}
         </section>
 
         {/* The poll's counted question */}

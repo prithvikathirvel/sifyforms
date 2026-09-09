@@ -1033,6 +1033,7 @@ export default function FieldEditor({
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [typeQuery, setTypeQuery] = useState('');
   const typeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const typeMenuRef = useRef<HTMLDivElement | null>(null);
   /** Measured popover geometry, so the menu floats above every overflow. */
   const [typeMenuPos, setTypeMenuPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
   const [labelFocused, setLabelFocused] = useState(false);
@@ -1086,12 +1087,18 @@ export default function FieldEditor({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
     };
+    // Scrolling the page closes the menu; scrolling *inside* it (the type
+    // list is longer than some viewports allow) must not.
+    const onScroll = (e: Event) => {
+      if (typeMenuRef.current && e.target instanceof Node && typeMenuRef.current.contains(e.target)) return;
+      close();
+    };
     window.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', close);
     return () => {
       window.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', close);
     };
   }, [typeMenuOpen]);
@@ -1284,6 +1291,7 @@ export default function FieldEditor({
             </button>
               {typeMenuOpen && typeMenuPos && (
               <div
+                ref={typeMenuRef}
                 className="fixed z-40 w-72 overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-foreground/10"
                 style={{ left: typeMenuPos.left, top: typeMenuPos.top, bottom: typeMenuPos.bottom }}
               >

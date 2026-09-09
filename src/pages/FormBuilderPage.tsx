@@ -1485,7 +1485,7 @@ export default function FormBuilderPage() {
                             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-border px-4 py-3.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/45 hover:bg-accent/60 hover:text-primary"
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
-                            Add a question
+                            Add
                           </button>
                         </div>
                       </SortableContext>

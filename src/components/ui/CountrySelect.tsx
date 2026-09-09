@@ -26,7 +26,7 @@ interface CountrySelectProps {
 }
 
 /** Search field + list height, used to place the popover and cap its height. */
-const SEARCH_HEIGHT = 52;
+const SEARCH_HEIGHT = 40;
 const LIST_GAP = 12;
 
 /**
@@ -118,29 +118,31 @@ export default function CountrySelect({
       className="fixed z-50 w-[264px] overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-foreground/10"
       style={{ left: pos.left, top: pos.top, bottom: pos.bottom }}
     >
-      <div className="border-b border-border p-2">
-        <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-2.5 transition-colors focus-within:border-primary">
-          <Search className="h-4 w-4 flex-none text-muted-foreground" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) pick(results[0]); }}
-            placeholder="Search country or code…"
-            aria-label="Search country"
-            className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="grid h-5 w-5 flex-none place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Clear search"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
+      {/*
+        One flat search row: icon, borderless input, divider below. No boxed
+        input inside a box — nothing to nest, misalign or double-ring.
+      */}
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
+        <Search className="h-3.5 w-3.5 flex-none text-muted-foreground" />
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) pick(results[0]); }}
+          placeholder="Search country or code…"
+          aria-label="Search country"
+          className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery('')}
+            className="grid h-5 w-5 flex-none place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Clear search"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
       </div>
       <div
         className="overflow-y-auto p-1 scrollbar-subtle"
