@@ -28,6 +28,19 @@ const initialState: BuilderState & { aiSessionId?: string | null } = {
   aiSessionId: null,
 };
 
+/**
+ * Whether an update actually changes the draft.
+ *
+ * The editor dispatches updates from every toggle and picker; clicking the
+ * option that is already selected must not mark the draft dirty, or the
+ * autosave fires for buttons that changed nothing. A JSON round-trip is
+ * deliberate here: field values are plain JSON (they round-trip through the
+ * API), the objects are small, and it cannot be fooled by key order.
+ */
+function sameJson(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 const builderSlice = createSlice({
   name: 'builder',
   initialState,
@@ -73,7 +86,9 @@ const builderSlice = createSlice({
     updateField: (state, action: PayloadAction<{ id: string; updates: Partial<FormField> }>) => {
       const index = state.schema.fields.findIndex(f => f.id === action.payload.id);
       if (index !== -1) {
-        state.schema.fields[index] = { ...state.schema.fields[index], ...action.payload.updates };
+        const merged = { ...state.schema.fields[index], ...action.payload.updates };
+        if (sameJson(merged, state.schema.fields[index])) return;
+        state.schema.fields[index] = merged;
         state.unsavedChanges = true;
       }
     },
@@ -98,6 +113,7 @@ const builderSlice = createSlice({
       state.unsavedChanges = true;
     },
     updateVariables: (state, action: PayloadAction<FormVariable[]>) => {
+      if (sameJson(action.payload, state.schema.variables)) return;
       state.schema.variables = action.payload;
       state.unsavedChanges = true;
     },
@@ -119,14 +135,18 @@ const builderSlice = createSlice({
       state.selectedFieldId = action.payload;
     },
     updateSettings: (state, action: PayloadAction<Partial<FormSettings>>) => {
-      state.settings = { ...state.settings, ...action.payload };
+      const merged = { ...state.settings, ...action.payload };
+      if (sameJson(merged, state.settings)) return;
+      state.settings = merged;
       state.unsavedChanges = true;
     },
     setFormName: (state, action: PayloadAction<string>) => {
+      if (state.formName === action.payload) return;
       state.formName = action.payload;
       state.unsavedChanges = true;
     },
     setFormDescription: (state, action: PayloadAction<string>) => {
+      if (state.formDescription === action.payload) return;
       state.formDescription = action.payload;
       state.unsavedChanges = true;
     },

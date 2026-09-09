@@ -113,12 +113,12 @@ export const SESSION_END_MESSAGE: Record<SessionEndReason, { title: string; desc
   // each one carries the reassurance too: the first thing anyone wonders when
   // they are bounced to a sign-in screen is whether their work survived.
   expired: {
-    title: 'Your session has expired',
-    description: 'You were signed out after a spell of inactivity. Everything you saved is safe — sign in again to carry on.',
+    title: 'Session expired',
+    description: 'Sign in again to continue.',
   },
   unauthorized: {
-    title: 'You have been signed out',
-    description: 'Your access changed, so we ended the session. Everything you saved is safe — sign in again to carry on.',
+    title: 'Signed out',
+    description: 'Your access changed. Sign in again to continue.',
   },
   'signed-out': {
     title: 'Signed out',

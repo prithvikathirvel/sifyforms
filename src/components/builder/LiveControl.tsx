@@ -1,7 +1,7 @@
 import { ChevronDown, Star, Upload } from 'lucide-react';
 import type { FormField, FormVariable } from '../../types';
 import { cn } from '../../lib/utils';
-import { countryByIso, flagForIso } from '../../lib/countries';
+import { flagForIso, initialPhoneCountry, phoneCountries } from '../../lib/countries';
 
 /**
  * The static, respondent-eye render of a field's answer control.
@@ -38,7 +38,9 @@ export default function LiveControl({ field, variables, variant = 'compact' }: {
     case 'email':
       return box(<span>{field.placeholder || '\u00a0'}</span>);
     case 'phone': {
-      const c = countryByIso(field.phoneConfig?.defaultCountry) ?? countryByIso('IN');
+      // Mirrors the public form: only the allowed countries (or every
+      // country), starting on the default when it is among them.
+      const c = initialPhoneCountry(field.phoneConfig, phoneCountries(field.phoneConfig));
       return (
         <div className="flex w-full max-w-[340px] items-stretch">
           <span className="flex flex-none items-center gap-1.5 rounded-l-lg border border-r-0 border-input bg-muted/40 px-2.5 text-[13.5px] text-foreground">

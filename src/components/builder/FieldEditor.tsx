@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Copy, Trash2, X, ChevronDown, ChevronRight, Plus, Check, Hash, Eye, Globe,
   Link, Calculator, AlertCircle, FileText, FileSpreadsheet, ClipboardCheck,
@@ -222,6 +222,9 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
   })();
 
   const inputCls = 'h-10 text-[13.5px]';
+  const allowedCountries = (field.phoneConfig?.allowedCountries ?? [])
+    .map((iso) => countryByIso(iso))
+    .filter((c): c is NonNullable<typeof c> => !!c);
 
   return (
     <div className="space-y-5">
@@ -304,58 +307,51 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
         <>
           <FieldRow label="Default country" hint="Preselected in the country picker people fill the form with.">
             <CountrySelect
+              countries={allowedCountries.length ? allowedCountries : undefined}
               value={field.phoneConfig?.defaultCountry}
               onChange={(iso2) => onUpdate({
                 phoneConfig: { ...field.phoneConfig, defaultCountry: iso2 },
               })}
             />
           </FieldRow>
-          <FieldRow label="Allowed countries" hint="Leave empty to offer every country. The default is always offered.">
-            <div className="flex flex-wrap gap-1.5">
-              {(field.phoneConfig?.allowedCountries ?? []).map((iso) => {
-                const c = countryByIso(iso);
-                if (!c) return null;
-                return (
-                  <span
-                    key={iso}
-                    className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-card pl-2.5 pr-1 text-[11.5px] font-medium text-foreground"
-                  >
-                    <span className="text-sm leading-none">{flagForIso(iso)}</span>
-                    +{c.dial}
-                    <button
-                      type="button"
-                      onClick={() => onUpdate({
-                        phoneConfig: {
-                          ...field.phoneConfig,
-                          allowedCountries: (field.phoneConfig?.allowedCountries ?? []).filter((x) => x !== iso),
-                        },
-                      })}
-                      className="grid h-5 w-5 place-items-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={`Remove ${c.name}`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                );
-              })}
-              <div className="flex items-center">
-                <CountrySelect
-                  variant="inline"
-                  countries={COUNTRIES.filter(
-                    (c) => !(field.phoneConfig?.allowedCountries ?? []).includes(c.iso2)
-                  )}
-                  value={undefined}
-                  onChange={(iso2) => {
-                    if (!iso2) return;
-                    onUpdate({
+          <FieldRow label="Allowed countries" hint={allowedCountries.length ? 'People can pick from these countries only.' : 'Leave empty to offer every country.'}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {allowedCountries.map((c) => (
+                <span
+                  key={c.iso2}
+                  className="group inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card pl-2 pr-1 text-[11.5px] font-medium text-foreground"
+                >
+                  <span className="text-sm leading-none">{flagForIso(c.iso2)}</span>
+                  <span>+{c.dial}</span>
+                  <button
+                    type="button"
+                    onClick={() => onUpdate({
                       phoneConfig: {
                         ...field.phoneConfig,
-                        allowedCountries: [...(field.phoneConfig?.allowedCountries ?? []), iso2],
+                        allowedCountries: allowedCountries.filter((x) => x.iso2 !== c.iso2).map((x) => x.iso2),
                       },
-                    });
-                  }}
-                />
-              </div>
+                    })}
+                    className="grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    aria-label={`Remove ${c.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <CountrySelect
+                variant="add"
+                countries={COUNTRIES.filter((c) => !allowedCountries.some((a) => a.iso2 === c.iso2))}
+                value={undefined}
+                onChange={(iso2) => {
+                  if (!iso2) return;
+                  onUpdate({
+                    phoneConfig: {
+                      ...field.phoneConfig,
+                      allowedCountries: [...allowedCountries.map((a) => a.iso2), iso2],
+                    },
+                  });
+                }}
+              />
             </div>
           </FieldRow>
         </>
@@ -544,15 +540,9 @@ function ValidationTab({ field, otherFields, onUpdate }: {
 
   if (mode === 'none') {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-ink-400">
-          <Hash className="h-5 w-5" strokeWidth={1.7} />
-        </span>
-        <p className="mt-3 text-[13.5px] font-semibold text-foreground">Nothing to limit on this answer</p>
-        <p className="mt-1 max-w-[320px] text-[12px] leading-snug text-muted-foreground">
-          This question type has no answer rules. If it must be filled in, use the <b>Required</b> toggle below.
-        </p>
-      </div>
+      <p className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-[13px] text-muted-foreground">
+        This question type has no answer rules
+      </p>
     );
   }
 
@@ -867,7 +857,7 @@ function AdvancedTab({ field, allFields, variables, formType, onOpenModal, onUpd
     {
       key: 'visibility',
       icon: Eye,
-      title: 'Only show this sometimes',
+      title: 'Condition Visibility',
       sub: field.showWhen && countShowWhenLeaves(field.showWhen.conditions) > 0
         ? `On — ${countShowWhenLeaves(field.showWhen.conditions)} condition${countShowWhenLeaves(field.showWhen.conditions) === 1 ? '' : 's'}`
         : 'Show or hide this question based on other answers.',
@@ -887,7 +877,7 @@ function AdvancedTab({ field, allFields, variables, formType, onOpenModal, onUpd
     {
       key: 'external',
       icon: Globe,
-      title: 'Check with another system',
+      title: 'External Validation',
       sub: field.externalValidation?.enabled && externalHost
         ? `On — answers are checked against ${externalHost}`
         : 'Verify the answer against an external API.',
@@ -1042,6 +1032,9 @@ export default function FieldEditor({
   const [tab, setTab] = useState<FieldEditorTab>(initialTab ?? 'content');
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [typeQuery, setTypeQuery] = useState('');
+  const typeButtonRef = useRef<HTMLButtonElement | null>(null);
+  /** Measured popover geometry, so the menu floats above every overflow. */
+  const [typeMenuPos, setTypeMenuPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
   const [labelFocused, setLabelFocused] = useState(false);
   const otherFields = allFields.filter((f) => f.id !== field.id);
 
@@ -1071,17 +1064,36 @@ export default function FieldEditor({
     setTypeMenuOpen(false);
   };
 
-  // Escape closes the type menu, like every other popover in the editor.
+  // The menu is fixed-positioned from the button's live coordinates, so it
+  // can never be clipped by the card, the tab body or the canvas scroll — and
+  // it flips below the button when there is more room there.
+  const measureTypeMenu = () => {
+    const btn = typeButtonRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const MENU_HEIGHT = 360;
+    const openUp = r.top > MENU_HEIGHT + 24;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - 8 - 288));
+    // openUp anchors the menu's bottom edge just above the button.
+    setTypeMenuPos(openUp ? { left, bottom: window.innerHeight - r.top + 6 } : { left, top: r.bottom + 6 });
+  };
+
+  // Escape closes the type menu; scrolling closes it rather than letting a
+  // fixed popover drift away from its button.
   useEffect(() => {
     if (!typeMenuOpen) return;
+    const close = () => { setTypeMenuOpen(false); setTypeQuery(''); };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setTypeMenuOpen(false);
-        setTypeQuery('');
-      }
+      if (e.key === 'Escape') close();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
   }, [typeMenuOpen]);
 
   const tabs = fieldEditorTabs(field.type);
@@ -1256,8 +1268,15 @@ export default function FieldEditor({
                 Type
               </span>
               <button
+                ref={typeButtonRef}
                 type="button"
-                onClick={() => { setTypeMenuOpen((v) => !v); setTypeQuery(''); }}
+                onClick={() => {
+                  // Measure before opening, so the menu is placed on its
+                  // first paint (and no state is set from an effect).
+                  if (!typeMenuOpen) measureTypeMenu();
+                  setTypeMenuOpen(!typeMenuOpen);
+                  setTypeQuery('');
+                }}
                 aria-expanded={typeMenuOpen}
                 className="inline-flex h-[30px] items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary"
                 title="Switch this question to another type"
@@ -1266,8 +1285,11 @@ export default function FieldEditor({
               {TYPE_FRIENDLY[field.type] || TYPE_LABEL[field.type] || field.type}
               <ChevronDown className="h-3 w-3" />
             </button>
-              {typeMenuOpen && (
-              <div className="absolute bottom-[calc(100%+6px)] left-0 z-40 w-72 overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-foreground/10">
+              {typeMenuOpen && typeMenuPos && (
+              <div
+                className="fixed z-40 w-72 overflow-hidden rounded-xl border border-border bg-popover shadow-xl shadow-foreground/10"
+                style={{ left: typeMenuPos.left, top: typeMenuPos.top, bottom: typeMenuPos.bottom }}
+              >
                 <div className="border-b border-border/70 p-2">
                   <div className="flex items-center gap-2 rounded-lg border border-input bg-background px-2.5 transition-colors focus-within:border-primary">
                     <Search className="h-3.5 w-3.5 flex-none text-muted-foreground" />

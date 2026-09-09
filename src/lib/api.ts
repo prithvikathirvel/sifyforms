@@ -195,7 +195,13 @@ api.interceptors.response.use(
     originalRequest._retry = true;
 
     try {
-      const token = await refreshSession();
+      // While a page is booting there is no access token in memory, so every
+      // request that fired before the session was restored 401s together.
+      // Those refreshes must join the page-load exchange rather than start
+      // their own: the server rotates the refresh token on every exchange,
+      // and extra sequential round trips race the rotation. Routing through
+      // the bootstrap latch keeps it to exactly one refresh per page load.
+      const token = getAccessToken() ? await refreshSession() : await bootstrapSession();
       originalRequest.headers = originalRequest.headers ?? {};
       originalRequest.headers.Authorization = `Bearer ${token}`;
       // The original request may carry an aborted organization scope signal

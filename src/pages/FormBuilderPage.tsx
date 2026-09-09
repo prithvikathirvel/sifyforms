@@ -42,6 +42,7 @@ import { toast } from '../components/ui/toast';
 import { cn } from '../lib/utils';
 import FormPreview from '../components/builder/FormPreview';
 import { getSetupRows, HAS_OPTIONS, POLLABLE, defaultOptions, type SettingsSectionId } from '../components/builder/formSetup';
+import AddQuestionDialog from '../components/builder/AddQuestionDialog';
 
 // Droppable canvas component. Clicks on the empty canvas collapse the
 // expanded question (v2 §3.3: editing happens on the question).
@@ -236,6 +237,7 @@ export default function FormBuilderPage() {
   const [fieldModal, setFieldModal] = useState<FieldModalKind | null>(null);
   const [variablesOpen, setVariablesOpen] = useState(false);
   const [preflightOpen, setPreflightOpen] = useState(false);
+  const [addQuestionOpen, setAddQuestionOpen] = useState(false);
 
   const openFieldModal = (kind: FieldModalKind) => {
     if (kind === 'variables') setVariablesOpen(true);
@@ -505,7 +507,16 @@ export default function FormBuilderPage() {
     }
 
     setIsSaving(true);
-    const stateAtSave = builder;
+    // Snapshot the CONTENT being saved. The dirty flag is only cleared when
+    // this content is still current when the response lands — selecting
+    // another question during the save must not keep the draft dirty forever,
+    // but a real edit made mid-flight must.
+    const contentAtSave = {
+      schema: builder.schema,
+      settings: builder.settings,
+      name: builder.formName,
+      description: builder.formDescription,
+    };
     try {
       const schema = getSchemaWithLayout();
 
@@ -556,7 +567,13 @@ export default function FormBuilderPage() {
       // Only clear the dirty flag when nothing changed while the request was
       // in flight — otherwise a keystroke made during the save would be
       // silently marked as saved.
-      if (builderRef.current === stateAtSave) {
+      const now = builderRef.current;
+      if (
+        now.schema === contentAtSave.schema
+        && now.settings === contentAtSave.settings
+        && now.formName === contentAtSave.name
+        && now.formDescription === contentAtSave.description
+      ) {
         dispatch(markSaved());
       }
       if (!silent) toast.success({ title: 'Form saved', description: 'Your changes are saved.' });
@@ -1299,6 +1316,14 @@ export default function FormBuilderPage() {
         </div>
       )}
 
+      {/* Add-a-question picker: the full, searchable type catalogue. */}
+      <AddQuestionDialog
+        open={addQuestionOpen}
+        onOpenChange={setAddQuestionOpen}
+        onPick={handleAddField}
+        formType={builder.settings.formType}
+      />
+
       {/* Pre-flight check before publishing (v2 §3.6) */}
       <PreflightDialog
         open={preflightOpen}
@@ -1422,7 +1447,7 @@ export default function FormBuilderPage() {
                                 Start with your first question
                               </p>
                               <p className="mt-1 text-[12px] text-muted-foreground">
-                                Click “Add a question” below, then choose its type from the toolbar under it
+                                Click “Add a question” below and pick a type
                               </p>
                             </div>
                           ) : (
@@ -1434,7 +1459,7 @@ export default function FormBuilderPage() {
                           )}
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); handleAddField('text'); }}
+                            onClick={(e) => { e.stopPropagation(); setAddQuestionOpen(true); }}
                             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-border px-4 py-3.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary/45 hover:bg-accent/60 hover:text-primary"
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />

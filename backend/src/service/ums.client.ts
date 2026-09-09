@@ -88,7 +88,7 @@ async function fetchServiceToken(): Promise<string> {
     email: UMS_SERVICE_USER_EMAIL,
     password: UMS_SERVICE_USER_PASSWORD,
   });
-  const payload = unwrap<any>(res.data);
+  const payload = normalizeTokenSet(unwrap<any>(res.data));
   const token: string | undefined = payload?.accessToken;
   if (!token) {
     throw createError(502, 'User-management service returned no access token for the service user');
@@ -188,6 +188,27 @@ export interface UmsTokenSet {
   expiresIn?: number;
 }
 
+/**
+ * The user-management service is Keycloak underneath, and Keycloak names its
+ * token fields in snake_case (`refresh_token`). Answers arrive in either
+ * dialect depending on the route, so both are accepted here.
+ *
+ * Reading only `refreshToken` is exactly how a login could succeed while the
+ * refresh token that came back with it was silently dropped: no session
+ * cookie was set, and the next page load - a hot reload in development -
+ * greeted someone who had just signed in with "your session has expired" and
+ * a 401 from the refresh endpoint.
+ */
+function normalizeTokenSet(payload: any): UmsTokenSet {
+  const src = payload?.data !== undefined ? payload.data : payload;
+  return {
+    accessToken: src?.accessToken ?? src?.access_token,
+    refreshToken: src?.refreshToken ?? src?.refresh_token,
+    idToken: src?.idToken ?? src?.id_token,
+    expiresIn: src?.expiresIn ?? src?.expires_in,
+  };
+}
+
 export interface UmsCreateUserInput {
   email: string;
   password: string;
@@ -221,7 +242,7 @@ export async function createUser(
 
 export async function login(email: string, password: string): Promise<UmsTokenSet> {
   try {
-    return await call('post', '/user/login', { email, password }, { anonymous: true });
+    return normalizeTokenSet(await call('post', '/user/login', { email, password }, { anonymous: true }));
   } catch (error) {
     throw umsError('login', error);
   }
@@ -229,7 +250,7 @@ export async function login(email: string, password: string): Promise<UmsTokenSe
 
 export async function refreshToken(token: string): Promise<UmsTokenSet> {
   try {
-    return await call('post', '/user/refresh-token', { refreshToken: token }, { anonymous: true });
+    return normalizeTokenSet(await call('post', '/user/refresh-token', { refreshToken: token }, { anonymous: true }));
   } catch (error) {
     throw umsError('refreshToken', error);
   }

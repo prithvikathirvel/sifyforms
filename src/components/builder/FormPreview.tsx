@@ -21,6 +21,8 @@ import SurveyFieldControl from '../fields/SurveyFieldControl';
 import { UploadRulesProvider } from '../../hooks/useUploadRules';
 import { fieldDomId, scrollToFirstError } from '../../lib/fieldFocus';
 import { FieldError, FieldPending, FieldSuccess } from '../ui/field-feedback';
+import CountrySelect from '../ui/CountrySelect';
+import { initialPhoneCountry, phoneCountries, splitPhoneValue } from '../../lib/countries';
 
 interface FormPreviewProps {
   schema: FormSchema;
@@ -30,6 +32,53 @@ interface FormPreviewProps {
   description?: string;
   orientation?: 'vertical' | 'horizontal';
   layout?: FormLayout;
+}
+
+/**
+ * The phone control as the published form renders it: country picker joined to
+ * the number, value carried as one "+code number" string. Fully controlled, so
+ * it needs no state of its own.
+ */
+function PhonePreviewField({ field, value, onChange, onBlur, disabled }: {
+  field: FormField;
+  value: unknown;
+  onChange: (v: unknown) => void;
+  onBlur: () => void;
+  disabled: boolean;
+}) {
+  const countries = phoneCountries(field.phoneConfig);
+  const initial = initialPhoneCountry(field.phoneConfig, countries);
+  const { dial, national } = splitPhoneValue(
+    value != null && value !== '' ? String(value) : field.defaultValue,
+    initial?.dial ?? '91'
+  );
+  const current = countries.find((c) => c.dial === dial) ?? initial;
+  const fullValue = (n: string) => (n ? `+${current?.dial} ${n}` : '');
+  return (
+    <div className="flex w-full items-stretch">
+      <CountrySelect
+        variant="inline"
+        countries={countries}
+        value={current?.iso2}
+        disabled={disabled}
+        onChange={(iso2) => {
+          const next = countries.find((c) => c.iso2 === iso2);
+          if (next) onChange(national ? `+${next.dial} ${national}` : '');
+        }}
+        className="[&>button]:rounded-r-none [&>button]:border-r-0"
+      />
+      <Input
+        type="tel"
+        inputMode="tel"
+        value={national}
+        disabled={disabled}
+        placeholder={field.placeholder}
+        className="rounded-l-none"
+        onChange={(e) => onChange(fullValue(e.target.value))}
+        onBlur={onBlur}
+      />
+    </div>
+  );
 }
 
 function validateField(field: FormField, value: unknown): string | null {
@@ -182,12 +231,21 @@ function FieldControl({
   const disabled = !!field.disabled;
 
   switch (field.type) {
-    case 'text':
-    case 'email':
     case 'phone':
       return (
+        <PhonePreviewField
+          field={field}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          disabled={disabled}
+        />
+      );
+    case 'text':
+    case 'email':
+      return (
         <Input
-          type={field.type === 'phone' ? 'tel' : field.type}
+          type={field.type}
           placeholder={field.placeholder}
           value={(value as string) ?? ''}
           disabled={disabled}

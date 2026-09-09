@@ -92,17 +92,27 @@ export function countryLabel(c: Country): string {
 }
 
 /**
- * The countries a phone field offers: the allowed list when one is set,
- * otherwise every country. The default country always makes the list.
+ * The countries a phone field offers: exactly the allowed list when one is
+ * set (the respondent sees those and no others), otherwise every country.
  */
 export function phoneCountries(config?: { defaultCountry?: string; allowedCountries?: string[] }): Country[] {
-  const allowed = config?.allowedCountries?.length
-    ? config.allowedCountries.map((iso) => countryByIso(iso)).filter((c): c is Country => !!c)
-    : null;
-  if (!allowed) return COUNTRIES;
+  if (!config?.allowedCountries?.length) return COUNTRIES;
+  return config.allowedCountries
+    .map((iso) => countryByIso(iso))
+    .filter((c): c is Country => !!c);
+}
+
+/**
+ * The country a phone field starts on: the configured default when it is
+ * among the offered countries, otherwise the first one offered.
+ */
+export function initialPhoneCountry(
+  config: { defaultCountry?: string; allowedCountries?: string[] } | undefined,
+  countries: Country[]
+): Country | undefined {
   const def = countryByIso(config?.defaultCountry);
-  if (def && !allowed.some((c) => c.iso2 === def.iso2)) return [def, ...allowed];
-  return allowed;
+  if (def && countries.some((c) => c.iso2 === def.iso2)) return def;
+  return countries[0];
 }
 
 /** Split a stored value like "+91 98765 43210" into its dial code and the rest. */

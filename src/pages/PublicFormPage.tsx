@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Loader2, CheckCircle, Star, FileText, ChevronLeft, ChevronRight, ExternalLink, CreditCard, BarChart2, XCircle, Lock, ShieldCheck } from 'lucide-react';
 import CountrySelect from '../components/ui/CountrySelect';
-import { countryByIso, phoneCountries, splitPhoneValue } from '../lib/countries';
+import { initialPhoneCountry, phoneCountries, splitPhoneValue } from '../lib/countries';
 import { PoweredBySify } from '../components/ui/SifyWordmark';
 import { FormBranding } from '../components/ui/FormBranding';
 import PostSubmitExperience from '../components/forms/PostSubmitExperience';
@@ -2113,14 +2113,12 @@ export default function PublicFormPage() {
             name={field.id}
             rules={opts}
             render={({ field: { value, onChange, onBlur } }) => {
-              const def = countryByIso(field.phoneConfig?.defaultCountry)
-                ?? countries.find((c) => c.iso2 === 'IN')
-                ?? countries[0];
+              const initial = initialPhoneCountry(field.phoneConfig, countries);
               const { dial, national } = splitPhoneValue(
                 value != null && value !== '' ? String(value) : field.defaultValue,
-                def?.dial ?? '91'
+                initial?.dial ?? '91'
               );
-              const current = countries.find((c) => c.dial === dial) ?? def;
+              const current = countries.find((c) => c.dial === dial) ?? initial;
               const fullValue = (national: string) => (national ? `+${current?.dial} ${national}` : '');
               return (
                 <div className="flex w-full items-stretch">
@@ -2130,8 +2128,9 @@ export default function PublicFormPage() {
                     value={current?.iso2}
                     disabled={isDisabled}
                     onChange={(iso2) => {
-                      const next = countryByIso(iso2);
-                      if (next) onChange(fullValue(national));
+                      // Keep the typed digits, swap the code in the stored value.
+                      const next = countries.find((c) => c.iso2 === iso2);
+                      if (next) onChange(national ? `+${next.dial} ${national}` : '');
                     }}
                     className="[&>button]:rounded-r-none [&>button]:border-r-0"
                   />
