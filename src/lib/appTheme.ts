@@ -7,7 +7,7 @@
  * load, before React renders, so there is no flash of the wrong palette.
  */
 
-export type AppThemeId = 'violet' | 'white' | 'ocean' | 'forest' | 'midnight';
+export type AppThemeId = 'violet' | 'white' | 'ocean' | 'forest' | 'mono';
 
 export interface AppTheme {
   id: AppThemeId;
@@ -43,10 +43,10 @@ export const APP_THEMES: AppTheme[] = [
     swatch: ['hsl(160 84% 28%)', 'hsl(152 40% 95%)', 'hsl(150 20% 96%)'],
   },
   {
-    id: 'midnight',
-    label: 'Midnight',
-    description: 'A dark workspace for long evenings — everything dims except the work.',
-    swatch: ['hsl(263 72% 66%)', 'hsl(269 33% 13%)', 'hsl(270 38% 9%)'],
+    id: 'mono',
+    label: 'Slate Mono',
+    description: 'Black, white and slate — nothing else. Quiet by design.',
+    swatch: ['hsl(222 47% 11%)', 'hsl(215 20% 65%)', 'hsl(210 20% 98%)'],
   },
 ];
 
@@ -67,8 +67,6 @@ export function readAppTheme(): AppThemeId {
 export function applyAppTheme(id: AppThemeId): void {
   const root = document.documentElement;
   root.dataset.appTheme = id;
-  // The dark palette is expressed as the existing `.dark` class.
-  root.classList.toggle('dark', id === 'midnight');
   try {
     localStorage.setItem(STORAGE_KEY, id);
   } catch {

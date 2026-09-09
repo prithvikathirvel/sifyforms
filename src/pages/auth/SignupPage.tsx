@@ -7,6 +7,7 @@ import { CircleAlert, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { register as registerAuth, clearError } from '../../store/authSlice';
 import { payloadFieldErrors } from '../../lib/apiError';
+import { PasswordStrengthMeter } from '../../components/ui/password-strength';
 import { emailForIdentity, usernameForIdentity } from '../../lib/identity';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { Logo } from '../../components/ui/Logo';
@@ -66,12 +67,15 @@ export default function SignupPage() {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors },
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     mode: 'onTouched',
     defaultValues: { firstName: '', lastName: '', username: '', password: '', confirmPassword: '' },
   });
+
+  const passwordValue = watch('password') ?? '';
 
   // Registration failures go to the shared toaster, next to the field they name.
   useEffect(() => {
@@ -207,6 +211,9 @@ export default function SignupPage() {
                 </button>
               </div>
               <FieldError id="signup-password-error" error={errors.password} />
+              {/* Live strength read-out — the rule that gates registration
+                  lives on the server; this shows whether they're heading there. */}
+              <PasswordStrengthMeter value={passwordValue} id="signup-password-strength" />
             </div>
 
             <div className="space-y-1.5">

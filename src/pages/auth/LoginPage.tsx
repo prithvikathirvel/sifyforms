@@ -70,10 +70,16 @@ export default function LoginPage() {
 
     if (login.fulfilled.match(loginResult)) {
       // Signing in always returns to the organization chooser: a person may
-      // belong to several, and may have invitations waiting.
+      // belong to several, and may have invitations waiting. A first-ever
+      // sign-in detours through onboarding once; the marker it stores on the
+      // account (additionalDetails.onboardedAt) keeps it to exactly once.
+      const loginPayload = (loginResult.payload ?? {}) as {
+        user?: { additionalDetails?: { onboardedAt?: unknown } };
+      };
+      const seenOnboarding = !!loginPayload.user?.additionalDetails?.onboardedAt;
       dispatch(setCurrentOrg(null));
       await dispatch(getSession());
-      navigate('/org/setup');
+      navigate(seenOnboarding ? '/org/setup' : '/onboarding');
       return;
     }
 

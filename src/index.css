@@ -173,6 +173,31 @@
     --logo-color: 160 84% 28%;
   }
 
+  html[data-app-theme='mono'] {
+    /* Black, white and slate only — a monochrome SaaS palette. */
+    --brand-from: 222 47% 11%;
+    --brand-mid: 215 25% 20%;
+    --brand-to: 215 25% 32%;
+
+    --background: 0 0% 100%;
+    --workspace: 210 20% 98%;
+
+    --primary: 222 47% 11%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 96%;
+    --accent: 210 20% 95%;
+    --accent-foreground: 222 40% 16%;
+
+    --muted: 210 20% 97%;
+    --muted-foreground: 215 16% 42%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 87%;
+    --ring: 222 47% 20%;
+    --logo-color: 222 47% 11%;
+  }
+
   .dark {
     --brand-from: 268 42% 22%;
     --brand-mid: 285 36% 28%;
