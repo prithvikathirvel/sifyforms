@@ -25,20 +25,39 @@ export default function SurveyFieldControl({ field, value, onChange, disabled = 
   const values = Array.from({ length: scale.max - scale.min + 1 }, (_, index) => scale.min + index);
 
   if (['nps', 'csat', 'ces'].includes(field.type)) {
+    // One grid carries both the score buttons and the endpoint labels, so the
+    // labels sit on the same horizontal axis as the buttons they describe —
+    // at every width, instead of drifting when the button row wraps. Narrow
+    // screens scroll the whole grid rather than reflowing it out of alignment.
+    const gridTemplate = { gridTemplateColumns: `repeat(${values.length}, minmax(2rem, 1fr))` };
     return (
-      <fieldset disabled={disabled} className="space-y-2">
+      <fieldset disabled={disabled} className="space-y-1.5">
         <legend className="sr-only">Choose a score from {scale.min} to {scale.max}</legend>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`${field.label} score`}>
-          {values.map((score) => (
-            <button key={score} type="button" role="radio" aria-checked={Number(value) === score}
-              onClick={() => onChange(normalizeSurveyAnswer(field, score))}
-              className={`min-h-11 min-w-11 rounded-md border px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${Number(value) === score ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:border-primary/50'}`}>
-              {score}
-            </button>
-          ))}
-        </div>
-        <div className="flex justify-between gap-4 text-xs text-muted-foreground">
-          <span>{config?.scale?.minLabel}</span><span className="text-right">{config?.scale?.maxLabel}</span>
+        <div className="w-full overflow-x-auto scrollbar-subtle">
+          <div
+            className="grid min-w-max gap-1.5 sm:min-w-0"
+            style={gridTemplate}
+            role="radiogroup"
+            aria-label={`${field.label} score`}
+          >
+            {values.map((score) => (
+              <button key={score} type="button" role="radio" aria-checked={Number(value) === score}
+                onClick={() => onChange(normalizeSurveyAnswer(field, score))}
+                className={`flex h-11 min-w-8 items-center justify-center rounded-md border px-1 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${Number(value) === score ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:border-primary/50'}`}>
+                {score}
+              </button>
+            ))}
+            {(config?.scale?.minLabel || config?.scale?.maxLabel) && (
+              <span className="col-span-2 self-center truncate text-left text-[11px] leading-tight text-muted-foreground">
+                {config?.scale?.minLabel}
+              </span>
+            )}
+            {(config?.scale?.minLabel || config?.scale?.maxLabel) && (
+              <span className="col-span-2 col-end-[-1] self-center truncate text-right text-[11px] leading-tight text-muted-foreground">
+                {config?.scale?.maxLabel}
+              </span>
+            )}
+          </div>
         </div>
       </fieldset>
     );

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Copy, Trash2, X, ChevronDown, ChevronRight, Plus, Check, Hash, Eye, Globe,
+  Copy, Trash2, X, ChevronDown, ChevronRight, Plus, Check, Eye, Globe,
   Link, Calculator, AlertCircle, FileText, FileSpreadsheet, ClipboardCheck,
   BarChart2, Info, Search,
 } from 'lucide-react';
@@ -22,6 +22,7 @@ import {
   ruleOptionsFor, ruleSentence, ruleValuePlaceholder, slugifyOptionValue,
   validationTabMode, type FieldEditorTab,
 } from './formSetup';
+import { SURVEY_STATEMENT_MAX, SURVEY_SCALE_LABEL_MAX, PLACEHOLDER_MAX, HELP_TEXT_MAX } from '../../lib/fieldLimits';
 
 /* ---------------------------------------------------------------------------
  * Shared bits
@@ -266,6 +267,7 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
             value={field.helpText ?? ''}
             onChange={(e) => onUpdate({ helpText: e.target.value || undefined })}
             placeholder="Additional instructions (optional)"
+            maxLength={HELP_TEXT_MAX}
             className={inputCls}
           />
         </FieldRow>
@@ -286,6 +288,7 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
             value={field.placeholder ?? ''}
             onChange={(e) => onUpdate({ placeholder: e.target.value || undefined })}
             placeholder={PLACEHOLDER_HINTS[field.type] || 'Text shown inside the field'}
+            maxLength={PLACEHOLDER_MAX}
             className={inputCls}
           />
         </FieldRow>
@@ -401,6 +404,7 @@ function ContentTab({ field, onUpdate, onTypeChange, onOpenModal, focusLabel, on
                   })}
                   placeholder={`Statement ${i + 1}`}
                   aria-label={`Statement ${i + 1}`}
+                  maxLength={SURVEY_STATEMENT_MAX}
                   className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
                 />
                 <button
@@ -569,13 +573,7 @@ function ValidationTab({ field, otherFields, onUpdate }: {
 
       {rules.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-8 text-center">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-ink-400">
-            <Hash className="h-5 w-5" strokeWidth={1.7} />
-          </span>
-          <p className="mt-3 text-[13.5px] font-semibold text-foreground">No rules on this answer</p>
-          <p className="mt-1 max-w-[320px] text-[12px] leading-snug text-muted-foreground">
-            Anything people enter is accepted as-is. Add a rule to limit what this answer can be.
-          </p>
+          <p className="text-[13px] text-muted-foreground">No rules yet — any answer is accepted.</p>
           <button
             type="button"
             onClick={() => addRuleOfType(available[0]?.value ?? 'minLength')}
@@ -746,6 +744,7 @@ function AppearanceTab({ field, onUpdate }: {
             value={scale?.minLabel ?? ''}
             onChange={(e) => setScale({ minLabel: e.target.value || undefined })}
             placeholder="e.g. Not at all likely"
+            maxLength={SURVEY_SCALE_LABEL_MAX}
             className="h-10 text-[13.5px]"
           />
         </FieldRow>
@@ -754,6 +753,7 @@ function AppearanceTab({ field, onUpdate }: {
             value={scale?.maxLabel ?? ''}
             onChange={(e) => setScale({ maxLabel: e.target.value || undefined })}
             placeholder="e.g. Extremely likely"
+            maxLength={SURVEY_SCALE_LABEL_MAX}
             className="h-10 text-[13.5px]"
           />
         </FieldRow>
@@ -1282,7 +1282,7 @@ export default function FieldEditor({
                   setTypeQuery('');
                 }}
                 aria-expanded={typeMenuOpen}
-                className="inline-flex h-[30px] items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary"
+                className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary"
                 title="Switch this question to another type"
               >
               {CurrentTypeIcon && <CurrentTypeIcon className="h-3.5 w-3.5 flex-none text-ink-400" strokeWidth={1.8} />}
@@ -1388,7 +1388,7 @@ export default function FieldEditor({
                 onUpdateField(field.id, { isPollQuestion: !field.isPollQuestion });
               }}
               className={cn(
-                'inline-flex items-center gap-1.5 text-xs font-semibold',
+                'inline-flex h-7 items-center gap-1.5 text-xs font-semibold',
                 field.isPollQuestion ? 'text-foreground' : 'text-muted-foreground'
               )}
               aria-pressed={!!field.isPollQuestion}
@@ -1403,7 +1403,7 @@ export default function FieldEditor({
                   field.isPollQuestion ? 'translate-x-[15px] left-[2px]' : 'left-[2px]'
                 )} />
               </span>
-              Count
+              Count For Poll
             </button>
           )}
           {formType === 'assessment' && POLLABLE(field.type) && (
@@ -1419,7 +1419,7 @@ export default function FieldEditor({
               title="Mark the correct answer and its points"
             >
               <ClipboardCheck className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {field.correctAnswer != null ? 'Scored' : 'Score'}
+              {field.correctAnswer != null ? 'Scored' : 'Score For Quiz'}
             </button>
           )}
           {formType === 'survey' && TYPE_SURVEY_GROUP.types.includes(field.type) && (() => {
@@ -1452,7 +1452,7 @@ export default function FieldEditor({
             type="button"
             onClick={() => onUpdate({ required: !field.required })}
             className={cn(
-              'inline-flex items-center gap-1.5 text-xs font-semibold',
+              'inline-flex h-7 items-center gap-1.5 text-xs font-semibold',
               field.required ? 'text-foreground' : 'text-muted-foreground'
             )}
             aria-pressed={!!field.required}

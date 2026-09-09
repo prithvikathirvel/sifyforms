@@ -26,7 +26,7 @@ interface CountrySelectProps {
 }
 
 /** Search field + list height, used to place the popover and cap its height. */
-const SEARCH_HEIGHT = 40;
+const SEARCH_HEIGHT = 36;
 const LIST_GAP = 12;
 
 /**
@@ -119,10 +119,11 @@ export default function CountrySelect({
       style={{ left: pos.left, top: pos.top, bottom: pos.bottom }}
     >
       {/*
-        One flat search row: icon, borderless input, divider below. No boxed
-        input inside a box — nothing to nest, misalign or double-ring.
+        The search area is a quiet tinted strip at the top of the popover —
+        exactly as tall as a list row, no border, no box. There is no "input"
+        chrome to align or mis-render: icon, text, clear button, one line.
       */}
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
+      <div className="flex h-9 shrink-0 items-center gap-2 bg-muted/50 px-3">
         <Search className="h-3.5 w-3.5 flex-none text-muted-foreground" />
         <input
           autoFocus
@@ -131,7 +132,7 @@ export default function CountrySelect({
           onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) pick(results[0]); }}
           placeholder="Search country or code…"
           aria-label="Search country"
-          className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+          className="h-6 min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] leading-none text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
         />
         {query && (
           <button

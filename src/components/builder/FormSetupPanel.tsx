@@ -1,4 +1,4 @@
-import { BarChart2, ChevronRight, ClipboardCheck, LayoutTemplate, ListChecks, Calculator, Vote } from 'lucide-react';
+import { BarChart2, ChevronRight, ClipboardCheck, Copy, Download, LayoutTemplate, ListChecks, Calculator, Vote } from 'lucide-react';
 import { useAppSelector } from '../../hooks/useAppDispatch';
 import { countShowWhenLeaves } from './formSetup';
 
@@ -7,6 +7,10 @@ interface FormSetupPanelProps {
   onOpenVariables: () => void;
   /** Opens the settings workspace on its Layout and steps section. */
   onOpenLayout: () => void;
+  /** Form-level actions (also reachable from here, not the header). */
+  onDuplicate: () => void;
+  onSaveAsTemplate: () => void;
+  onExportJson: () => void;
 }
 
 /** How each form type reads in the panel. The kind is chosen at creation. */
@@ -44,7 +48,7 @@ function SectionRow({ icon: Icon, label, hint, onClick }: {
   );
 }
 
-export default function FormSetupPanel({ onOpenVariables, onOpenLayout }: FormSetupPanelProps) {
+export default function FormSetupPanel({ onOpenVariables, onOpenLayout, onDuplicate, onSaveAsTemplate, onExportJson }: FormSetupPanelProps) {
   const builder = useAppSelector((state) => state.builder);
   const fields = builder.schema.fields;
   const variables = builder.schema.variables ?? [];
@@ -99,6 +103,20 @@ export default function FormSetupPanel({ onOpenVariables, onOpenLayout }: FormSe
               hint={`${variables.length} variable${variables.length === 1 ? '' : 's'}`}
               onClick={onOpenVariables}
             />
+          </nav>
+        </section>
+
+        {/*
+          Form actions, moved out of the header's overflow menu: they belong
+          with everything else about this form. Three quiet rows — no more,
+          so the panel stays a summary, not a toolbar.
+        */}
+        <section className="flex flex-col gap-1.5 border-t border-border/70 pt-3">
+          <span className="text-[12px] font-bold text-foreground">Actions</span>
+          <nav className="flex flex-col gap-0.5">
+            <SectionRow icon={Copy} label="Duplicate form" onClick={onDuplicate} />
+            <SectionRow icon={LayoutTemplate} label="Save as template" onClick={onSaveAsTemplate} />
+            <SectionRow icon={Download} label="Export JSON" onClick={onExportJson} />
           </nav>
         </section>
 

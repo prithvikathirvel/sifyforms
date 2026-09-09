@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import {
+  SURVEY_STATEMENT_MAX,
+  SURVEY_SCALE_LABEL_MAX,
+  SURVEY_ANALYSIS_LABEL_MAX,
+  PLACEHOLDER_MAX,
+  HELP_TEXT_MAX,
+} from './limits';
 import { DMS_MAX_FILE_SIZE_MB } from '../lib/formPolicy';
 
 export const ShowConditionOperatorSchema = z.enum([
@@ -189,17 +196,17 @@ export const FormFieldSchema = z.object({
   required: z.boolean().default(false),
   surveyConfig: z.object({
     kind: z.enum(['nps', 'csat', 'ces', 'likert', 'ranking']),
-    analysisLabel: z.string().max(120).optional(),
+    analysisLabel: z.string().max(SURVEY_ANALYSIS_LABEL_MAX).optional(),
     metricKey: z.string().max(80).optional(),
     scale: z.object({
       min: z.number().int().min(0).max(10),
       max: z.number().int().min(1).max(10),
-      minLabel: z.string().max(80).optional(),
-      midpointLabel: z.string().max(80).optional(),
-      maxLabel: z.string().max(80).optional(),
+      minLabel: z.string().max(SURVEY_SCALE_LABEL_MAX).optional(),
+      midpointLabel: z.string().max(SURVEY_SCALE_LABEL_MAX).optional(),
+      maxLabel: z.string().max(SURVEY_SCALE_LABEL_MAX).optional(),
       notApplicable: z.boolean().optional(),
     }).refine((scale) => scale.max > scale.min, 'Scale maximum must exceed minimum').optional(),
-    rows: z.array(z.object({ id: z.string().min(1), label: z.string().min(1).max(200) })).max(50).optional(),
+    rows: z.array(z.object({ id: z.string().min(1), label: z.string().min(1).max(SURVEY_STATEMENT_MAX) })).max(50).optional(),
     randomize: z.object({ enabled: z.boolean(), pinOptionIds: z.array(z.string()).optional() }).optional(),
     ranking: z.object({ maxRanked: z.number().int().min(1).max(100).optional(), requireAll: z.boolean().optional() }).optional(),
     softRequired: z.boolean().optional(),
@@ -325,8 +332,8 @@ export const FormFieldSchema = z.object({
       label: z.string(),
       type: z.enum(['text', 'number', 'select', 'calculated', 'date']),
       width: z.string().optional(),
-      placeholder: z.string().max(200).optional(),
-      helpText: z.string().max(1000).optional(),
+      placeholder: z.string().max(PLACEHOLDER_MAX).optional(),
+      helpText: z.string().max(HELP_TEXT_MAX).optional(),
       required: z.boolean().optional(),
       options: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
       formula: z.string().optional(),

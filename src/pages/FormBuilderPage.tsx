@@ -35,8 +35,8 @@ import FieldModals, { VariablesModal } from '../components/builder/FieldModals';
 import PreflightDialog from '../components/builder/PreflightDialog';
 import SettingsPanel from '../components/builder/SettingsPanel';
 import {
-  ArrowLeft, Loader2, Download, MoreVertical, Copy, LayoutTemplate, Eye, Globe, Check,
-  Edit2, Wand2, Plus, Settings,
+  ArrowLeft, Loader2, Wand2, LayoutTemplate, Copy, Eye, Globe, Check,
+  Edit2, Plus, Settings,
 } from 'lucide-react';
 import type { FormField } from '../types';
 import { toast } from '../components/ui/toast';
@@ -232,7 +232,6 @@ export default function FormBuilderPage() {
   const [mode, setMode] = useState<EditorMode>('canvas');
   const [isEditingName, setIsEditingName] = useState(false);
   const [setupPanelWidth, setSetupPanelWidth] = useState(SETUP_PANEL_DEFAULT);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   // v2 — per-question modals (launched from the ⋮ menu) and data calculations
   const [fieldModal, setFieldModal] = useState<FieldModalKind | null>(null);
@@ -1099,58 +1098,15 @@ export default function FormBuilderPage() {
 
           {/* Right — actions */}
           <div className="flex items-center justify-end gap-1.5">
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0"
-                aria-label="More actions"
-                aria-expanded={moreMenuOpen}
-                onClick={() => setMoreMenuOpen((v) => !v)}
-              >
-                <MoreVertical className="h-3.5 w-3.5" strokeWidth={1.8} />
-              </Button>
-              {moreMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(false)} />
-                  <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-lg border border-border bg-popover p-1 shadow-lg shadow-foreground/5">
-                    <button
-                      onClick={() => { setMoreMenuOpen(false); setNewName(`${builder.formName} (Copy)`); setShowNamingDialog('duplicate'); }}
-                      className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
-                    >
-                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                      Duplicate Form
-                    </button>
-                    <button
-                      onClick={() => { setMoreMenuOpen(false); setNewName(builder.formName); setShowNamingDialog('template'); }}
-                      className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
-                    >
-                      <LayoutTemplate className="h-3.5 w-3.5 text-muted-foreground" />
-                      Save as Template
-                    </button>
-                    <button
-                      onClick={() => { setMoreMenuOpen(false); handleExportJSON(); }}
-                      className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-[12px] font-medium text-foreground hover:bg-muted"
-                    >
-                      <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                      Export JSON
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="mx-1 h-4 w-px bg-border/70" />
-
             <Button
               size="sm"
-              className="h-7 w-7 rounded-lg p-0"
+              className="h-7 gap-1.5 rounded-lg px-2.5 text-[12px]"
               variant="ghost"
               onClick={() => setShowAIModal(true)}
-              title="AI Assist"
-              aria-label="AI Assist"
+              title="Describe the form and let AI draft it"
             >
               <Wand2 className="h-3.5 w-3.5 text-primary" strokeWidth={1.8} />
+              <span className="hidden sm:inline">Create with AI</span>
             </Button>
 
             {currentForm.isPublished && publicFormUrl && (
@@ -1396,6 +1352,9 @@ export default function FormBuilderPage() {
             <FormSetupPanel
               onOpenVariables={() => setVariablesOpen(true)}
               onOpenLayout={() => goToSettingsSection('layout')}
+              onDuplicate={() => { setNewName(`${builder.formName} (Copy)`); setShowNamingDialog('duplicate'); }}
+              onSaveAsTemplate={() => { setNewName(builder.formName); setShowNamingDialog('template'); }}
+              onExportJson={handleExportJSON}
             />
           </aside>
 

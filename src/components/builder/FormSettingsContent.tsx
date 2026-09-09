@@ -347,7 +347,7 @@ function BrandingSectionEditor({
 }
 
 const SETTINGS_TAB_CLASS =
-  'h-9 w-auto shrink-0 justify-start rounded-md border border-transparent px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=active]:border-primary/20 data-[state=active]:bg-primary/10 data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:shadow-none md:w-full';
+  'h-8 w-auto shrink-0 justify-start rounded-md px-2.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-muted data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none md:w-full';
 
 export default function FormSettingsContent({ formId }: FormSettingsContentProps) {
   const dispatch = useAppDispatch();
@@ -379,11 +379,11 @@ export default function FormSettingsContent({ formId }: FormSettingsContentProps
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-full w-full flex-col bg-card md:flex-row">
-      <aside className="w-full shrink-0 border-b border-border bg-muted/40 md:sticky md:top-0 md:h-[calc(100vh-3.5625rem)] md:w-60 md:self-start md:border-b-0 md:border-r">
-        <p className="hidden px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:block">
-          Sections
+      <aside className="w-full shrink-0 border-b border-border md:sticky md:top-0 md:h-[calc(100vh-3.5625rem)] md:w-56 md:self-start md:border-b-0 md:border-r">
+        <p className="hidden px-4 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80 md:block">
+          Settings
         </p>
-        <TabsList className="scrollbar-compact flex h-auto w-full flex-row justify-start gap-1 overflow-x-auto bg-transparent p-3 md:flex-col md:overflow-y-auto">
+        <TabsList className="scrollbar-compact flex h-auto w-full flex-row justify-start gap-0.5 overflow-x-auto bg-transparent px-2.5 pb-2 pt-2 md:flex-col md:overflow-y-auto">
                 <TabsTrigger value="layout" className={SETTINGS_TAB_CLASS}>
                   <LayoutTemplate className="mr-2 h-4 w-4" />
                   Layout and steps

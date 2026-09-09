@@ -29,22 +29,48 @@ import logger from '../../utils/logger';
 
 const COOKIE_PATH = '/api/auth';
 
-function cookieOptions() {
+/**
+ * Whether the page asking for the cookie lives on another site than this API.
+ *
+ * Local development is exactly that: the Vite server on localhost, this API on
+ * a shared host. A `SameSite=Lax` cookie is silently withheld from every
+ * cross-site request, so the login response stores a cookie the very next
+ * refresh call never sends — "No active session", on a session created
+ * seconds earlier. For those callers the cookie is marked `SameSite=None;
+ * Secure` instead (this API is https everywhere it is not localhost), which
+ * browsers do send. Same-site callers keep the configured, safer default.
+ */
+function crossSite(req: Request): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return false;
+  let originHost: string;
+  try {
+    originHost = new URL(origin).hostname;
+  } catch {
+    return false;
+  }
+  const host = (req.headers.host ?? '').split(':')[0];
+  if (!originHost || !host || originHost === host) return false;
+  return !originHost.endsWith(`.${host}`) && !host.endsWith(`.${originHost}`);
+}
+
+function cookieOptions(req: Request) {
+  const none = crossSite(req);
   return {
     httpOnly: true,
-    secure: REFRESH_COOKIE_SECURE,
-    sameSite: REFRESH_COOKIE_SAMESITE,
+    secure: none ? true : REFRESH_COOKIE_SECURE,
+    sameSite: none ? ('none' as const) : REFRESH_COOKIE_SAMESITE,
     path: COOKIE_PATH,
     ...(REFRESH_COOKIE_DOMAIN ? { domain: REFRESH_COOKIE_DOMAIN } : {}),
   };
 }
 
-function setRefreshCookie(res: Response, token: string): void {
-  res.cookie(REFRESH_COOKIE_NAME, token, { ...cookieOptions(), maxAge: REFRESH_COOKIE_MAX_AGE_MS });
+function setRefreshCookie(req: Request, res: Response, token: string): void {
+  res.cookie(REFRESH_COOKIE_NAME, token, { ...cookieOptions(req), maxAge: REFRESH_COOKIE_MAX_AGE_MS });
 }
 
-function clearRefreshCookie(res: Response): void {
-  res.clearCookie(REFRESH_COOKIE_NAME, cookieOptions());
+function clearRefreshCookie(req: Request, res: Response): void {
+  res.clearCookie(REFRESH_COOKIE_NAME, cookieOptions(req));
 }
 
 function fail(res: Response, label: string, error: any, fallback: string): void {
@@ -82,7 +108,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     logger.info('Express --> login --> Request', { email });
     const tokens = await authService.login(email, password);
 
-    if (tokens.refreshToken) setRefreshCookie(res, tokens.refreshToken);
+    if (tokens.refreshToken) setRefreshCookie(req, res, tokens.refreshToken);
 
     res.json({
       accessToken: tokens.accessToken,
@@ -103,14 +129,14 @@ export async function refresh(req: Request, res: Response): Promise<void> {
   try {
     const tokens = await authService.refresh(token);
     // Rotate: a refresh token is spent once it has been exchanged.
-    if (tokens.refreshToken) setRefreshCookie(res, tokens.refreshToken);
+    if (tokens.refreshToken) setRefreshCookie(req, res, tokens.refreshToken);
     res.json({
       accessToken: tokens.accessToken,
       expiresIn: tokens.expiresIn,
       user: (tokens as any).user ?? null,
     });
   } catch (error: any) {
-    clearRefreshCookie(res);
+    clearRefreshCookie(req, res);
     logger.warn('Express --> refresh --> rejected', { message: error?.message });
     res.status(StatusCodes.UNAUTHORIZED).json({ error: 'Session expired' });
   }
@@ -121,7 +147,7 @@ export async function logout(req: Request, res: Response): Promise<void> {
   try {
     await authService.logout(bearer(req), refreshToken);
   } finally {
-    clearRefreshCookie(res);
+    clearRefreshCookie(req, res);
     res.json({ message: 'Logged out successfully' });
   }
 }
