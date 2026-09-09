@@ -10,7 +10,9 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select } from '../components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Building2, Loader2, Link2, TriangleAlert, Check } from 'lucide-react';
+import { Building2, Loader2, Link2, TriangleAlert, Check, Palette } from 'lucide-react';
+import { APP_THEMES, applyAppTheme, readAppTheme, type AppThemeId } from '../lib/appTheme';
+import { cn } from '../lib/utils';
 
 /**
  * Organization settings.
@@ -45,6 +47,7 @@ export default function OrgSettingsPage() {
   const [industry, setIndustry] = useState('');
   const [logo, setLogo] = useState('');
   const [saved, setSaved] = useState(false);
+  const [theme, setTheme] = useState<AppThemeId>(readAppTheme);
 
   const [confirmName, setConfirmName] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -197,6 +200,61 @@ export default function OrgSettingsPage() {
               </p>
             </CardContent>
           </Card>
+          {/* --- appearance -------------------------------------------------- */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Palette className="h-4 w-4 text-primary" />
+                Appearance
+              </CardTitle>
+              <CardDescription>
+                The interface theme for this browser. It applies everywhere in SifyForms, immediately.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div role="radiogroup" aria-label="Interface theme" className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {APP_THEMES.map((option) => {
+                  const active = theme === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setTheme(option.id);
+                        applyAppTheme(option.id);
+                      }}
+                      className={cn(
+                        'flex flex-col gap-2 rounded-xl border p-3.5 text-left transition-colors',
+                        active
+                          ? 'border-primary/50 bg-accent'
+                          : 'border-border hover:border-primary/35 hover:bg-accent/40'
+                      )}
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="flex h-6 items-center gap-1.5">
+                          {option.swatch.map((color) => (
+                            <span
+                              key={color}
+                              className="h-4 w-4 rounded-full border border-foreground/10"
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </span>
+                        {active && <Check className="h-4 w-4 flex-none text-primary" />}
+                      </span>
+                      <span>
+                        <span className="block text-[13px] font-semibold text-foreground">{option.label}</span>
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{option.description}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
 
           {/* --- danger zone -------------------------------------------------- */}
           {can(ACTIONS.DELETE_ORG) && (

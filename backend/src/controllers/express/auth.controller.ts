@@ -27,7 +27,19 @@ import logger from '../../utils/logger';
  * rate limiting on the login path, which that service does not have.
  */
 
-const COOKIE_PATH = '/api/auth';
+/**
+ * `Path=/` deliberately.
+ *
+ * In production a proxy maps `/form-builder/api/*` on the public host to this
+ * app's `/api/*`. A cookie scoped to the path this server sees (`/api/auth`)
+ * is stored by the browser under that internal path, which the public
+ * `/form-builder/api/auth/refresh` URL never matches — so the refresh token
+ * arrives in a Set-Cookie header and is then never sent back, and every
+ * reload ends in "No active session". The cookie is httpOnly and only ever
+ * read by the auth routes, so a host-wide path costs nothing and works behind
+ * every proxy prefix.
+ */
+const COOKIE_PATH = '/';
 
 /**
  * Whether the page asking for the cookie lives on another site than this API.

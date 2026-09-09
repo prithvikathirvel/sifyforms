@@ -100,9 +100,17 @@ export const getSession = createAsyncThunk(
     try {
       const response = await api.get('/auth/session');
       const session = response.data;
-      const orgId = session?.organizations?.[0]?.id;
-      if (orgId) {
-        localStorage.setItem('currentOrgId', orgId);
+      // The chosen organization is the user's, not the API's: keep the stored
+      // selection whenever it is still among the memberships. Overwriting it
+      // with the first organization on every session fetch made the sidebar
+      // switch organizations behind the user's back.
+      const organizations = session?.organizations ?? [];
+      const savedOrgId = localStorage.getItem('currentOrgId');
+      const savedStillValid = !!savedOrgId && organizations.some((o: { id: string }) => o.id === savedOrgId);
+      if (!savedStillValid) {
+        const firstOrgId = organizations[0]?.id;
+        if (firstOrgId) localStorage.setItem('currentOrgId', firstOrgId);
+        else localStorage.removeItem('currentOrgId');
       }
       return session;
     } catch (error: unknown) {

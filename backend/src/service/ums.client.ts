@@ -202,6 +202,10 @@ export interface UmsTokenSet {
 function normalizeTokenSet(payload: any): UmsTokenSet {
   const src = payload?.data !== undefined ? payload.data : payload;
   return {
+    // Keep everything the service sent — `user`, `app`, anything else — so
+    // login answers carry the caller's profile through untouched; only the
+    // four token fields are normalized between naming dialects.
+    ...src,
     accessToken: src?.accessToken ?? src?.access_token,
     refreshToken: src?.refreshToken ?? src?.refresh_token,
     idToken: src?.idToken ?? src?.id_token,

@@ -105,6 +105,74 @@
     --radius: 0.625rem;
   }
 
+  /*
+   * App-wide UI themes (Organization settings → Appearance), applied as
+   * `data-app-theme` on <html>. "Sify Violet" is :root itself and "Midnight"
+   * is the .dark palette above; these three are the alternatives.
+   */
+  html[data-app-theme='white'] {
+    --brand-from: 221 60% 40%;
+    --brand-mid: 221 70% 46%;
+    --brand-to: 228 78% 56%;
+
+    --background: 0 0% 100%;
+    --workspace: 0 0% 100%;
+
+    --primary: 221 83% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 96%;
+    --accent: 214 40% 96%;
+    --accent-foreground: 221 60% 30%;
+
+    --border: 215 20% 88%;
+    --input: 215 20% 86%;
+    --ring: 221 83% 45%;
+    --logo-color: 221 83% 45%;
+  }
+
+  html[data-app-theme='ocean'] {
+    --brand-from: 221 70% 36%;
+    --brand-mid: 221 78% 42%;
+    --brand-to: 205 80% 52%;
+
+    --background: 0 0% 100%;
+    --workspace: 214 40% 96%;
+
+    --primary: 221 78% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 30% 96%;
+    --accent: 214 45% 95%;
+    --accent-foreground: 221 65% 32%;
+
+    --border: 213 26% 89%;
+    --input: 213 26% 87%;
+    --ring: 221 78% 46%;
+    --logo-color: 221 78% 42%;
+  }
+
+  html[data-app-theme='forest'] {
+    --brand-from: 160 75% 24%;
+    --brand-mid: 160 80% 28%;
+    --brand-to: 168 70% 38%;
+
+    --background: 0 0% 100%;
+    --workspace: 150 20% 96%;
+
+    --primary: 160 84% 28%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 150 16% 96%;
+    --accent: 152 40% 95%;
+    --accent-foreground: 160 60% 24%;
+
+    --border: 152 14% 89%;
+    --input: 152 14% 87%;
+    --ring: 160 70% 34%;
+    --logo-color: 160 84% 28%;
+  }
+
   .dark {
     --brand-from: 268 42% 22%;
     --brand-mid: 285 36% 28%;

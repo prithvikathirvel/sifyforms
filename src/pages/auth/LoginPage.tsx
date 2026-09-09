@@ -16,9 +16,10 @@ import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { Logo } from '../../components/ui/Logo';
+import { emailForIdentity } from '../../lib/identity';
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'Email address is required').email('Enter a valid email address'),
+  email: z.string().min(1, 'Enter your email or username'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -60,7 +61,12 @@ export default function LoginPage() {
   }, [error, dispatch]);
 
   const onSubmit = async (data: LoginFormData) => {
-    const loginResult = await dispatch(login(data));
+    // One field, two spellings: a bare username resolves to the same email
+    // sign-up registered it under; a full email passes through untouched.
+    const loginResult = await dispatch(login({
+      email: emailForIdentity(data.email),
+      password: data.password,
+    }));
 
     if (login.fulfilled.match(loginResult)) {
       // Signing in always returns to the organization chooser: a person may
@@ -114,16 +120,15 @@ export default function LoginPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-[13px] font-semibold text-foreground">Email address</Label>
+              <Label htmlFor="email" className="text-[13px] font-semibold text-foreground">Email or username</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={2} aria-hidden="true" />
                 <Input
                   id="email"
                   required
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  placeholder="you@company.com"
+                  type="text"
+                  autoComplete="username"
+                  placeholder="you@company.com or johndoe"
                   className="h-11 rounded-lg border-input bg-background pl-10 text-base placeholder:text-[13px] sm:text-[13px]"
                   aria-invalid={Boolean(errors.email)}
                   aria-describedby={errors.email ? 'email-error' : undefined}
