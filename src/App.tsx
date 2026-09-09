@@ -13,7 +13,6 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import OrgSetupPage from './pages/OrgSetupPage';
-import OnboardingPage from './pages/onboarding/OnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import FormsListPage from './pages/FormsListPage';
 import FormBuilderPage from './pages/FormBuilderPage';
@@ -157,8 +156,6 @@ function App() {
 
           {/* Protected routes � token only */}
           <Route path="/org/setup" element={<ProtectedRoute><OrgSetupPage /></ProtectedRoute>} />
-          {/* First-run onboarding — token only; it ends by routing to /org/setup. */}
-          <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
 
           {/* Org routes � token + org required */}
           <Route path="/dashboard" element={<OrgRoute><DashboardPage /></OrgRoute>} />

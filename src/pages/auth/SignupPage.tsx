@@ -95,9 +95,6 @@ export default function SignupPage() {
         username: usernameForIdentity(data.username),
         email: emailForIdentity(data.username),
         password: data.password,
-        // Marks the account as new: only accounts created after this flag
-        // exist see onboarding. Accounts made before it never do.
-        additionalDetails: { onboardingPending: true },
       }));
 
       if (registerAuth.fulfilled.match(result)) {

@@ -70,19 +70,10 @@ export default function LoginPage() {
 
     if (login.fulfilled.match(loginResult)) {
       // Signing in always returns to the organization chooser: a person may
-      // belong to several, and may have invitations waiting. A first-ever
-      // sign-in detours through onboarding once; the marker it stores on the
-      // account (additionalDetails.onboardedAt) keeps it to exactly once.
-      const loginPayload = (loginResult.payload ?? {}) as {
-        user?: { additionalDetails?: { onboardingPending?: boolean } };
-      };
-      // Onboarding belongs to accounts created by the new sign-up only: the
-      // flag travels with the account, so existing users never see it and a
-      // new user sees it exactly once (the flow clears the flag when done).
-      const needsOnboarding = loginPayload.user?.additionalDetails?.onboardingPending === true;
+      // belong to several, and may have invitations waiting.
       dispatch(setCurrentOrg(null));
       await dispatch(getSession());
-      navigate(needsOnboarding ? '/onboarding' : '/org/setup');
+      navigate('/org/setup');
       return;
     }
 
