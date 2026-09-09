@@ -1264,9 +1264,6 @@ export default function FieldEditor({
         <div className="flex flex-wrap items-center gap-2 rounded-b-lg border-t border-border bg-ink-50 px-5 py-2.5 sm:px-6">
           {/* Type picker */}
             <div className="relative flex items-center gap-1.5">
-              <span className="hidden text-[9.5px] font-bold uppercase tracking-[0.08em] text-ink-400 sm:inline">
-                Type
-              </span>
               <button
                 ref={typeButtonRef}
                 type="button"

@@ -61,8 +61,8 @@ export default function CountrySelect({
     const openUp = spaceBelow < Math.min(200, spaceAbove);
     const listMax = Math.max(120, (openUp ? spaceAbove : spaceBelow) - SEARCH_HEIGHT);
     setPos(openUp
-      ? { left, bottom: window.innerHeight - r.top + 4, listMax }
-      : { left, top: r.bottom + 4, listMax });
+      ? { left, bottom: window.innerHeight - r.top + 6, listMax }
+      : { left, top: r.bottom + 6, listMax });
   };
 
   // Open by measuring first, so the very first paint of the popover is
@@ -119,7 +119,7 @@ export default function CountrySelect({
       style={{ left: pos.left, top: pos.top, bottom: pos.bottom }}
     >
       <div className="border-b border-border p-2">
-        <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-2.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/20">
+        <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-2.5 transition-colors focus-within:border-primary">
           <Search className="h-4 w-4 flex-none text-muted-foreground" />
           <input
             autoFocus
@@ -207,10 +207,12 @@ export default function CountrySelect({
           aria-haspopup="listbox"
           title={selected ? `${selected.name} (+${selected.dial})` : 'Choose country'}
           className={cn(
-            'flex h-10 items-center gap-1.5 border border-input bg-background px-2.5 text-[13.5px] font-medium text-foreground transition-colors hover:border-ink-300 focus:outline-none disabled:opacity-60',
+            'flex items-center gap-1.5 px-2.5 text-[13.5px] font-medium text-foreground transition-colors hover:bg-muted/60 focus:outline-none disabled:opacity-60',
             joined
-              ? 'rounded-l-md rounded-r-none border-r-0'
-              : 'rounded-md focus:ring-2 focus:ring-primary/30'
+              // Inside PhoneControl: no border, no rounding — the group owns
+              // both. A hairline divider separates it from the number field.
+              ? 'h-full border-r border-input bg-muted/40'
+              : 'h-10 rounded-md border border-input bg-background hover:border-ink-300 focus:ring-2 focus:ring-primary/30'
           )}
         >
           <span className="text-base leading-none">{selected ? flagForIso(selected.iso2) : '🌐'}</span>

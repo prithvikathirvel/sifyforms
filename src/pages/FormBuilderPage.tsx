@@ -14,6 +14,7 @@ import {
   setFormName,
   setFormDescription,
   markSaved,
+  updateSettings,
   updateVariables,
   moveFieldToStep,
   replaceSchema,
@@ -1421,9 +1422,20 @@ export default function FormBuilderPage() {
               )}>
                 {/* Form title + description */}
                 <div className="border-b border-border/70 px-6 py-7 sm:px-10 sm:py-8">
-                  <h1 className="min-w-0 break-words text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                    {builder.formName || 'Untitled form'}
-                  </h1>
+                  {/*
+                    The form's public heading, edited in place like the
+                    description below it. Independent of the internal form
+                    name; empty falls back to the name everywhere the form is
+                    shown.
+                  */}
+                  <input
+                    value={builder.settings.title ?? ''}
+                    onChange={(e) => dispatch(updateSettings({ title: e.target.value || undefined }))}
+                    placeholder={builder.formName || 'Untitled form'}
+                    maxLength={200}
+                    aria-label="Form title"
+                    className="-ml-2 w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xl font-semibold tracking-tight text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 hover:border-border/70 focus:border-primary/50 sm:text-2xl"
+                  />
                   <Textarea
                     value={builder.formDescription}
                     onChange={(e) => dispatch(setFormDescription(e.target.value))}
