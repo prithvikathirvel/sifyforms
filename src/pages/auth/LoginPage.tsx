@@ -74,12 +74,15 @@ export default function LoginPage() {
       // sign-in detours through onboarding once; the marker it stores on the
       // account (additionalDetails.onboardedAt) keeps it to exactly once.
       const loginPayload = (loginResult.payload ?? {}) as {
-        user?: { additionalDetails?: { onboardedAt?: unknown } };
+        user?: { additionalDetails?: { onboardingPending?: boolean } };
       };
-      const seenOnboarding = !!loginPayload.user?.additionalDetails?.onboardedAt;
+      // Onboarding belongs to accounts created by the new sign-up only: the
+      // flag travels with the account, so existing users never see it and a
+      // new user sees it exactly once (the flow clears the flag when done).
+      const needsOnboarding = loginPayload.user?.additionalDetails?.onboardingPending === true;
       dispatch(setCurrentOrg(null));
       await dispatch(getSession());
-      navigate(seenOnboarding ? '/org/setup' : '/onboarding');
+      navigate(needsOnboarding ? '/onboarding' : '/org/setup');
       return;
     }
 

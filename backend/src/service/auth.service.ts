@@ -145,7 +145,13 @@ export class AuthService {
       throw createError(StatusCodes.NOT_FOUND, 'User not found');
     }
 
+    // The email is sent explicitly, unchanged. The user-management service
+    // treats this PUT as the whole user record: a payload without it clears
+    // the account's email, and login — which is by email — then answers
+    // "Invalid credentials" for a correct password. It must never change
+    // here; there is no rename-email flow.
     const remote = await ums.updateProfile(callerToken, {
+      email: user.email,
       username: input.username ?? user.username ?? '',
       firstName: input.firstName ?? user.firstName ?? '',
       lastName: input.lastName ?? user.lastName ?? '',
