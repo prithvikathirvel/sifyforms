@@ -12,6 +12,7 @@ import {
   unwindOrg,
 } from './ums.provisioning';
 import logger from '../utils/logger';
+import { syncLatestOrganizationName } from './ums.org-name-sync';
 
 /**
  * Work owed to the user-management service.
@@ -24,12 +25,14 @@ import logger from '../utils/logger';
 
 export type OutboxKind =
   | 'ORG_PROVISION'
+  | 'ORG_NAME_SYNC'
   | 'MEMBER_SYNC'
   | 'MEMBER_REMOVE'
   | 'ORG_DELETE';
 
 interface OutboxPayloads {
   ORG_PROVISION: { name: string };
+  ORG_NAME_SYNC: Record<string, never>;
   MEMBER_SYNC: { userId: string; roleName: string };
   MEMBER_REMOVE: { userId: string };
   ORG_DELETE: { memberIds: string[] };
@@ -81,6 +84,9 @@ export async function cancelPendingFor(orgId: string): Promise<void> {
 
 async function execute(kind: string, orgId: string, payload: any): Promise<void> {
   switch (kind) {
+    case 'ORG_NAME_SYNC':
+      await syncLatestOrganizationName(orgId);
+      return;
     case 'ORG_PROVISION':
       await provisionOrg(orgId, payload.name);
       return;

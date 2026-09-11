@@ -116,6 +116,8 @@ function flag(name: string, fallback: boolean): boolean {
 /** Register organizations in UMS and materialise their role definitions there. */
 export const UMS_ORG_SYNC_ENABLED = flag('UMS_ORG_SYNC_ENABLED', true);
 
+export const UMS_ORG_NAME_SYNC_ENABLED = flag('UMS_ORG_NAME_SYNC_ENABLED', false);
+
 /** Mirror membership changes into `user_app_roles`. */
 export const UMS_ROLE_MIRROR_ENABLED = flag('UMS_ROLE_MIRROR_ENABLED', true);
 

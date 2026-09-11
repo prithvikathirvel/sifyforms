@@ -10,6 +10,7 @@ import {
   KEYCLOAK_BASE_URL,
   KEYCLOAK_ORG_DOMAIN_SUFFIX,
   KEYCLOAK_REALM,
+  UMS_ORG_NAME_SYNC_ENABLED,
 } from '../config/ums.config';
 import { createError } from '../utils/errors';
 import logger from '../utils/logger';
@@ -89,17 +90,13 @@ function isConflict(error: any): boolean {
  * `alias` is this application's `Organization.id`, which is also the value
  * carried in `x-org-id`, so both systems agree on one identifier.
  *
- * The Keycloak record is named after the id rather than the workspace, which
- * looks odd but is required: the user-management service locates an
- * organization with `GET /organizations?search=<orgId>`, and Keycloak's search
- * matches name and domain but not alias. Naming it anything else makes member
- * management fail with "organisation not found". The readable name lives in
- * this application and in that service's own row.
+ * ID-based names remain the default until the alias-aware UMS release is
+ * deployed and UMS_ORG_NAME_SYNC_ENABLED is enabled.
  *
  * The domain is derived from the id because Keycloak demands one and demands it
  * be unique within the realm; it is never used for routing or email matching.
  */
-export async function ensureOrganization(alias: string, _name: string): Promise<void> {
+export async function ensureOrganization(alias: string, name: string): Promise<void> {
   if (!hasAdminCredentials()) {
     throw createError(
       503,
@@ -109,7 +106,7 @@ export async function ensureOrganization(alias: string, _name: string): Promise<
   }
 
   const payload = {
-    name: alias,
+    name: UMS_ORG_NAME_SYNC_ENABLED ? name : alias,
     alias,
     enabled: true,
     domains: [{ name: `${alias}.${KEYCLOAK_ORG_DOMAIN_SUFFIX}`, verified: false }],
@@ -123,11 +120,43 @@ export async function ensureOrganization(alias: string, _name: string): Promise<
     );
     logger.info('KeycloakAdmin --> organization created', { alias });
   } catch (error: any) {
-    if (isConflict(error)) return;
+    if (isConflict(error)) {
+      if (await findKeycloakOrganization(alias)) return;
+      throw createError(409, 'Keycloak organization name or domain is already used by another organization');
+    }
     logger.error(
       `KeycloakAdmin --> ensureOrganization --> ${error?.response?.status} ${describe(error)}`,
       { alias, payload }
     );
     throw createError(502, `Keycloak rejected the organization: ${describe(error)}`);
+  }
+}
+
+export interface KeycloakOrganization {
+  id: string;
+  alias: string;
+  name: string;
+  enabled: boolean;
+}
+
+export async function findKeycloakOrganization(alias: string): Promise<KeycloakOrganization | null> {
+  return (await listKeycloakOrganizations()).find(org => org.alias === alias) ?? null;
+}
+
+export async function listKeycloakOrganizations(): Promise<KeycloakOrganization[]> {
+  if (!hasAdminCredentials()) throw createError(503, 'Keycloak admin credentials are required for name verification');
+  const headers = { Authorization: `Bearer ${await adminToken()}` };
+  let first = 0;
+  const result: KeycloakOrganization[] = [];
+  while (true) {
+    const response = await http().get(
+      `/admin/realms/${encodeURIComponent(KEYCLOAK_REALM)}/organizations`,
+      { headers, params: { first, max: 100 } }
+    );
+    const organizations = response.data as KeycloakOrganization[];
+    if (!Array.isArray(organizations)) throw createError(502, 'Invalid Keycloak organization response');
+    if (organizations.length === 0) return result;
+    result.push(...organizations);
+    first += organizations.length;
   }
 }

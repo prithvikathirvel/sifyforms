@@ -1,4 +1,6 @@
 import prisma from '../../utils/prisma';
+import { Prisma } from '@prisma/client';
+import { UMS_ORG_NAME_SYNC_ENABLED } from '../../config/ums.config';
 import {
   OrgDao, OrgRecord, OrgWithCount, MemberEntry,
   OrgDetailRecord, OrgWithUsersRecord, CreateOrgData, UpdateOrgData,
@@ -47,7 +49,18 @@ export class MySQLOrgDao implements OrgDao {
   }
 
   async updateOrg(id: string, data: UpdateOrgData): Promise<OrgRecord> {
-    return prisma.organization.update({ where: { id }, data });
+    if (!UMS_ORG_NAME_SYNC_ENABLED || data.name === undefined) {
+      return prisma.organization.update({ where: { id }, data });
+    }
+    return prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+      await transaction.$queryRaw`SELECT id FROM Organization WHERE id = ${id} FOR UPDATE`;
+      const previous = await transaction.organization.findUnique({ where: { id } });
+      const org = await transaction.organization.update({ where: { id }, data });
+      if (previous?.name !== org.name) {
+        await transaction.umsOutbox.create({ data: { kind: 'ORG_NAME_SYNC', orgId: id, payload: '{}' } });
+      }
+      return org;
+    });
   }
 
   async setOrgProvisioningStatus(id: string, status: string): Promise<void> {

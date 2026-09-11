@@ -358,12 +358,30 @@ export interface UmsOrganisation {
 
 /** The registry row for an organization, or null if it was never registered. */
 export async function findOrganisation(orgId: string): Promise<UmsOrganisation | null> {
+  return (await listOrganisations()).find(org => org.orgId === orgId) ?? null;
+}
+
+export async function listOrganisations(): Promise<UmsOrganisation[]> {
   try {
     const result = await call<any>('get', `/organisations/${encodeURIComponent(UMS_APP_ID)}`);
     const rows: UmsOrganisation[] = Array.isArray(result) ? result : result?.organisations ?? [];
-    return rows.find(o => o.orgId === orgId) ?? null;
+    return rows.filter(org => org.appId === UMS_APP_ID);
   } catch (error) {
-    throw umsError('findOrganisation', error);
+    throw umsError('listOrganisations', error);
+  }
+}
+
+export async function syncOrganisationName(orgId: string, name: string): Promise<void> {
+  const row = await findOrganisation(orgId);
+  if (!row) throw createError(404, `Organization ${orgId} is not registered in UMS`);
+  if (!row.isActive) throw createError(409, `Organization ${orgId} is inactive in UMS`);
+  try {
+    const result = await call<{ nameSynced?: boolean }>('put', `/organisations/${encodeURIComponent(row.id)}`, { name });
+    if (result?.nameSynced !== true) {
+      throw createError(502, 'UMS did not confirm organization name sync; deploy the compatible UMS release first');
+    }
+  } catch (error) {
+    throw umsError('syncOrganisationName', error);
   }
 }
 
