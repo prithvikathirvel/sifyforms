@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { PermissionRequest } from '../../middleware/permission.middleware';
-import { CreateTeamInput, UpdateTeamInput } from '../../schemas/team.schema';
+import { CreateTeamInput, UpdateTeamInput, MoveTeamInput } from '../../schemas/team.schema';
 import * as teamService from '../../service/team.service';
 import { getEffectivePermissions } from '../../service/permission.service';
 import logger from '../../utils/logger';
@@ -31,17 +31,27 @@ export async function createTeam(req: PermissionRequest, res: Response): Promise
 
 export async function listTeams(req: PermissionRequest, res: Response): Promise<void> {
   try {
-    const result = await teamService.listTeams(req.orgId!);
+    const format = (req.query.format as string) === 'tree' ? 'tree' : 'flat';
+    const result = await teamService.listTeams(req.orgId!, format, req.user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     handleError(res, 'listTeams', error);
   }
 }
 
+export async function listTeamsTree(req: PermissionRequest, res: Response): Promise<void> {
+  try {
+    const result = await teamService.listTeamsTree(req.orgId!, req.user!.id);
+    res.status(StatusCodes.OK).json(result);
+  } catch (error: any) {
+    handleError(res, 'listTeamsTree', error);
+  }
+}
+
 export async function getTeam(req: PermissionRequest, res: Response): Promise<void> {
   try {
     const teamId = getParamString(req.params.teamId);
-    const result = await teamService.getTeam(req.orgId!, teamId);
+    const result = await teamService.getTeam(req.orgId!, teamId, req.user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     handleError(res, 'getTeam', error);
@@ -58,10 +68,23 @@ export async function updateTeam(req: PermissionRequest, res: Response): Promise
   }
 }
 
+export async function moveTeam(req: PermissionRequest, res: Response): Promise<void> {
+  try {
+    const teamId = getParamString(req.params.teamId);
+    const { parentId } = req.body as MoveTeamInput;
+    logger.info('Express --> moveTeam --> Request', { teamId, parentId });
+    const result = await teamService.moveTeam(req.orgId!, teamId, parentId ?? null);
+    res.status(StatusCodes.OK).json(result);
+  } catch (error: any) {
+    handleError(res, 'moveTeam', error);
+  }
+}
+
 export async function deleteTeam(req: PermissionRequest, res: Response): Promise<void> {
   try {
     const teamId = getParamString(req.params.teamId);
-    const result = await teamService.deleteTeam(req.orgId!, teamId);
+    const mode = (req.query.mode as string) === 'cascade' ? 'cascade' : 'reparent';
+    const result = await teamService.deleteTeam(req.orgId!, teamId, mode as any);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     handleError(res, 'deleteTeam', error);
@@ -83,9 +106,16 @@ export async function listMembers(req: PermissionRequest, res: Response): Promis
 export async function addMember(req: PermissionRequest, res: Response): Promise<void> {
   try {
     const teamId = getParamString(req.params.teamId);
-    const { userId } = req.body;
+    const { userId, userIds } = req.body as { userId?: string; userIds?: string[] };
+    // Bulk path
+    if (Array.isArray(userIds) && userIds.length > 0) {
+      logger.info('Express --> addTeamMembersBulk --> Request', { teamId, count: userIds.length });
+      const result = await teamService.addMembersBulk(req.orgId!, teamId, req.user!.id, userIds);
+      res.status(StatusCodes.CREATED).json(result);
+      return;
+    }
     logger.info('Express --> addTeamMember --> Request', { teamId, userId });
-    const result = await teamService.addMember(req.orgId!, teamId, req.user!.id, userId);
+    const result = await teamService.addMember(req.orgId!, teamId, req.user!.id, userId!);
     res.status(StatusCodes.CREATED).json(result);
   } catch (error: any) {
     handleError(res, 'addTeamMember', error);
@@ -117,12 +147,22 @@ export async function getMyPermissions(req: PermissionRequest, res: Response): P
   }
 }
 
-/** Teams the signed-in user belongs to in this organization. */
+/** Teams the signed-in user belongs to in this organization (direct). */
 export async function listMyTeams(req: PermissionRequest, res: Response): Promise<void> {
   try {
     const result = await teamService.listTeamsForUser(req.orgId!, req.user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     handleError(res, 'listMyTeams', error);
+  }
+}
+
+/** Effective teams (direct + descendants) — Option B visibility. */
+export async function listMyEffectiveTeams(req: PermissionRequest, res: Response): Promise<void> {
+  try {
+    const tree = await teamService.getTeamsTreeForUser(req.orgId!, req.user!.id);
+    res.status(StatusCodes.OK).json(tree);
+  } catch (error: any) {
+    handleError(res, 'listMyEffectiveTeams', error);
   }
 }
