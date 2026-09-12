@@ -128,7 +128,7 @@ export default function LoginPage() {
                   required
                   type="text"
                   autoComplete="username"
-                  placeholder="you@company.com or johndoe"
+                  placeholder="you@example.com"
                   className="h-11 rounded-lg border-input bg-background pl-10 text-base placeholder:text-[13px] sm:text-[13px]"
                   aria-invalid={Boolean(errors.email)}
                   aria-describedby={errors.email ? 'email-error' : undefined}

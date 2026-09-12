@@ -78,6 +78,7 @@ export default function OrgSetupPage() {
   const [choseOrg, setChoseOrg] = useState(false);
   /** Once someone edits the URL by hand, stop overwriting it from the name. */
   const [slugEdited, setSlugEdited] = useState(false);
+  const createCardRef = useRef<HTMLDivElement>(null);
 
   const {
     register,
@@ -134,6 +135,20 @@ export default function OrgSetupPage() {
       setShowCreate(true);
     }
   }, [hasLoaded, organizations.length, incomingInvites.length]);
+
+  // UX fix: when Create org card appears, bring it into view so user doesn't need to scroll manually.
+  useEffect(() => {
+    if (showCreate && createCardRef.current) {
+      // Small delay to let DOM settle
+      const t = setTimeout(() => {
+        createCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Focus first input
+        const input = createCardRef.current?.querySelector<HTMLInputElement>('input#name');
+        input?.focus();
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [showCreate]);
 
   const enterOrg = (org: Organization) => {
     setChoseOrg(true);
@@ -306,7 +321,7 @@ export default function OrgSetupPage() {
             Create a new organization
           </Button>
         ) : (
-          <Card className="overflow-hidden rounded-xl border-border bg-card shadow-none">
+          <Card ref={createCardRef} className="overflow-hidden rounded-xl border-border bg-card shadow-none scroll-mt-6">
             <CardHeader className="border-b border-border/70 px-5 py-4">
               <CardTitle className="font-display text-sm font-bold">
                 {hasChoices ? 'Create a new organization' : `Welcome, ${user?.name || 'there'}!`}
@@ -319,7 +334,7 @@ export default function OrgSetupPage() {
               <CardContent className="space-y-4 px-5 py-5">
                 <div className="space-y-1.5">
                   <Label htmlFor="name">Organization name</Label>
-                  <Input id="name" required type="text" autoComplete="organization" placeholder="Acme Inc." aria-invalid={Boolean(errors.name)} {...register('name')} />
+                  <Input id="name" required type="text" autoComplete="organization" placeholder="My organization" aria-invalid={Boolean(errors.name)} {...register('name')} />
                   {errors.name && <p role="alert" className="text-xs font-medium text-destructive">{errors.name.message}</p>}
                 </div>
                 <div className="space-y-1.5">
@@ -331,7 +346,7 @@ export default function OrgSetupPage() {
                       required
                       type="text"
                       autoComplete="off"
-                      placeholder="acme-inc"
+                      placeholder="my-organization"
                       className="min-w-0 rounded-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                       aria-invalid={Boolean(errors.slug)}
                       aria-describedby={errors.slug ? 'slug-error' : 'slug-hint'}

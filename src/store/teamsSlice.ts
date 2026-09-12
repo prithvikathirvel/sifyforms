@@ -4,10 +4,8 @@ import type { TeamsState, Team, TeamDetail, EffectivePermissions } from '../type
 import { apiErrorMessage, isCancelledPayload, payloadMessage } from '../lib/apiError';
 
 /**
- * Teams (flat buckets), and the effective permissions the UI gates on.
- *
- * Permissions here decide what to *render*. Every write is re-checked on the
- * server, so a stale or tampered client state cannot grant access.
+ * Hierarchical Teams — Option B (top-down visibility).
+ * Teams are nested, parent members see descendants.
  */
 
 const initialState: TeamsState = {
@@ -29,7 +27,20 @@ export const fetchTeams = createAsyncThunk(
   'teams/fetchTeams',
   async (orgId: string, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/orgs/${orgId}/teams`);
+      // Request tree format for hierarchical UI
+      const response = await api.get(`/orgs/${orgId}/teams?format=tree`);
+      return response.data as Team[];
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to load teams'));
+    }
+  }
+);
+
+export const fetchTeamsFlat = createAsyncThunk(
+  'teams/fetchTeamsFlat',
+  async (orgId: string, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/orgs/${orgId}/teams?format=flat`);
       return response.data as Team[];
     } catch (error) {
       return rejectWithValue(errorMessage(error, 'Failed to load teams'));
@@ -55,7 +66,7 @@ export const createTeam = createAsyncThunk(
     {
       orgId,
       ...body
-    }: { orgId: string; name: string; description?: string },
+    }: { orgId: string; name: string; description?: string; parentId?: string | null },
     { dispatch, rejectWithValue }
   ) => {
     try {
@@ -81,6 +92,7 @@ export const updateTeam = createAsyncThunk(
     try {
       const response = await api.put(`/orgs/${orgId}/teams/${teamId}`, body);
       dispatch(fetchTeams(orgId));
+      if (body) dispatch(fetchTeam({ orgId, teamId }));
       return response.data;
     } catch (error) {
       return rejectWithValue(errorMessage(error, 'Failed to update team'));
@@ -88,14 +100,31 @@ export const updateTeam = createAsyncThunk(
   }
 );
 
-export const deleteTeam = createAsyncThunk(
-  'teams/deleteTeam',
+export const moveTeam = createAsyncThunk(
+  'teams/moveTeam',
   async (
-    { orgId, teamId }: { orgId: string; teamId: string },
+    { orgId, teamId, parentId }: { orgId: string; teamId: string; parentId: string | null },
     { dispatch, rejectWithValue }
   ) => {
     try {
-      await api.delete(`/orgs/${orgId}/teams/${teamId}`);
+      const response = await api.post(`/orgs/${orgId}/teams/${teamId}/move`, { parentId });
+      dispatch(fetchTeams(orgId));
+      dispatch(fetchTeam({ orgId, teamId }));
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to move team'));
+    }
+  }
+);
+
+export const deleteTeam = createAsyncThunk(
+  'teams/deleteTeam',
+  async (
+    { orgId, teamId, mode = 'reparent' as 'reparent' | 'cascade' }: { orgId: string; teamId: string; mode?: 'reparent' | 'cascade' },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      await api.delete(`/orgs/${orgId}/teams/${teamId}?mode=${mode}`);
       dispatch(fetchTeams(orgId));
       return teamId;
     } catch (error) {
@@ -115,9 +144,27 @@ export const addTeamMember = createAsyncThunk(
     try {
       await api.post(`/orgs/${orgId}/teams/${teamId}/members`, { userId });
       dispatch(fetchTeam({ orgId, teamId }));
+      dispatch(fetchTeams(orgId));
       return { teamId, userId };
     } catch (error) {
       return rejectWithValue(errorMessage(error, 'Failed to add team member'));
+    }
+  }
+);
+
+export const addTeamMembersBulk = createAsyncThunk(
+  'teams/addTeamMembersBulk',
+  async (
+    { orgId, teamId, userIds }: { orgId: string; teamId: string; userIds: string[] },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const res = await api.post(`/orgs/${orgId}/teams/${teamId}/members`, { userIds });
+      dispatch(fetchTeam({ orgId, teamId }));
+      dispatch(fetchTeams(orgId));
+      return res.data;
+    } catch (error) {
+      return rejectWithValue(errorMessage(error, 'Failed to add members'));
     }
   }
 );
@@ -131,6 +178,7 @@ export const removeTeamMember = createAsyncThunk(
     try {
       await api.delete(`/orgs/${orgId}/teams/${teamId}/members/${userId}`);
       dispatch(fetchTeam({ orgId, teamId }));
+      dispatch(fetchTeams(orgId));
       return { teamId, userId };
     } catch (error) {
       return rejectWithValue(errorMessage(error, 'Failed to remove team member'));
@@ -140,17 +188,11 @@ export const removeTeamMember = createAsyncThunk(
 
 // --- permissions --------------------------------------------------------------
 
-/**
- * Resolve what the signed-in user may do, from their org role alone.
- */
 export const fetchPermissions = createAsyncThunk(
   'teams/fetchPermissions',
   async ({ orgId }: { orgId: string }, { rejectWithValue }) => {
     try {
       const response = await api.get(`/orgs/${orgId}/me/permissions`);
-      // Keyed by organization so a previous organization's answer can't satisfy
-      // the next one (someone who was an owner elsewhere must not keep owner
-      // controls after switching).
       return { key: orgId, value: response.data as EffectivePermissions };
     } catch (error) {
       return rejectWithValue(errorMessage(error, 'Failed to load permissions'));
@@ -177,12 +219,17 @@ const teamsSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchTeams.fulfilled, (state, action) => {
-        // Always clear the spinner, even when the payload is stale. A reply
-        // that arrives for the organization we just left is not a reason to
-        // keep the page loading forever.
         state.isLoading = false;
         if (action.meta.arg !== localStorage.getItem('currentOrgId')) return;
         state.teams = action.payload;
+      })
+      .addCase(fetchTeamsFlat.fulfilled, (state, action) => {
+        // For dropdowns that need flat list
+        // We keep tree in teams, but if flat requested, we could merge
+        // Here we just use as is if teams empty
+        if (state.teams.length === 0) {
+          state.teams = action.payload;
+        }
       })
       .addCase(fetchTeam.fulfilled, (state, action) => {
         state.currentTeam = action.payload;
@@ -205,9 +252,6 @@ const teamsSlice = createSlice({
       .addCase(fetchPermissions.rejected, (state, action) => {
         const key = action.meta.arg.orgId;
         if (isCancelledPayload(action.payload)) {
-          // Switching organizations aborts the previous scope's requests. Drop
-          // the status back to "not asked" so the hook issues a fresh lookup
-          // instead of waiting on a reply that will never come.
           delete state.permissionStatus[key];
           return;
         }
@@ -217,8 +261,6 @@ const teamsSlice = createSlice({
       .addMatcher(
         (action) => action.type.startsWith('teams/') && action.type.endsWith('/rejected'),
         (state, action: any) => {
-          // A cancelled request means a newer one replaced it. Reporting it
-          // would flash "canceled" at the user for a switch they asked for.
           if (isCancelledPayload(action.payload)) return;
           state.isLoading = false;
           state.error = (action.payload as string) ?? 'Something went wrong';

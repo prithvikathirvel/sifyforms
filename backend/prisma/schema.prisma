@@ -125,10 +125,14 @@ model UmsOutbox {
   @@index([orgId])
 }
 
-/// A team inside an organization. Teams are flat organizational buckets that
-/// group forms and act as targets for per-form sharing. They carry no
+/// A team inside an organization. Teams are hierarchical organizational buckets
+/// that group forms and act as targets for per-form sharing. They carry no
 /// permissions of their own — a user's access is governed by their organization
 /// role alone, plus explicit form shares.
+///
+/// Hierarchy: parentId creates a tree (adjacency list). Depth is denormalized
+/// for fast max-depth enforcement. Top-down visibility: members of a parent
+/// implicitly see all descendant teams and their forms.
 model Team {
   id     String @id @default(cuid())
   orgId  String
@@ -145,12 +149,22 @@ model Team {
   /// Cannot be deleted; forms fall back to it when their own team is removed.
   isDefault Boolean @default(false)
 
+  /// Hierarchical parent. Null = root team.
+  parentId String?
+  parent   Team?  @relation("TeamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Team[] @relation("TeamHierarchy")
+
+  /// Cached depth: 0=root, 1=child, etc. Used to enforce MAX_DEPTH without recursion.
+  depth Int @default(0)
+
   org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   members TeamMember[]
   forms   Form[]
 
   @@unique([orgId, slug])
   @@index([orgId])
+  @@index([orgId, parentId])
+  @@index([parentId])
 }
 
 /// Membership of a user in one team. A pure join carrying no role — a user's

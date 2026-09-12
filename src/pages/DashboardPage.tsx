@@ -314,7 +314,7 @@ export default function DashboardPage() {
                       <button
                         key={team.id}
                         type="button"
-                        onClick={() => navigate('/teams')}
+                        onClick={() => navigate(`/teams?teamId=${team.id}`)}
                         className="group flex w-full min-w-0 items-center rounded-md py-2 pr-2 text-left transition-colors hover:bg-ink-50"
                       >
                         <span className="flex min-w-0 flex-1 items-center gap-2.5 px-2">
@@ -386,30 +386,30 @@ export default function DashboardPage() {
                 </div>
               </div>
             ) : forms.length === 0 ? (
-              <Card className="rounded-xl border-dashed border-border bg-card shadow-none">
-                <CardContent className="py-12 text-center">
-                  <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/[0.06]">
-                    <FileText className="h-5 w-5 text-primary" strokeWidth={1.8} />
+              <Card className="rounded-2xl border-border/80 bg-card shadow-sm">
+                <CardContent className="flex flex-col items-center px-6 py-16 text-center sm:py-20">
+                  <div className="relative mb-6">
+                    <div className="absolute -inset-3 rounded-[20px] bg-primary/[0.04] blur-[1px]" />
+                    <div className="relative flex h-[72px] w-[72px] items-center justify-center rounded-2xl border border-border bg-gradient-to-b from-card to-muted/40 shadow-sm">
+                      <FileText className="h-8 w-8 text-ink-700" strokeWidth={1.6} />
+                    </div>
                   </div>
-                  {/* Someone who cannot create a form must not be told to create
-                      one - the old copy read as an instruction they could not
-                      follow, and offered a button the API would refuse. */}
-                  <h3 className="font-display text-base font-bold tracking-tight text-foreground">
+                  <h3 className="font-display text-[17px] font-bold tracking-tight text-foreground">
                     {canCreateForm ? 'No forms yet' : 'No forms shared with you yet'}
                   </h3>
-                  <p className="mx-auto mt-1.5 max-w-sm text-xs font-medium leading-5 text-muted-foreground sm:text-[13px]">
+                  <p className="mx-auto mt-2 max-w-[360px] text-[13px] font-medium leading-[1.6] text-muted-foreground">
                     {canCreateForm
                       ? 'Create your first form to start collecting responses and analysing data.'
                       : 'Your role can view forms in this organization. Once a teammate shares one, it will appear here.'}
                   </p>
                   {canCreateForm && (
-                    <Button
-                      onClick={() => setShowCreateModal(true)}
-                      className="mt-5 h-9 rounded-lg px-4 text-[13px]"
-                    >
-                      <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
-                      Create your first form
-                    </Button>
+                    <div className="mt-7 flex flex-col items-center gap-3">
+                      <Button onClick={() => setShowCreateModal(true)} className="h-10 rounded-xl px-5 text-[13px] font-semibold shadow-sm">
+                        <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                        Create your first form
+                      </Button>
+                      <p className="text-[11px] font-medium text-muted-foreground">Takes less than a minute</p>
+                    </div>
                   )}
                 </CardContent>
               </Card>

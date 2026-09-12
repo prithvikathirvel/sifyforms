@@ -977,7 +977,7 @@ export interface TeamMember {
   };
 }
 
-/** A flat team (organizational bucket). No hierarchy, no team-level roles. */
+/** Hierarchical team (organizational bucket). Supports parent-child nesting. */
 export interface Team {
   id: string;
   orgId: string;
@@ -987,14 +987,38 @@ export interface Team {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  /** Parent team id, null = root */
+  parentId: string | null;
+  /** Cached depth: 0=root, 1=child, etc */
+  depth: number;
   /** The organization-created fallback team for forms without an explicit owner. */
   isDefault?: boolean;
-  _count?: { members: number };
+  _count?: { members: number; forms?: number };
+  /** Children when format=tree */
+  children?: Team[];
+  /** For UI: effective membership flags (Option B) */
+  isDirectMember?: boolean;
+  isEffectiveMember?: boolean;
+  isInherited?: boolean;
+  /** Breadcrumb path like "Engineering > Frontend" */
+  path?: string;
 }
 
-/** A team plus its members, as returned by GET /orgs/:orgId/teams/:teamId. */
+export interface TeamAncestor {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  depth: number;
+  isDefault?: boolean;
+}
+
+/** A team plus its members, ancestors, children, as returned by GET /orgs/:orgId/teams/:teamId. */
 export interface TeamDetail extends Team {
   members: TeamMember[];
+  ancestors?: TeamAncestor[];
+  children?: Team[];
+  breadcrumb?: TeamAncestor[];
 }
 
 /**

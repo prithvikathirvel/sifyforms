@@ -34,9 +34,38 @@ interface Props {
   formId: string;
 }
 
-/** Map the flat team list into options for a picker. */
+/** Map hierarchical team list into options with breadcrumbs. */
 function flattenTeams(teams: Team[]): { value: string; label: string }[] {
-  return teams.map((team) => ({ value: team.id, label: team.name }));
+  const out: { value: string; label: string }[] = [];
+  function walk(list: Team[], parentPath: string[] = []) {
+    for (const t of list) {
+      const path = [...parentPath, t.name].join(' > ');
+      out.push({ value: t.id, label: path });
+      if (t.children) walk(t.children, [...parentPath, t.name]);
+    }
+  }
+  const hasTree = teams.some((t) => t.children && t.children.length > 0);
+  if (hasTree) {
+    walk(teams);
+  } else {
+    // flat list with parentId — build quick tree for paths
+    const byId = new Map<string, any>();
+    teams.forEach((t: any) => byId.set(t.id, { ...t, children: [] }));
+    const roots: any[] = [];
+    teams.forEach((t: any) => {
+      if (t.parentId && byId.has(t.parentId)) {
+        byId.get(t.parentId).children.push(byId.get(t.id));
+      } else {
+        roots.push(byId.get(t.id));
+      }
+    });
+    walk(roots);
+    if (out.length === 0) {
+      // fallback flat
+      return teams.map((team) => ({ value: team.id, label: team.name }));
+    }
+  }
+  return out;
 }
 
 export default function FormAccessPanel({ formId }: Props) {

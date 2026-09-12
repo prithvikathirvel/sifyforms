@@ -1,5 +1,5 @@
 import {
-  TeamDao, TeamRecord, TeamWithCounts, TeamMemberRecord, TeamMemberWithUser,
+  TeamDao, TeamRecord, TeamWithCounts, TeamTreeNode, TeamMemberRecord, TeamMemberWithUser,
   CreateTeamData, UpdateTeamData, UpsertTeamMemberData,
 } from '../interfaces/TeamDao';
 
@@ -18,6 +18,27 @@ export class MongoTeamDao implements TeamDao {
   }
   async findTeamsByOrg(_orgId: string): Promise<TeamWithCounts[]> {
     throw new Error('MongoTeamDao.findTeamsByOrg not implemented');
+  }
+  async findAllTeamsByOrg(_orgId: string): Promise<TeamWithCounts[]> {
+    throw new Error('MongoTeamDao.findAllTeamsByOrg not implemented');
+  }
+  async findTeamsTree(_orgId: string): Promise<TeamTreeNode[]> {
+    throw new Error('MongoTeamDao.findTeamsTree not implemented');
+  }
+  async findDirectChildren(_teamId: string): Promise<TeamRecord[]> {
+    throw new Error('MongoTeamDao.findDirectChildren not implemented');
+  }
+  async findDescendants(_teamId: string): Promise<TeamRecord[]> {
+    throw new Error('MongoTeamDao.findDescendants not implemented');
+  }
+  async findAncestors(_teamId: string): Promise<TeamRecord[]> {
+    throw new Error('MongoTeamDao.findAncestors not implemented');
+  }
+  async getMaxSubtreeDepth(_teamId: string): Promise<number> {
+    throw new Error('MongoTeamDao.getMaxSubtreeDepth not implemented');
+  }
+  async moveTeamSubtree(_teamId: string, _newParentId: string | null, _depthDelta: number): Promise<void> {
+    throw new Error('MongoTeamDao.moveTeamSubtree not implemented');
   }
   async updateTeam(_id: string, _data: UpdateTeamData): Promise<TeamRecord> {
     throw new Error('MongoTeamDao.updateTeam not implemented');

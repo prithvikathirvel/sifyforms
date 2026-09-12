@@ -313,22 +313,14 @@ export default function CreateFormModal({ open, onClose }: CreateFormModalProps)
   };
 
   const renderTeamPicker = () => (
-    <section
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-ink-50/50 px-3.5 py-2.5"
-      aria-labelledby="form-team-label"
-    >
-      <Label id="form-team-label" htmlFor="formTeam" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-        Team
+    <section className="space-y-2 rounded-xl border border-border bg-ink-50/50 px-4 py-3" aria-labelledby="form-team-label">
+      <Label id="form-team-label" htmlFor="formTeam" className="text-[11px] font-semibold">
+        Choose which team will own this form
       </Label>
-      <div className="w-full sm:w-auto sm:min-w-[220px] sm:max-w-xs">
-        <TeamTreeSelect
-          teams={teamList}
-          value={effectiveTeamId}
-          onChange={setTeamId}
-          isLoading={teamsLoading}
-        />
+      <div className="w-full">
+        <TeamTreeSelect teams={teamList} value={effectiveTeamId} onChange={(id) => setTeamId(id)} isLoading={teamsLoading} allowRoot={false} placeholder="Choose a team" />
       </div>
-      <p className="text-[10.5px] font-medium text-muted-foreground">Teams decide who can edit this form and see responses.</p>
+      <p className="text-[10px] font-medium leading-relaxed text-muted-foreground">Teams decide who can edit this form and see responses.</p>
     </section>
   );
 

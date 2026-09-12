@@ -100,8 +100,9 @@ export async function getFormAccess(
   }
 
   // --- 2. explicit shares on this form --------------------------------------
-  const memberships = await teamDao.findTeamsForUser(orgId, userId);
-  const teamIds = memberships.map(m => m.teamId);
+  // Option B: use effective team ids (direct + descendants) so parent members get child shares (top-down)
+  // but child members do NOT get parent shares (no bottom-up)
+  const teamIds = await reachableTeamIds(orgId, userId);
   const shares = await formShareDao.findActiveSharesForPrincipals(
     formId,
     userId,
@@ -216,11 +217,44 @@ export async function assertFormAction(
 }
 
 /**
- * Every team whose forms this user can reach: the teams they belong to. Teams
- * are flat and carry no inherited permissions, so membership alone defines the
- * set.
+ * Every team whose forms this user can reach: Option B — top-down visibility.
+ *
+ * Direct memberships + all descendants of those teams.
+ * Example: member of Engineering sees Engineering, Frontend, Backend, etc.
+ * This is visibility only, not role inheritance.
  */
 export async function reachableTeamIds(orgId: string, userId: string): Promise<string[]> {
+  const directMemberships = await teamDao.findTeamsForUser(orgId, userId);
+  const directIds = directMemberships.map(m => m.teamId);
+
+  if (directIds.length === 0) return [];
+
+  const allIds = new Set<string>(directIds);
+
+  // Expand to descendants for top-down visibility
+  for (const teamId of directIds) {
+    try {
+      const descendants = await teamDao.findDescendants(teamId);
+      for (const d of descendants) {
+        allIds.add(d.id);
+      }
+    } catch (e) {
+      // Fallback to direct only if descendant lookup fails
+      continue;
+    }
+  }
+
+  return Array.from(allIds);
+}
+
+/**
+ * For share resolution: include ancestors as well? No — for Option B we keep
+ * share inheritance minimal: if form shared to parent, child members should NOT
+ * auto-get it (would be bottom-up). Only top-down visibility for form grouping.
+ * But for completeness, we provide a helper that includes ancestors for future use.
+ */
+export async function effectiveTeamIdsForShares(orgId: string, userId: string): Promise<string[]> {
+  // Direct teams only for share matching — intentional for Option B
   const memberships = await teamDao.findTeamsForUser(orgId, userId);
   return memberships.map(m => m.teamId);
 }

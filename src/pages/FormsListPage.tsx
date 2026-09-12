@@ -71,21 +71,79 @@ export default function FormsListPage() {
     if (currentOrg?.id) dispatch(fetchTeams(currentOrg.id));
   }, [dispatch, currentOrg?.id]);
 
-  // Map of every team, so a form can name its owner and the filter can offer
-  // the whole list.
-  const teamsById = useMemo(() => {
-    const map = new Map<string, string>();
-    teams.forEach((t) => map.set(t.id, t.name));
-    return map;
+  // Hierarchical handling: flatten tree and build path map for display
+  const { teamsById, teamsByIdPath, descendantMap } = useMemo(() => {
+    const nameMap = new Map<string, string>();
+    const pathMap = new Map<string, string>();
+    const descMap = new Map<string, Set<string>>();
+
+    function flattenWithPath(list: typeof teams, parentPath: string[] = []): void {
+      for (const t of list) {
+        nameMap.set(t.id, t.name);
+        const path = [...parentPath, t.name].join(' > ');
+        pathMap.set(t.id, path);
+        if (t.children) flattenWithPath(t.children, [...parentPath, t.name]);
+      }
+    }
+
+    // If teams are tree (have children), use tree walk, else flat
+    const hasTree = teams.some((t) => t.children && t.children.length > 0);
+    if (hasTree) {
+      flattenWithPath(teams);
+    } else {
+      // Flat list with parentId — need to build tree to get paths
+      const flatList = teams as any[];
+      const byId = new Map<string, any>();
+      flatList.forEach((t) => byId.set(t.id, { ...t, children: [] }));
+      const roots: any[] = [];
+      flatList.forEach((t) => {
+        if (t.parentId && byId.has(t.parentId)) {
+          byId.get(t.parentId).children.push(byId.get(t.id));
+        } else {
+          roots.push(byId.get(t.id));
+        }
+      });
+      flattenWithPath(roots);
+    }
+
+    // Build descendant map for Option B filtering: filtering by parent includes children forms
+    function buildDescendants(list: typeof teams) {
+      const allFlat: any[] = [];
+      function collect(nodes: any[]) {
+        for (const n of nodes) {
+          allFlat.push(n);
+          if (n.children) collect(n.children);
+        }
+      }
+      collect(list as any);
+
+      // For each team, find all descendants
+      for (const team of allFlat) {
+        const descendants = new Set<string>();
+        function walkDescendants(node: any) {
+          if (node.children) {
+            for (const child of node.children) {
+              descendants.add(child.id);
+              walkDescendants(child);
+            }
+          }
+        }
+        walkDescendants(team);
+        descMap.set(team.id, descendants);
+      }
+    }
+
+    buildDescendants(teams);
+
+    return { teamsById: nameMap, teamsByIdPath: pathMap, descendantMap: descMap };
   }, [teams]);
 
-  const teamOptions = useMemo<DropdownSelectOption<string>[]>(
-    () => [
-      { value: 'all', label: 'All teams' },
-      ...[...teamsById.entries()].map(([value, label]) => ({ value, label })),
-    ],
-    [teamsById]
-  );
+  const teamOptions = useMemo<DropdownSelectOption<string>[]>(() => {
+    const entries = [...teamsByIdPath.entries()].map(([value, label]) => ({ value, label }));
+    // Sort by label (path) for hierarchical display
+    entries.sort((a, b) => a.label.localeCompare(b.label));
+    return [{ value: 'all', label: 'All teams' }, ...entries];
+  }, [teamsByIdPath]);
 
   const filteredForms = useMemo(() => {
     let result = [...forms];
@@ -102,7 +160,15 @@ export default function FormsListPage() {
     if (statusFilter === 'published') result = result.filter((f) => f.isPublished);
     else if (statusFilter === 'draft') result = result.filter((f) => !f.isPublished);
 
-    if (teamFilter !== 'all') result = result.filter((f) => f.teamId === teamFilter);
+    if (teamFilter !== 'all') {
+      // Option B: filtering by parent team includes its sub-teams forms
+      const descendants = descendantMap.get(teamFilter);
+      if (descendants && descendants.size > 0) {
+        result = result.filter((f) => f.teamId === teamFilter || (f.teamId && descendants.has(f.teamId)));
+      } else {
+        result = result.filter((f) => f.teamId === teamFilter);
+      }
+    }
 
     result.sort((a, b) => {
       switch (sortOption) {
@@ -249,29 +315,33 @@ export default function FormsListPage() {
               </div>
             </div>
           ) : forms.length === 0 ? (
-            <Card className="rounded-xl border-dashed border-border bg-card shadow-none">
-              <CardContent className="py-14 text-center">
-                <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/[0.06]">
-                  <FileText className="h-5 w-5 text-primary" strokeWidth={1.8} />
+            <Card className="rounded-2xl border-border/80 bg-card shadow-sm">
+              <CardContent className="flex flex-col items-center px-6 py-16 text-center sm:py-20">
+                <div className="relative mb-6">
+                  <div className="absolute -inset-3 rounded-[20px] bg-primary/[0.04] blur-[1px]" />
+                  <div className="relative flex h-[72px] w-[72px] items-center justify-center rounded-2xl border border-border bg-gradient-to-b from-card to-muted/40 shadow-sm">
+                    <FileText className="h-8 w-8 text-ink-700" strokeWidth={1.6} />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card shadow-sm">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  </div>
                 </div>
-                {/* The create button is gated on the same permission the API
-                    enforces. Offering it to a viewer only produced a refusal. */}
-                <h3 className="font-display text-base font-bold tracking-tight text-foreground">
+                <h3 className="font-display text-[17px] font-bold tracking-tight text-foreground">
                   {canCreateForm ? 'No forms yet' : 'No forms shared with you yet'}
                 </h3>
-                <p className="mx-auto mt-1.5 max-w-sm text-xs font-medium leading-5 text-muted-foreground sm:text-[13px]">
+                <p className="mx-auto mt-2 max-w-[360px] text-[13px] font-medium leading-[1.6] text-muted-foreground">
                   {canCreateForm
                     ? 'Create your first form to start collecting responses and analysing data.'
                     : 'Your role can view forms in this organization. Once a teammate shares one, it will appear here.'}
                 </p>
                 {canCreateForm && (
-                  <Button
-                    onClick={() => setShowCreateModal(true)}
-                    className="mt-5 h-9 rounded-lg px-4 text-[13px]"
-                  >
-                    <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
-                    Create your first form
-                  </Button>
+                  <div className="mt-7 flex flex-col items-center gap-3">
+                    <Button onClick={() => setShowCreateModal(true)} className="h-10 rounded-xl px-5 text-[13px] font-semibold shadow-sm">
+                      <FileText className="mr-2 h-4 w-4" strokeWidth={1.9} />
+                      Create your first form
+                    </Button>
+                    <p className="text-[11px] font-medium text-muted-foreground">Takes less than a minute</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -300,7 +370,7 @@ export default function FormsListPage() {
                       key={form.id}
                       form={form}
                       orgSlug={currentOrg.slug || 'default-org'}
-                      teamName={form.teamId ? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
+                      teamName={form.teamId ? teamsByIdPath.get(form.teamId) ?? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
                     />
                   ))}
                 </div>
@@ -308,7 +378,7 @@ export default function FormsListPage() {
                 <FormWorkspaceTable
                   forms={paginatedForms}
                   orgSlug={currentOrg.slug || 'default-org'}
-                  getTeamName={(form) => form.teamId ? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
+                  getTeamName={(form) => form.teamId ? teamsByIdPath.get(form.teamId) ?? teamsById.get(form.teamId) ?? 'Unknown team' : 'No team'}
                 />
               )}
 

@@ -139,7 +139,7 @@ export default function SignupPage() {
                   required
                   type="text"
                   autoComplete="given-name"
-                  placeholder="John"
+                  placeholder="First name"
                   className={inputClassName}
                   aria-invalid={Boolean(errors.firstName)}
                   aria-describedby={errors.firstName ? 'first-name-error' : undefined}
@@ -155,7 +155,7 @@ export default function SignupPage() {
                   required
                   type="text"
                   autoComplete="family-name"
-                  placeholder="Doe"
+                  placeholder="Last name"
                   className={inputClassName}
                   aria-invalid={Boolean(errors.lastName)}
                   aria-describedby={errors.lastName ? 'last-name-error' : undefined}
@@ -172,7 +172,7 @@ export default function SignupPage() {
                 required
                 type="text"
                 autoComplete="username"
-                placeholder="johndoe or you@company.com"
+                placeholder="Username or email"
                 className={inputClassName}
                 aria-invalid={Boolean(errors.username)}
                 aria-describedby={errors.username ? 'username-error' : 'username-hint'}
@@ -194,7 +194,7 @@ export default function SignupPage() {
                   required
                   type={showPasswords ? 'text' : 'password'}
                   autoComplete="new-password"
-                  placeholder="At least 8 characters"
+                  placeholder="Min 8 characters"
                   className={`${inputClassName} pr-10`}
                   aria-invalid={Boolean(errors.password)}
                   aria-describedby={errors.password ? 'signup-password-error' : undefined}
@@ -224,7 +224,7 @@ export default function SignupPage() {
                   required
                   type={showPasswords ? 'text' : 'password'}
                   autoComplete="new-password"
-                  placeholder="Repeat your password"
+                  placeholder="Confirm password"
                   className={`${inputClassName} pr-10`}
                   aria-invalid={Boolean(errors.confirmPassword)}
                   aria-describedby={errors.confirmPassword ? 'confirm-password-error' : undefined}

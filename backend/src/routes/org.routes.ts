@@ -24,14 +24,17 @@ import {
 import {
   createTeam,
   listTeams,
+  listTeamsTree,
   getTeam,
   updateTeam,
+  moveTeam,
   deleteTeam,
   listMembers,
   addMember,
   removeMember,
   getMyPermissions,
   listMyTeams,
+  listMyEffectiveTeams,
 } from '../controllers/express/team.controller';
 import { validate } from '../middleware/validate.middleware';
 import { authMiddleware, orgMiddleware } from '../middleware/auth.middleware';
@@ -43,6 +46,7 @@ import { CreateRoleSchema } from '../schemas/role.schema';
 import {
   CreateTeamSchema,
   UpdateTeamSchema,
+  MoveTeamSchema,
   AddTeamMemberSchema,
 } from '../schemas/team.schema';
 
@@ -68,6 +72,7 @@ router.delete('/:orgId', orgMiddleware, requirePermission(ACTIONS.DELETE_ORG), d
 // --- the caller's own access ------------------------------------------------
 router.get('/:orgId/me/permissions', orgMiddleware, getMyPermissions);
 router.get('/:orgId/me/teams', orgMiddleware, listMyTeams);
+router.get('/:orgId/me/teams/effective', orgMiddleware, listMyEffectiveTeams);
 
 // --- members ----------------------------------------------------------------
 router.get(
@@ -162,6 +167,12 @@ router.get(
   requirePermission(ACTIONS.VIEW_TEAM),
   listTeams
 );
+router.get(
+  '/:orgId/teams/tree',
+  orgMiddleware,
+  requirePermission(ACTIONS.VIEW_TEAM),
+  listTeamsTree
+);
 router.get('/:orgId/teams/:teamId', orgMiddleware, requirePermission(ACTIONS.VIEW_TEAM), getTeam);
 router.put(
   '/:orgId/teams/:teamId',
@@ -169,6 +180,13 @@ router.put(
   requirePermission(ACTIONS.EDIT_TEAM),
   validate(UpdateTeamSchema),
   updateTeam
+);
+router.post(
+  '/:orgId/teams/:teamId/move',
+  orgMiddleware,
+  requirePermission(ACTIONS.EDIT_TEAM),
+  validate(MoveTeamSchema),
+  moveTeam
 );
 router.delete('/:orgId/teams/:teamId', orgMiddleware, requirePermission(ACTIONS.DELETE_TEAM), deleteTeam);
 
