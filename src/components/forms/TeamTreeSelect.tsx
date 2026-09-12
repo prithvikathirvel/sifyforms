@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   Search,
   UsersRound,
   X,
   Folder,
   Shield,
-  CornerDownRight,
 } from 'lucide-react';
 import type { Team } from '../../types';
 import { cn } from '../../lib/utils';
@@ -27,86 +27,93 @@ interface FlatNode {
   team: Team;
   path: string;
   depth: number;
+  hasChildren: boolean;
+  parentId: string | null;
 }
 
-function flattenWithPath(teams: Team[]): FlatNode[] {
-  const result: FlatNode[] = [];
+interface TreeNode {
+  team: Team;
+  children: TreeNode[];
+}
 
-  function buildTreeMap(list: Team[]): Map<string, Team[]> {
-    const map = new Map<string, Team[]>();
-
-    const flat = (() => {
-      const out: Team[] = [];
-      function walk(nodes: Team[]) {
-        for (const n of nodes) {
-          out.push(n);
-          if (n.children) walk(n.children);
-        }
-      }
-      const hasTree = list.some(t => t.children && t.children.length > 0);
-      if (hasTree) walk(list);
-      else out.push(...list);
-      return out;
-    })();
-
-    const hasTreeStructure = list.some(t => t.children && t.children.length > 0);
-    if (hasTreeStructure) {
-      function walkPath(nodes: Team[], parentPath: string[], depth: number) {
-        for (const node of nodes) {
-          const path = [...parentPath, node.name].join(' > ');
-          result.push({ team: node, path, depth });
-          if (node.children) walkPath(node.children, [...parentPath, node.name], depth + 1);
-        }
-      }
-      walkPath(list, [], 0);
-      return map;
+/**
+ * Build a deduped tree from flat list using parentId, then flatten with path.
+ * This fixes duplicate entries seen when flat list contains both roots and children as top-level.
+ */
+function buildDedupedTreeAndFlatten(teams: Team[]): { flat: FlatNode[]; tree: TreeNode[] } {
+  // Deduplicate by id, keep last occurrence but merge children if needed
+  const idMap = new Map<string, Team>();
+  for (const t of teams) {
+    // If team already exists and has children, merge? We want to keep team with deepest info, but dedup
+    // Collect all teams that appear multiple times: keep one with most complete data (prefer one with parentId)
+    const existing = idMap.get(t.id);
+    if (!existing) {
+      idMap.set(t.id, { ...t });
+    } else {
+      // Merge: keep existing but if existing has no children and new has children, we keep existing's base but will rebuild children from parentId anyway
+      // So just keep existing (or merge name/description latest)
+      idMap.set(t.id, { ...existing, ...t, children: existing.children || (t as any).children });
     }
-
-    const idMap = new Map<string, Team & { children: Team[] }>();
-    for (const t of flat) idMap.set(t.id, { ...t, children: [] });
-    const roots: (Team & { children: Team[] })[] = [];
-    for (const t of flat) {
-      const node = idMap.get(t.id)!;
-      if (t.parentId && idMap.has(t.parentId)) {
-        idMap.get(t.parentId)!.children.push(node as any);
-      } else {
-        roots.push(node);
-      }
-    }
-
-    function walkPath(nodes: Team[], parentPath: string[], depth: number) {
-      nodes.sort((a, b) => a.name.localeCompare(b.name));
-      for (const node of nodes) {
-        const path = [...parentPath, node.name].join(' > ');
-        result.push({ team: node, path, depth });
-        const children = (node as any).children as Team[] | undefined;
-        if (children && children.length > 0) walkPath(children, [...parentPath, node.name], depth + 1);
-      }
-    }
-
-    walkPath(roots as unknown as Team[], [], 0);
-    return map;
   }
 
-  buildTreeMap(teams);
-  return result;
+  // Build parent-child map from parentId
+  const nodeMap = new Map<string, TreeNode>();
+  for (const [teamId, team] of idMap) {
+    nodeMap.set(teamId, { team, children: [] });
+  }
+
+  const roots: TreeNode[] = [];
+  for (const [, node] of nodeMap) {
+    const parentId = node.team.parentId;
+    if (parentId && nodeMap.has(parentId)) {
+      nodeMap.get(parentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  // Sort recursively by name
+  const sortRecursive = (nodes: TreeNode[]) => {
+    nodes.sort((a, b) => a.team.name.localeCompare(b.team.name));
+    for (const n of nodes) sortRecursive(n.children);
+  };
+  sortRecursive(roots);
+
+  // Flatten with path and depth (real depth from tree, not team.depth)
+  const flat: FlatNode[] = [];
+  function walk(nodes: TreeNode[], parentPath: string[], depth: number) {
+    for (const node of nodes) {
+      const path = [...parentPath, node.team.name].join(' > ');
+      flat.push({
+        team: node.team,
+        path,
+        depth,
+        hasChildren: node.children.length > 0,
+        parentId: node.team.parentId || null,
+      });
+      if (node.children.length > 0) walk(node.children, [...parentPath, node.team.name], depth + 1);
+    }
+  }
+  walk(roots, [], 0);
+
+  return { flat, tree: roots };
 }
 
-function getDescendantIds(teamId: string, all: FlatNode[]): Set<string> {
+function getDescendantIds(teamId: string, flat: FlatNode[]): Set<string> {
   const set = new Set<string>();
-  const map = new Map<string, string | null>();
-  for (const n of all) map.set(n.team.id, n.team.parentId || null);
+  const parentMap = new Map<string, string | null>();
+  for (const n of flat) parentMap.set(n.team.id, n.parentId);
 
   function isDescendant(id: string): boolean {
-    let cur = map.get(id);
+    let cur = parentMap.get(id);
     while (cur) {
       if (cur === teamId) return true;
-      cur = map.get(cur) || null;
+      cur = parentMap.get(cur) || null;
     }
     return false;
   }
 
-  for (const n of all) if (isDescendant(n.team.id) || n.team.id === teamId) set.add(n.team.id);
+  for (const n of flat) if (isDescendant(n.team.id) || n.team.id === teamId) set.add(n.team.id);
   return set;
 }
 
@@ -124,15 +131,38 @@ export default function TeamTreeSelect({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [dropUp, setDropUp] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  const flatNodes = useMemo(() => flattenWithPath(teams), [teams]);
+  const { flat: flatNodes, tree: treeNodes } = useMemo(() => buildDedupedTreeAndFlatten(teams), [teams]);
+
+  // Initialize expanded: expand ancestors of selected value, and first level
+  useEffect(() => {
+    if (!value) {
+      // Expand roots by default
+      const rootIds = treeNodes.map((n) => n.team.id);
+      setExpandedIds(new Set(rootIds));
+      return;
+    }
+    // Find path to selected
+    const pathIds: string[] = [];
+    const parentMap = new Map<string, string | null>();
+    for (const n of flatNodes) parentMap.set(n.team.id, n.parentId);
+    let cur: string | null = value;
+    while (cur) {
+      pathIds.push(cur);
+      cur = parentMap.get(cur) || null;
+    }
+    // Expand all ancestors + selected if it has children
+    setExpandedIds(new Set(pathIds));
+  }, [value, flatNodes, treeNodes]);
 
   const excludedIds = useMemo(() => {
     if (!excludeId) return new Set<string>();
     return getDescendantIds(excludeId, flatNodes);
   }, [excludeId, flatNodes]);
 
-  const filtered = useMemo(() => {
+  // Filtered for search - if searching, show all matching ignoring expansion
+  const filteredFlat = useMemo(() => {
     const q = search.trim().toLowerCase();
     let nodes = flatNodes.filter((n) => !excludedIds.has(n.team.id));
     if (!q) return nodes;
@@ -143,6 +173,35 @@ export default function TeamTreeSelect({
         n.team.description?.toLowerCase().includes(q)
     );
   }, [flatNodes, search, excludedIds]);
+
+  // For tree view (non-search): filter visible based on expandedIds
+  const visibleTreeNodes = useMemo(() => {
+    if (search.trim()) return null; // use flat search mode
+    // Build visible flat list respecting expanded state
+    const visible: FlatNode[] = [];
+    const isExcluded = (id: string) => excludedIds.has(id);
+
+    function walkVisible(nodes: TreeNode[], parentPath: string[], depth: number) {
+      for (const node of nodes) {
+        if (isExcluded(node.team.id)) continue;
+        const path = [...parentPath, node.team.name].join(' > ');
+        visible.push({
+          team: node.team,
+          path,
+          depth,
+          hasChildren: node.children.length > 0,
+          parentId: node.team.parentId || null,
+        });
+        if (node.children.length > 0 && expandedIds.has(node.team.id)) {
+          walkVisible(node.children, [...parentPath, node.team.name], depth + 1);
+        }
+      }
+    }
+    walkVisible(treeNodes, [], 0);
+    return visible;
+  }, [search, treeNodes, expandedIds, excludedIds]);
+
+  const displayNodes = search.trim() ? filteredFlat : visibleTreeNodes || [];
 
   const selectedNode = useMemo(() => flatNodes.find((n) => n.team.id === value) || null, [flatNodes, value]);
 
@@ -174,6 +233,23 @@ export default function TeamTreeSelect({
     const spaceBelow = window.innerHeight - rect.bottom;
     setDropUp(spaceBelow < 320);
   }, [open]);
+
+  const toggleExpand = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedIds(new Set(flatNodes.map((n) => n.team.id)));
+  };
+  const collapseAll = () => {
+    setExpandedIds(new Set());
+  };
 
   const choose = (teamId: string | null) => {
     onChange(teamId);
@@ -227,6 +303,13 @@ export default function TeamTreeSelect({
                 </button>
               )}
             </div>
+            {!search && flatNodes.length > 3 && (
+              <div className="mt-2 flex items-center gap-1.5">
+                <button type="button" onClick={expandAll} className="rounded-md px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Expand all</button>
+                <span className="text-[10px] text-border">·</span>
+                <button type="button" onClick={collapseAll} className="rounded-md px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Collapse all</button>
+              </div>
+            )}
           </div>
 
           <div role="listbox" aria-label="Teams" className="scrollbar-compact min-h-0 flex-1 overflow-y-auto p-1.5">
@@ -252,44 +335,58 @@ export default function TeamTreeSelect({
               </button>
             )}
 
-            {filtered.length > 0 ? (
+            {displayNodes.length > 0 ? (
               <div className="space-y-0.5">
-                {filtered.map(({ team, path, depth }) => {
+                {displayNodes.map(({ team, path, depth, hasChildren }) => {
                   const isSelected = team.id === value;
-                  const isAtMax = team.depth >= maxDepth;
+                  const isExpanded = expandedIds.has(team.id);
+                  const isAtMax = (team.depth ?? depth) >= maxDepth;
                   const showDisabledHint = isAtMax && team.id !== value;
                   const cappedDepth = Math.min(depth, 6);
 
                   return (
-                    <button
+                    <div
                       key={team.id}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => !showDisabledHint && choose(team.id)}
-                      disabled={showDisabledHint}
                       className={cn(
-                        'flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors',
+                        'flex w-full min-w-0 items-center gap-0.5 rounded-lg transition-colors',
                         isSelected ? 'bg-primary/[0.065]' : 'hover:bg-muted/60',
-                        showDisabledHint && 'opacity-50 cursor-not-allowed'
+                        showDisabledHint && 'opacity-50'
                       )}
-                      style={{ paddingLeft: `${8 + cappedDepth * 12}px` }}
+                      style={{ paddingLeft: `${4 + cappedDepth * 14}px` }}
                     >
-                      <span className="flex items-center gap-1.5">
-                        {depth > 0 && <CornerDownRight className="h-3 w-3 shrink-0 text-muted-foreground/50" />}
+                      {hasChildren && !search ? (
+                        <button
+                          type="button"
+                          onClick={(e) => toggleExpand(team.id, e)}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        </button>
+                      ) : (
+                        <span className="h-7 w-7 shrink-0" />
+                      )}
+
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => !showDisabledHint && choose(team.id)}
+                        disabled={showDisabledHint}
+                        className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-2 text-left"
+                      >
                         <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-ink-500', isSelected ? 'border-primary/20 bg-primary/[0.08] text-primary' : 'border-border bg-card')}>
                           {team.isDefault ? <Shield className="h-3 w-3" strokeWidth={1.7} /> : <UsersRound className="h-3 w-3" strokeWidth={1.7} />}
                         </span>
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] font-semibold text-foreground">
-                          {team.name}
-                          {team.isDefault && <span className="ml-1.5 text-[9px] font-medium text-muted-foreground">· default</span>}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[12px] font-semibold text-foreground">
+                            {team.name}
+                            {team.isDefault && <span className="ml-1.5 text-[9px] font-medium text-muted-foreground">· default</span>}
+                          </span>
+                          {path !== team.name && <span className="block truncate text-[10px] text-muted-foreground">{path}</span>}
                         </span>
-                        {path !== team.name && <span className="block truncate text-[10px] text-muted-foreground">{path}</span>}
-                      </span>
-                      {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-                    </button>
+                        {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                      </button>
+                    </div>
                   );
                 })}
               </div>

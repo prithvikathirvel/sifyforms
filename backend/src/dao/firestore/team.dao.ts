@@ -37,7 +37,7 @@ export class FirestoreTeamDao implements TeamDao {
   async getMaxSubtreeDepth(_teamId: string): Promise<number> {
     throw new Error('FirestoreTeamDao.getMaxSubtreeDepth not implemented');
   }
-  async moveTeamSubtree(_teamId: string, _newParentId: string | null, _depthDelta: number): Promise<void> {
+  async moveTeamSubtree(_teamId: string, _newParentId: string | null, _depthDelta: number, _updatedBy?: string | null): Promise<void> {
     throw new Error('FirestoreTeamDao.moveTeamSubtree not implemented');
   }
   async updateTeam(_id: string, _data: UpdateTeamData): Promise<TeamRecord> {

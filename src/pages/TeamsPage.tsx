@@ -50,6 +50,9 @@ import {
   Check,
   MoreHorizontal,
   AlertTriangle,
+  Info,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import TeamTreeSelect from '../components/forms/TeamTreeSelect';
 import api from '../lib/api';
@@ -269,7 +272,7 @@ export default function TeamsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'subteams' | 'members'>('subteams');
+  const [activeTab, setActiveTab] = useState<'subteams' | 'members' | 'info'>('subteams');
   const [effectiveIds, setEffectiveIds] = useState<Set<string> | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -699,9 +702,9 @@ export default function TeamsPage() {
                     <div className="flex gap-6">
                       <button
                         onClick={() => setActiveTab('subteams')}
-                        className={`relative flex items-center gap-1.5 border-b-2 px-1 py-3 text-[13px] font-semibold transition-colors ${activeTab === 'subteams' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        className={`relative flex items-center gap-1.5 border-b-2 px-1 py-2.5 text-[11px] font-semibold transition-colors ${activeTab === 'subteams' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                       >
-                        <Users className="h-4 w-4" />
+                        <Users className="h-3.5 w-3.5" />
                         Sub-teams
                         {currentTeam.children && currentTeam.children.length > 0 && (
                           <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${activeTab === 'subteams' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{currentTeam.children.length}</span>
@@ -709,11 +712,18 @@ export default function TeamsPage() {
                       </button>
                       <button
                         onClick={() => setActiveTab('members')}
-                        className={`relative flex items-center gap-1.5 border-b-2 px-1 py-3 text-[13px] font-semibold transition-colors ${activeTab === 'members' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        className={`relative flex items-center gap-1.5 border-b-2 px-1 py-2.5 text-[11px] font-semibold transition-colors ${activeTab === 'members' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                       >
-                        <UserRound className="h-4 w-4" />
+                        <UserRound className="h-3.5 w-3.5" />
                         Members
                         <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${activeTab === 'members' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{currentTeam.members.length}</span>
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('info')}
+                        className={`relative flex items-center gap-1.5 border-b-2 px-1 py-2.5 text-[11px] font-semibold transition-colors ${activeTab === 'info' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                        Info
                       </button>
                     </div>
                   </div>
@@ -742,7 +752,7 @@ export default function TeamsPage() {
                           </div>
                         )}
                       </div>
-                    ) : (
+                    ) : activeTab === 'members' ? (
                       <div>
                         <div className="mb-3 flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -776,7 +786,6 @@ export default function TeamsPage() {
                                   {can(ACTIONS.REMOVE_TEAM_MEMBER) && (
                                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-destructive/[0.06] hover:text-destructive" onClick={async () => {
                                       if (!orgId) return;
-                                      // Use toast confirm? For now simple dialog via window.confirm will be replaced by dialog later, but keep minimal
                                       if (!window.confirm(`Remove ${label} from ${currentTeam.name}?`)) return;
                                       const result = await dispatch(removeTeamMember({ orgId, teamId: currentTeam.id, userId: member.userId }));
                                       if (removeTeamMember.fulfilled.match(result)) toast.success({ title: 'Member removed' });
@@ -787,6 +796,77 @@ export default function TeamsPage() {
                             })}
                           </div>
                         )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="rounded-xl border border-border/70 bg-card">
+                          <div className="border-b border-border/60 px-4 py-3">
+                            <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><Info className="h-3.5 w-3.5" />Team details</h3>
+                          </div>
+                          <div className="divide-y divide-border/60">
+                            <div className="flex items-start gap-3 px-4 py-3.5">
+                              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-[11px] font-bold">C</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-medium text-muted-foreground">Created</p>
+                                <p className="mt-1 text-[12px] font-semibold text-foreground">
+                                  {currentTeam.createdByUser ? ([currentTeam.createdByUser.firstName, currentTeam.createdByUser.lastName].filter(Boolean).join(' ') || currentTeam.createdByUser.email) : 'Unknown'}
+                                </p>
+                                {currentTeam.createdByUser && (
+                                  <p className="text-[11px] text-muted-foreground">{currentTeam.createdByUser.email}</p>
+                                )}
+                                <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(currentTeam.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  <span className="mx-1">·</span>
+                                  <Clock className="h-3 w-3" />
+                                  {new Date(currentTeam.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3 px-4 py-3.5">
+                              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/[0.08] text-[11px] font-bold text-primary">U</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-medium text-muted-foreground">Last updated</p>
+                                {currentTeam.updatedByUser || (currentTeam as any).updatedBy ? (
+                                  <>
+                                    <p className="mt-1 text-[12px] font-semibold text-foreground">
+                                      {currentTeam.updatedByUser ? ([currentTeam.updatedByUser.firstName, currentTeam.updatedByUser.lastName].filter(Boolean).join(' ') || currentTeam.updatedByUser.email) : (currentTeam as any).updatedBy}
+                                    </p>
+                                    {currentTeam.updatedByUser && (
+                                      <p className="text-[11px] text-muted-foreground">{currentTeam.updatedByUser.email}</p>
+                                    )}
+                                    <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                      <Calendar className="h-3 w-3" />
+                                      {new Date(currentTeam.updatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                      <span className="mx-1">·</span>
+                                      <Clock className="h-3 w-3" />
+                                      {new Date(currentTeam.updatedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="mt-1 text-[12px] text-muted-foreground">No changes yet</p>
+                                    <p className="mt-1 text-[11px] text-muted-foreground">This team hasn't been updated since creation.</p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
+                          <div className="flex items-start gap-2.5">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-card text-ink-500"><Users className="h-3.5 w-3.5" /></span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-semibold text-foreground">About this team</p>
+                              <div className="mt-1.5 space-y-1 text-[11px] leading-5 text-muted-foreground">
+                                <p><span className="font-medium text-foreground">{currentTeam.name}</span> {currentTeam.description ? `— ${currentTeam.description}` : ''}</p>
+                                <p>{currentTeam._count?.members ?? currentTeam.members.length} members · {currentTeam._count?.forms ?? 0} forms · Level {currentTeam.depth}</p>
+                                {currentTeam.path && <p className="truncate">Path: {currentTeam.path}</p>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </CardContent>

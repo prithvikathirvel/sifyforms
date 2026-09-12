@@ -6,6 +6,7 @@ import { invalidatePermissions } from './permission.service';
 import { createError } from '../utils/errors';
 import { generateSlug } from '../utils/slug';
 import logger from '../utils/logger';
+import prisma from '../utils/prisma';
 
 /**
  * Hierarchical Teams — Option B (top-down visibility).
@@ -168,6 +169,22 @@ export async function listTeamsTree(orgId: string, userId?: string): Promise<Tea
   return result as TeamTreeNode[];
 }
 
+async function fetchUsersByIds(ids: string[]) {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return new Map<string, any>();
+  try {
+    const users = await prisma.user.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, email: true, firstName: true, lastName: true, username: true },
+    });
+    const map = new Map<string, any>();
+    for (const u of users) map.set(u.id, u);
+    return map;
+  } catch {
+    return new Map<string, any>();
+  }
+}
+
 export async function getTeam(orgId: string, teamId: string, requesterId?: string) {
   const team = await loadTeamInOrg(orgId, teamId);
   const org = await orgDao.findOrgById(orgId);
@@ -197,29 +214,33 @@ export async function getTeam(orgId: string, teamId: string, requesterId?: strin
     }
   }
 
+  // Audit: fetch creator/updater user details
+  const userMap = await fetchUsersByIds([team.createdBy, (team as any).updatedBy].filter(Boolean) as string[]);
+  const createdByUser = userMap.get(team.createdBy) || null;
+  const updatedByUser = (team as any).updatedBy ? userMap.get((team as any).updatedBy) || null : null;
+
   return { 
     ...team, 
     members, 
     ancestors: filteredAncestors,
-    children: children.filter(c => {
-      // For non-owners, children should be filtered to effective as well (parent sees descendants, but if child member, they see only their own descendants)
-      // Actually for getTeam, children are direct children; if requester is member of this team, they should see children (top-down). If requester is owner, see all.
-      return true;
-    }),
+    children,
     breadcrumb,
-    path: breadcrumb.map(b => b.name).join(' > ')
+    path: breadcrumb.map(b => b.name).join(' > '),
+    createdByUser,
+    updatedByUser,
   };
 }
 
 export async function updateTeam(
   orgId: string,
   teamId: string,
-  data: { name?: string; description?: string | null }
+  data: { name?: string; description?: string | null; updatedBy?: string | null }
 ) {
   await loadTeamInOrg(orgId, teamId);
   return teamDao.updateTeam(teamId, {
     ...(data.name !== undefined ? { name: data.name.trim() } : {}),
     ...(data.description !== undefined ? { description: data.description?.trim() || null } : {}),
+    ...(data.updatedBy !== undefined ? { updatedBy: data.updatedBy } : {}),
   });
 }
 
@@ -227,7 +248,7 @@ export async function updateTeam(
  * Move a team to a new parent (or root if null).
  * Handles cycle detection, depth validation, and subtree depth updates.
  */
-export async function moveTeam(orgId: string, teamId: string, newParentId: string | null) {
+export async function moveTeam(orgId: string, teamId: string, newParentId: string | null, updatedBy?: string | null) {
   const team = await loadTeamInOrg(orgId, teamId);
 
   if (team.isDefault) {
@@ -245,9 +266,9 @@ export async function moveTeam(orgId: string, teamId: string, newParentId: strin
     if (maxSubDepth > MAX_DEPTH) {
       throw createError(400, 'This team has sub-teams that are too deep to move to the top level.');
     }
-    await teamDao.moveTeamSubtree(teamId, null, delta);
+    await teamDao.moveTeamSubtree(teamId, null, delta, updatedBy || null);
     const updated = await teamDao.findTeamById(teamId);
-    logger.info('TeamService --> moveTeam to root', { orgId, teamId });
+    logger.info('TeamService --> moveTeam to root', { orgId, teamId, updatedBy });
     return updated;
   }
 
@@ -275,9 +296,9 @@ export async function moveTeam(orgId: string, teamId: string, newParentId: strin
     throw createError(400, `Moving "${team.name}" under "${newParent.name}" would make some sub-teams too deep. Choose a higher level parent.`);
   }
 
-  await teamDao.moveTeamSubtree(teamId, newParentId, delta);
+  await teamDao.moveTeamSubtree(teamId, newParentId, delta, updatedBy || null);
   const updated = await teamDao.findTeamById(teamId);
-  logger.info('TeamService --> moveTeam', { orgId, teamId, newParentId, delta });
+  logger.info('TeamService --> moveTeam', { orgId, teamId, newParentId, delta, updatedBy });
   return updated;
 }
 

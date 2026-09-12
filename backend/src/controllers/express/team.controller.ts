@@ -61,7 +61,11 @@ export async function getTeam(req: PermissionRequest, res: Response): Promise<vo
 export async function updateTeam(req: PermissionRequest, res: Response): Promise<void> {
   try {
     const teamId = getParamString(req.params.teamId);
-    const result = await teamService.updateTeam(req.orgId!, teamId, req.body as UpdateTeamInput);
+    const body = req.body as UpdateTeamInput;
+    const result = await teamService.updateTeam(req.orgId!, teamId, {
+      ...body,
+      updatedBy: req.user!.id,
+    });
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     handleError(res, 'updateTeam', error);
@@ -73,7 +77,7 @@ export async function moveTeam(req: PermissionRequest, res: Response): Promise<v
     const teamId = getParamString(req.params.teamId);
     const { parentId } = req.body as MoveTeamInput;
     logger.info('Express --> moveTeam --> Request', { teamId, parentId });
-    const result = await teamService.moveTeam(req.orgId!, teamId, parentId ?? null);
+    const result = await teamService.moveTeam(req.orgId!, teamId, parentId ?? null, req.user!.id);
     res.status(StatusCodes.OK).json(result);
   } catch (error: any) {
     handleError(res, 'moveTeam', error);

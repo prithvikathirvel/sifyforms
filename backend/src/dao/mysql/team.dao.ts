@@ -283,19 +283,29 @@ export class MySQLTeamDao implements TeamDao {
     return maxDepth - root.depth;
   }
 
-  async moveTeamSubtree(teamId: string, newParentId: string | null, depthDelta: number): Promise<void> {
+  async moveTeamSubtree(teamId: string, newParentId: string | null, depthDelta: number, updatedBy?: string | null): Promise<void> {
     try {
       await prisma.team.update({
         where: { id: teamId },
-        data: { parentId: newParentId, depth: { increment: depthDelta } } as any,
+        data: { parentId: newParentId, depth: { increment: depthDelta }, updatedBy: updatedBy ?? undefined } as any,
       });
     } catch {
-      await prisma.$executeRawUnsafe(
-        `UPDATE Team SET parentId = ?, depth = depth + ?, updatedAt = NOW() WHERE id = ?`,
-        newParentId,
-        depthDelta,
-        teamId
-      );
+      if (updatedBy) {
+        await prisma.$executeRawUnsafe(
+          `UPDATE Team SET parentId = ?, depth = depth + ?, updatedBy = ?, updatedAt = NOW() WHERE id = ?`,
+          newParentId,
+          depthDelta,
+          updatedBy,
+          teamId
+        );
+      } else {
+        await prisma.$executeRawUnsafe(
+          `UPDATE Team SET parentId = ?, depth = depth + ?, updatedAt = NOW() WHERE id = ?`,
+          newParentId,
+          depthDelta,
+          teamId
+        );
+      }
     }
 
     if (depthDelta === 0) return;
@@ -412,6 +422,7 @@ export class MySQLTeamDao implements TeamDao {
       parentId: row.parentId || null,
       depth: Number(row.depth ?? 0),
       createdBy: row.createdBy,
+      updatedBy: row.updatedBy || null,
       createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
       updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
     };

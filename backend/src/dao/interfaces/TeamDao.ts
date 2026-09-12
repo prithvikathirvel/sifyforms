@@ -8,6 +8,7 @@ export interface TeamRecord {
   parentId: string | null;
   depth: number;
   createdBy: string;
+  updatedBy: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +63,7 @@ export interface UpdateTeamData {
   description?: string | null;
   parentId?: string | null;
   depth?: number;
+  updatedBy?: string | null;
 }
 
 export interface UpsertTeamMemberData {
@@ -100,7 +102,7 @@ export interface TeamDao {
   getMaxSubtreeDepth(teamId: string): Promise<number>;
 
   /** Move a team and update depth of entire subtree by delta. */
-  moveTeamSubtree(teamId: string, newParentId: string | null, depthDelta: number): Promise<void>;
+  moveTeamSubtree(teamId: string, newParentId: string | null, depthDelta: number, updatedBy?: string | null): Promise<void>;
 
   updateTeam(id: string, data: UpdateTeamData): Promise<TeamRecord>;
 

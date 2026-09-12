@@ -977,6 +977,14 @@ export interface TeamMember {
   };
 }
 
+export interface TeamAuditUser {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+}
+
 /** Hierarchical team (organizational bucket). Supports parent-child nesting. */
 export interface Team {
   id: string;
@@ -985,6 +993,7 @@ export interface Team {
   slug: string;
   description: string | null;
   createdBy: string;
+  updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
   /** Parent team id, null = root */
@@ -1002,6 +1011,9 @@ export interface Team {
   isInherited?: boolean;
   /** Breadcrumb path like "Engineering > Frontend" */
   path?: string;
+  /** Audit: creator/updater user objects when fetched via detail */
+  createdByUser?: TeamAuditUser | null;
+  updatedByUser?: TeamAuditUser | null;
 }
 
 export interface TeamAncestor {
