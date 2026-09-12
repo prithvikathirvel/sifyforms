@@ -37,22 +37,41 @@ interface TreeNode {
 }
 
 /**
- * Build a deduped tree from flat list using parentId, then flatten with path.
- * This fixes duplicate entries seen when flat list contains both roots and children as top-level.
+ * Build a deduped tree from flat OR tree list using parentId, then flatten with path.
+ * Handles both cases: API returns tree (roots with children) or flat list.
+ * Fixes duplicate entries and ensures nested view in create-form picker.
  */
+function collectAllTeams(input: Team[]): Team[] {
+  const out: Team[] = [];
+  const seen = new Set<string>();
+  function walk(list: Team[]) {
+    for (const t of list) {
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        const { children, ...rest } = t as any;
+        out.push(rest as Team);
+        if (children && Array.isArray(children) && children.length > 0) {
+          walk(children as Team[]);
+        }
+      } else {
+        const children = (t as any).children as Team[] | undefined;
+        if (children && children.length > 0) walk(children);
+      }
+    }
+  }
+  walk(input);
+  return out;
+}
+
 function buildDedupedTreeAndFlatten(teams: Team[]): { flat: FlatNode[]; tree: TreeNode[] } {
-  // Deduplicate by id, keep last occurrence but merge children if needed
+  const allTeams = collectAllTeams(teams);
   const idMap = new Map<string, Team>();
-  for (const t of teams) {
-    // If team already exists and has children, merge? We want to keep team with deepest info, but dedup
-    // Collect all teams that appear multiple times: keep one with most complete data (prefer one with parentId)
+  for (const t of allTeams) {
     const existing = idMap.get(t.id);
     if (!existing) {
       idMap.set(t.id, { ...t });
     } else {
-      // Merge: keep existing but if existing has no children and new has children, we keep existing's base but will rebuild children from parentId anyway
-      // So just keep existing (or merge name/description latest)
-      idMap.set(t.id, { ...existing, ...t, children: existing.children || (t as any).children });
+      idMap.set(t.id, { ...existing, ...t });
     }
   }
 
@@ -135,12 +154,12 @@ export default function TeamTreeSelect({
 
   const { flat: flatNodes, tree: treeNodes } = useMemo(() => buildDedupedTreeAndFlatten(teams), [teams]);
 
-  // Initialize expanded: expand ancestors of selected value, and first level
+  // Initialize expanded: expand ancestors of selected value, and show nested by default
   useEffect(() => {
     if (!value) {
-      // Expand roots by default
-      const rootIds = treeNodes.map((n) => n.team.id);
-      setExpandedIds(new Set(rootIds));
+      // Expand all by default so nested structure is visible immediately (fixes flat-only bug)
+      const allIds = flatNodes.map((n) => n.team.id);
+      setExpandedIds(new Set(allIds));
       return;
     }
     // Find path to selected
