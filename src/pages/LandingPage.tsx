@@ -97,36 +97,36 @@ const freePlanFeatures = [
 export default function LandingPage() {
   return (
     <div className="public-shell min-h-screen overflow-x-hidden bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-6 lg:px-8">
-          <Link to="/" aria-label="SifyForms home" className="shrink-0 rounded-md">
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70">
+        <div className="mx-auto flex h-[64px] max-w-7xl items-center justify-between gap-6 px-5 sm:px-6 lg:px-8">
+          <Link to="/" aria-label="SifyForms home" className="flex shrink-0 items-center gap-2.5 rounded-lg transition-opacity hover:opacity-90">
             <Logo size="sm" />
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
-            <a href="#features" className="rounded-lg px-3 py-2 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+          <nav className="hidden items-center rounded-full border border-border/60 bg-muted/40 p-1 backdrop-blur-sm md:flex" aria-label="Main navigation">
+            <a href="#features" className="rounded-full px-4 py-1.5 text-[13px] font-medium text-muted-foreground transition-all hover:bg-background hover:text-foreground hover:shadow-sm">
               Features
             </a>
-            <a href="#how-it-works" className="rounded-lg px-3 py-2 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            <a href="#how-it-works" className="rounded-full px-4 py-1.5 text-[13px] font-medium text-muted-foreground transition-all hover:bg-background hover:text-foreground hover:shadow-sm">
               How it works
             </a>
-            <a href="#pricing" className="rounded-lg px-3 py-2 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            <a href="#pricing" className="rounded-full px-4 py-1.5 text-[13px] font-medium text-muted-foreground transition-all hover:bg-background hover:text-foreground hover:shadow-sm">
               Pricing
             </a>
           </nav>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Link
               to="/auth/login"
-              className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden h-9 rounded-lg px-3 text-xs font-semibold sm:inline-flex')}
+              className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'hidden h-8 rounded-full px-4 text-[13px] font-medium text-muted-foreground hover:text-foreground sm:inline-flex')}
             >
-              Sign In
+              Sign in
             </Link>
             <Link
               to="/auth/signup"
-              className={cn(buttonVariants({ size: 'sm' }), 'h-9 rounded-lg px-3.5 text-xs font-semibold shadow-sm shadow-primary/15')}
+              className={cn(buttonVariants({ size: 'sm' }), 'h-8 rounded-full px-4 text-[13px] font-semibold shadow-sm transition-all hover:shadow-md hover:shadow-primary/15')}
             >
-              Get Started
+              Get started
             </Link>
           </div>
         </div>
